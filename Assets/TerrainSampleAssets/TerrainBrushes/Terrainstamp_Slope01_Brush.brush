@@ -38,6 +38,6 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   m_RadiusScale: 1
-  m_BlackWhiteRemapMin: 0
-  m_BlackWhiteRemapMax: 0.7373489
+  m_BlackWhiteRemapMin: 0.16077998
+  m_BlackWhiteRemapMax: 0.89812887
   m_InvertRemapRange: 0

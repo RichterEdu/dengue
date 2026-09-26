@@ -32,7 +32,11 @@ using UnityEngine;
  *    ├── ParedeNorte / ParedeLeste / ParedeOeste   (3x wall_standard cada)
  *    ├── ParedeSul             (2x wall_standard + 1x wall_standard_door_frame no meio = porta)
  *    ├── LuzA / LuzB           (duas luzes fracas em cantos opostos — sem hotspot)
- *    ├── Mobilia               (Balcao, Dispensador, Cadeira, Armario, Relogio, Tapete, Quadro)
+ *    ├── FrisoVermelho         (faixa vermelha baixa nas 4 paredes, cara de posto de saúde)
+ *    ├── CruzDeSaude           (cruz de saúde 3D na parede Leste)
+ *    ├── DecoracaoExtra        (monitor+telefone no balcão, planta perto da porta, abajur de chão)
+ *    ├── Mobilia               (Balcao, Dispensador, Cadeira vermelha, Armario, Relogio, Tapete, Quadro)
+ *    ├── Personagens           (enfermeira Rita ao lado do balcão + vozes de 2 pacientes, sem corpo — ver PersonagensHospitalBuilder.cs)
  *    └── PortaTrigger          (BoxCollider isTrigger + SaidaDoHospital.cs, na abertura da porta)
  *    FluxoDeJogo               (objeto solto na raiz da cena — estado da partida; só cria se ainda não existir)
  *
@@ -56,11 +60,14 @@ public static class QuartoHospitalBuilder
     private const float AlturaParede = 3f;     // wall_standard: 3m de altura
     private const int ModulosPorLado = 3;      // sala de 3x3 módulos = 6x6 m
 
-    // Paredes claras, piso mais escuro — contraste de ambiente real em vez de
-    // tudo pintado no mesmo tom pastel (o que ficava "achatado"/artificial).
-    private static readonly Color CorParede = new Color(0.87f, 0.88f, 0.86f);
-    private static readonly Color CorTeto = new Color(0.93f, 0.94f, 0.92f);
-    private static readonly Color CorPiso = new Color(0.30f, 0.36f, 0.42f);
+    // Branco clínico predominante + acento vermelho de sinalização médica —
+    // pedido explícito do usuário ("a sala tá muito morta"). O piso escuro
+    // azulado de antes era o principal motivo do clima "morto"; agora é
+    // cinza-claro neutro, no mesmo espírito branco/limpo das paredes.
+    private static readonly Color CorParede = new Color(0.95f, 0.95f, 0.94f);
+    private static readonly Color CorTeto = new Color(0.98f, 0.98f, 0.97f);
+    private static readonly Color CorPiso = new Color(0.80f, 0.83f, 0.85f);
+    private static readonly Color CorVermelho = new Color(0.82f, 0.10f, 0.10f);
 
     private const string CaminhoParede = "Assets/Office/Prefabs/Building/wall_standard.prefab";
     private const string CaminhoParedeComPorta = "Assets/Office/Prefabs/Building/wall_standard_door_frame.prefab";
@@ -73,10 +80,18 @@ public static class QuartoHospitalBuilder
     private const string CaminhoTapete = "Assets/Office/Prefabs/Deco/rug_a.prefab";
     private const string CaminhoQuadro = "Assets/Office/Prefabs/Deco/big_painting.prefab";
 
+    // Decoração extra (pedido do usuário: "falta assets, pode construir")
+    private const string CaminhoMonitor = "Assets/Office/Prefabs/Office/new_monitor.prefab";
+    private const string CaminhoTelefone = "Assets/Office/Prefabs/Office/phone.prefab";
+    private const string CaminhoPlanta = "Assets/Office/Prefabs/Deco/nature_deco_plant.prefab";
+    private const string CaminhoAbajur = "Assets/Office/Prefabs/Furniture/lamp.prefab";
+
     [MenuItem("Dengue/Criar Sala do Hospital")]
     public static void Criar()
     {
         Vector3 posicaoOriginalNoBairro;
+        Transform paiAntigo = null;
+        int indiceAntigo = 0;
 
         GameObject salaExistente = GameObject.Find(RootName);
         if (salaExistente != null)
@@ -90,6 +105,8 @@ public static class QuartoHospitalBuilder
                 return;
             }
             posicaoOriginalNoBairro = new SerializedObject(saidaAntiga).FindProperty("posicaoNoBairro").vector3Value;
+            paiAntigo = salaExistente.transform.parent;
+            indiceAntigo = salaExistente.transform.GetSiblingIndex();
             Undo.DestroyObjectImmediate(salaExistente);
         }
         else
@@ -124,6 +141,7 @@ public static class QuartoHospitalBuilder
         GameObject root = new GameObject(RootName);
         Undo.RegisterCreatedObjectUndo(root, "Criar Sala do Hospital");
         root.transform.position = CentroDaSala;
+        HierarquiaOrganizador.RecolocarNoLugar(root, paiAntigo, indiceAntigo);
 
         /* ----- Piso: grade 3x3, mesma regra de eixo X da parede Norte (rot. 0°)
          * e de eixo Z da parede Sul (rot. 180°) — ver comentário de topo. ----- */
@@ -210,8 +228,18 @@ public static class QuartoHospitalBuilder
         CriarLuz("LuzA", root.transform, new Vector3(-metade + 1.2f, AlturaParede * 0.55f, -metade + 1.2f));
         CriarLuz("LuzB", root.transform, new Vector3(metade - 1.2f, AlturaParede * 0.55f, metade - 1.2f));
 
+        /* ---------- Sinalização médica (friso vermelho + cruz de saúde) ---------- */
+        CriarFrisoVermelho(root.transform, metade);
+        CriarCruzDeSaude(root.transform, metade);
+
+        /* ---------- Decoração extra (sala "morta" -> mais cheia de vida) ---------- */
+        CriarDecoracaoExtra(root.transform, metade);
+
         /* ---------- Mobília ---------- */
         MobiliarSala(root.transform, metade);
+
+        /* ---------- Personagens (enfermeiro/a + pacientes) ---------- */
+        PersonagensHospitalBuilder.Popular(root.transform, metade);
 
         /* ---------- Porta (trigger de saída) ---------- */
         GameObject porta = new GameObject("PortaTrigger", typeof(BoxCollider));
@@ -228,11 +256,16 @@ public static class QuartoHospitalBuilder
         soSaida.ApplyModifiedPropertiesWithoutUndo();
 
         /* ---------- Move o jogador pra dentro da sala ---------- */
+        // Y = 0.05 (não mais 1.2): desde que o PlayerBuilder.cs passou a
+        // tratar transform.position.y como o CHÃO direto (CharacterController
+        // com center.y = height/2, em vez do antigo center=(0,0,0) que exigia
+        // um "+1.2" pra compensar o pivô no centro do corpo), só precisa de
+        // uma folga pequena pra não nascer cravado no piso.
         CharacterController playerAtual = Object.FindFirstObjectByType<CharacterController>();
         if (playerAtual != null)
         {
             Undo.RecordObject(playerAtual.transform, "Criar Sala do Hospital");
-            playerAtual.transform.position = CentroDaSala + new Vector3(0f, 1.2f, -metade + 1.6f);
+            playerAtual.transform.position = CentroDaSala + new Vector3(0f, 0.05f, -metade + 1.6f);
         }
 
         /* ---------- Estado da partida (só cria se ainda não existir) ---------- */
@@ -262,6 +295,129 @@ public static class QuartoHospitalBuilder
         luz.color = new Color(0.95f, 0.98f, 1f);
     }
 
+    /* Faixa vermelha baixa nas 4 paredes (~0,9m de altura, como um
+     * corrimão/friso de proteção de hospital de verdade) — quebra o branco
+     * liso e é o elemento mais barato pra dar "cara de posto de saúde".
+     * Cubos primitivos simples, sem depender de rotação por parede (a
+     * matemática de módulo/pivô documentada no topo do arquivo é só pros
+     * prefabs do Office; aqui basta posicionar direto pelos planos X/Z da
+     * sala). Parede Sul tem 2 segmentos, um de cada lado do vão da porta
+     * (módulo central, X entre -1 e 1). */
+    private static void CriarFrisoVermelho(Transform pai, float metade)
+    {
+        const float alturaFriso = 0.9f;
+        const float alturaFaixa = 0.12f;
+        const float espessuraFriso = 0.05f;
+        const float folgaCanto = 0.1f; // encolhe um pouco pra não estourar pra fora dos cantos
+
+        GameObject grupo = new GameObject("FrisoVermelho");
+        Undo.RegisterCreatedObjectUndo(grupo, "Criar Sala do Hospital");
+        grupo.transform.SetParent(pai, false);
+
+        float comprimentoParede = metade * 2f - folgaCanto;
+        float larguraSegmentoSul = metade - 1f - folgaCanto * 0.5f;
+
+        CriarFaixaFriso(grupo.transform, "Norte",
+            new Vector3(0f, alturaFriso, -metade + espessuraFriso * 0.5f),
+            new Vector3(comprimentoParede, alturaFaixa, espessuraFriso));
+
+        CriarFaixaFriso(grupo.transform, "Leste",
+            new Vector3(metade - espessuraFriso * 0.5f, alturaFriso, 0f),
+            new Vector3(espessuraFriso, alturaFaixa, comprimentoParede));
+
+        CriarFaixaFriso(grupo.transform, "Oeste",
+            new Vector3(-metade + espessuraFriso * 0.5f, alturaFriso, 0f),
+            new Vector3(espessuraFriso, alturaFaixa, comprimentoParede));
+
+        float centroSegmentoSul = (1f + metade) * 0.5f;
+        CriarFaixaFriso(grupo.transform, "SulOeste",
+            new Vector3(-centroSegmentoSul, alturaFriso, metade - espessuraFriso * 0.5f),
+            new Vector3(larguraSegmentoSul, alturaFaixa, espessuraFriso));
+        CriarFaixaFriso(grupo.transform, "SulLeste",
+            new Vector3(centroSegmentoSul, alturaFriso, metade - espessuraFriso * 0.5f),
+            new Vector3(larguraSegmentoSul, alturaFaixa, espessuraFriso));
+    }
+
+    private static void CriarFaixaFriso(Transform pai, string nome, Vector3 posicaoLocal, Vector3 escala)
+    {
+        GameObject faixa = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        faixa.name = "Friso" + nome;
+        Undo.RegisterCreatedObjectUndo(faixa, "Criar Sala do Hospital");
+        faixa.transform.SetParent(pai, false);
+        faixa.transform.localPosition = posicaoLocal;
+        faixa.transform.localScale = escala;
+        faixa.GetComponent<Renderer>().sharedMaterial = MaterialTingido(faixa.GetComponent<Renderer>().sharedMaterial, CorVermelho);
+    }
+
+    /* Cruz de saúde 3D na parede Leste (livre — só os pacientes ficam no
+     * chão perto dela, nada preso na parede) — mesmo espírito do ícone
+     * "IconeSaude" já usado em 2D no FluxoDeJogoHUDBuilder.cs (círculo +
+     * duas barras cruzadas), aqui em cubos simples. Posição espelha a do
+     * "quadro" já existente na parede Oeste. Como os blocos são montados
+     * já com o eixo fino apontando pra X (perpendicular à parede Leste),
+     * não precisa de nenhuma rotação — diferente dos prefabs do Office,
+     * que têm pivô/orientação próprios. */
+    private static void CriarCruzDeSaude(Transform pai, float metade)
+    {
+        GameObject grupo = new GameObject("CruzDeSaude");
+        Undo.RegisterCreatedObjectUndo(grupo, "Criar Sala do Hospital");
+        grupo.transform.SetParent(pai, false);
+        grupo.transform.localPosition = new Vector3(metade - 0.06f, 1.8f, 0f);
+
+        CriarBlocoCruz(grupo.transform, "Placa", new Vector3(0.05f, 0.9f, 0.9f), Color.white);
+        CriarBlocoCruz(grupo.transform, "BarraHorizontal", new Vector3(0.07f, 0.16f, 0.5f), CorVermelho);
+        CriarBlocoCruz(grupo.transform, "BarraVertical", new Vector3(0.07f, 0.5f, 0.16f), CorVermelho);
+    }
+
+    private static void CriarBlocoCruz(Transform pai, string nome, Vector3 escala, Color cor)
+    {
+        GameObject bloco = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        bloco.name = nome;
+        Undo.RegisterCreatedObjectUndo(bloco, "Criar Sala do Hospital");
+        bloco.transform.SetParent(pai, false);
+        bloco.transform.localScale = escala;
+        bloco.GetComponent<Renderer>().sharedMaterial = MaterialTingido(bloco.GetComponent<Renderer>().sharedMaterial, cor);
+    }
+
+    /* Decoração extra, além da mobília essencial — pedido do usuário depois
+     * de ver a sala pronta ("falta assets, pode construir"). Tudo peças que
+     * já existem no pack Office (não usadas até agora), sem import novo:
+     * um computador+telefone no balcão (a recepção parece "em uso" em vez
+     * de vazia), uma planta perto da porta, e um abajur de chão no canto
+     * que sobrou livre. ATENÇÃO: a rotação do monitor (pra tela encarar a
+     * sala) não foi confirmada visualmente nesta sessão — o ambiente de
+     * screenshot travou num frame antigo no meio da verificação (mesma
+     * limitação já documentada no histórico do projeto); se sair de costas,
+     * é só ajustar o ângulo abaixo. */
+    private static void CriarDecoracaoExtra(Transform pai, float metade)
+    {
+        GameObject monitorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoMonitor);
+        GameObject telefonePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoTelefone);
+        GameObject plantaPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoPlanta);
+        GameObject abajurPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoAbajur);
+
+        GameObject grupo = new GameObject("DecoracaoExtra");
+        Undo.RegisterCreatedObjectUndo(grupo, "Criar Sala do Hospital");
+        grupo.transform.SetParent(pai, false);
+
+        // Balcão em (-1.5,0,-metade+0.4); dispensador já ocupa o lado
+        // esquerdo (X=-1.7) — monitor+telefone no lado direito do tampo
+        // (altura do tampo = 0.95, medida no balcão).
+        if (monitorPrefab != null)
+            Instanciar(monitorPrefab, grupo.transform, new Vector3(-1.2f, 0.95f, -metade + 0.35f), 20f, Color.white);
+        if (telefonePrefab != null)
+            Instanciar(telefonePrefab, grupo.transform, new Vector3(-1.05f, 0.95f, -metade + 0.55f), 20f, Color.white);
+
+        // Planta perto da porta (lado Oeste do vão) — dá um pouco de verde
+        // logo na entrada.
+        if (plantaPrefab != null)
+            Instanciar(plantaPrefab, grupo.transform, new Vector3(-2.2f, 0f, 2.3f), 0f, Color.white);
+
+        // Abajur de chão no canto Sudoeste, o único que sobrou livre.
+        if (abajurPrefab != null)
+            Instanciar(abajurPrefab, grupo.transform, new Vector3(-2.5f, 0f, 0.5f), 0f, Color.white);
+    }
+
     private static void MobiliarSala(Transform pai, float metade)
     {
         GameObject balcaoPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoBalcao);
@@ -286,9 +442,10 @@ public static class QuartoHospitalBuilder
         if (dispensadorPrefab != null)
             Instanciar(dispensadorPrefab, mobilia.transform, new Vector3(-1.7f, 0.95f + 0.20f, -metade + 0.35f), -20f, Color.white);
 
-        // Cadeira de frente pro balcão.
+        // Cadeira de frente pro balcão — vermelha, o único móvel colorido da
+        // sala, acento de destaque (pedido do usuário).
         if (cadeiraPrefab != null)
-            Instanciar(cadeiraPrefab, mobilia.transform, new Vector3(-1.5f, 0f, -metade + 1.6f), 180f, Color.white);
+            Instanciar(cadeiraPrefab, mobilia.transform, new Vector3(-1.5f, 0f, -metade + 1.6f), 180f, CorVermelho);
 
         // Tapete na frente do balcão/cadeira — quebra o piso liso com uma
         // textura de verdade (material próprio, não cor lisa).
@@ -308,7 +465,9 @@ public static class QuartoHospitalBuilder
             Instanciar(quadroPrefab, mobilia.transform, new Vector3(-metade + 0.06f, 1.8f, 0f), 90f, Color.white);
     }
 
-    private static GameObject Instanciar(GameObject prefab, Transform pai, Vector3 posicaoLocal, float rotacaoY, Color tingir)
+    /* internal (não private): PersonagensHospitalBuilder.cs reaproveita este helper
+     * pra instanciar/posicionar/tingir os personagens com a mesma lógica da mobília. */
+    internal static GameObject Instanciar(GameObject prefab, Transform pai, Vector3 posicaoLocal, float rotacaoY, Color tingir)
     {
         GameObject instancia = (GameObject)PrefabUtility.InstantiatePrefab(prefab, pai);
         Undo.RegisterCreatedObjectUndo(instancia, "Criar Sala do Hospital");
@@ -325,8 +484,14 @@ public static class QuartoHospitalBuilder
     }
 
     private const string PastaMateriais = "Assets/Meus/Assets Gerados/Sala do Hospital/Materiais";
-    private static readonly System.Collections.Generic.Dictionary<Material, Material> CacheTingido =
-        new System.Collections.Generic.Dictionary<Material, Material>();
+    // Chave é (material original, cor) — não só o material original. Cubos
+    // primitivos (Teto, FrisoVermelho, CruzDeSaude) todos partem do MESMO
+    // material padrão do Unity; sem a cor na chave, o primeiro tingimento
+    // pedido pra esse material "vencia" e todos os outros elementos que
+    // usassem o mesmo original ficavam com a cor errada (bug real, achado
+    // ao introduzir a segunda cor num cubo primitivo nesta sessão).
+    private static readonly System.Collections.Generic.Dictionary<(Material, Color), Material> CacheTingido =
+        new System.Collections.Generic.Dictionary<(Material, Color), Material>();
 
     /* Apaga os materiais tingidos de uma rodada anterior antes de recriar —
      * sem isso, o CacheTingido (que vive até o próximo recompile) continuaria
@@ -349,7 +514,8 @@ public static class QuartoHospitalBuilder
         if (original == null)
             return null;
 
-        if (CacheTingido.TryGetValue(original, out Material existente) && existente != null)
+        (Material, Color) chave = (original, tingir);
+        if (CacheTingido.TryGetValue(chave, out Material existente) && existente != null)
             return existente;
 
         MeusOrganizador.GarantirPasta(PastaMateriais);
@@ -363,7 +529,7 @@ public static class QuartoHospitalBuilder
             tingido.SetFloat("_Smoothness", 0.05f);
         AssetDatabase.CreateAsset(tingido, caminho);
 
-        CacheTingido[original] = tingido;
+        CacheTingido[chave] = tingido;
         return tingido;
     }
 }

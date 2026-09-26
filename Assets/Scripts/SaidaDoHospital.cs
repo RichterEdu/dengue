@@ -8,12 +8,11 @@ using UnityEngine;
  *  volta pra posição original no bairro e avisa o FluxoDeJogo que a
  *  partida começou (a ocupação só sobe a partir daqui).
  *
- *  Só a POSIÇÃO é restaurada — a rotação não, de propósito: o
- *  MouseLook.cs controla o giro do jogador por um "yaw" interno próprio
- *  (não lê o Transform), então forçar uma rotação aqui seria sobrescrito
- *  no próximo Update() dele mesmo jeito. O jogador simplesmente continua
- *  olhando pra onde já estava olhando ao cruzar a porta — natural, como
- *  atravessar um vão.
+ *  Só a POSIÇÃO é restaurada — a rotação não, de propósito: o jogador
+ *  simplesmente continua olhando pra onde já estava olhando ao cruzar a
+ *  porta — natural, como atravessar um vão. (Se um dia precisar forçar a
+ *  direção, use ControladorJogador.DefinirOlhar: ele guarda o yaw/pitch
+ *  internamente e sobrescreveria uma rotação posta direto no Transform.)
  * ============================================================ */
 
 public class SaidaDoHospital : MonoBehaviour
@@ -34,11 +33,19 @@ public class SaidaDoHospital : MonoBehaviour
 
         acionado = true;
 
-        // CharacterController "briga" com transform.position direto se
-        // estiver ligado durante o set — desliga, move, religa.
-        controller.enabled = false;
-        controller.transform.position = posicaoNoBairro;
-        controller.enabled = true;
+        ControladorJogador jogador = controller.GetComponent<ControladorJogador>();
+        if (jogador != null)
+        {
+            jogador.Teleportar(posicaoNoBairro);
+        }
+        else
+        {
+            // CharacterController "briga" com transform.position direto se
+            // estiver ligado durante o set — desliga, move, religa.
+            controller.enabled = false;
+            controller.transform.position = posicaoNoBairro;
+            controller.enabled = true;
+        }
 
         FluxoDeJogo fluxo = FindFirstObjectByType<FluxoDeJogo>();
         if (fluxo != null)

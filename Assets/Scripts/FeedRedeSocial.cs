@@ -216,8 +216,9 @@ public class FeedRedeSocial : MonoBehaviour
 
     /* Troca {eliminados} {total} {restantes} pelos números do momento.
      * Usado no texto do post (congelado na hora em que ele é publicado)
-     * e no subtítulo do cabeçalho (atualizado a cada post). */
-    private string Marcadores(string texto)
+     * e no subtítulo do cabeçalho (atualizado a cada post). Público: a
+     * NotificacaoCelular mostra o mesmo texto do card. */
+    public string Marcadores(string texto)
     {
         if (string.IsNullOrEmpty(texto) || rede == null)
             return texto;
@@ -240,8 +241,8 @@ public class FeedRedeSocial : MonoBehaviour
         }
     }
 
-    /* Mesma pessoa = sempre a mesma cor de avatar. */
-    private Color CorDoAutor(string autor)
+    /* Mesma pessoa = sempre a mesma cor de avatar (no feed e na notificação). */
+    public Color CorDoAutor(string autor)
     {
         if (coresAvatar == null || coresAvatar.Length == 0)
             return new Color(0.35f, 0.5f, 0.8f);
@@ -253,7 +254,7 @@ public class FeedRedeSocial : MonoBehaviour
         return coresAvatar[Mathf.Abs(soma) % coresAvatar.Length];
     }
 
-    private static string Inicial(string autor)
+    public static string Inicial(string autor)
     {
         if (string.IsNullOrWhiteSpace(autor))
             return "?";

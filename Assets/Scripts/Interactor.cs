@@ -8,7 +8,8 @@ using UnityEngine.InputSystem;
  *  Fica no PLAYER e gerencia a interação em primeira pessoa.
  *
  *  - Dispara um raycast do CENTRO da tela (como a visão do jogador).
- *  - Clique ESQUERDO do mouse = interagir com o objeto mirado.
+ *  - Clique ESQUERDO do mouse = interagir com o objeto mirado. No
+ *    controle, a ação "Attack" do EntradaJogador.cs (botão Oeste).
  *  - Funciona com qualquer objeto que tenha um Interactable
  *    (ou derivado) no próprio objeto ou nos pais.
  *  - Destaque visual: quando o jogador mira num foco, os materiais
@@ -32,7 +33,18 @@ public class Interactor : MonoBehaviour
     [SerializeField] private float highlightPulseSpeed = 4.5f;
 
     private Camera cam;
+    private EntradaJogador entrada;
     private Interactable currentTarget;
+
+    // O agente de saúde (corpo do próprio jogador, ver PlayerBuilder.cs) não tem
+    // Collider hoje, então o raycast abaixo não tem como acertar o próprio
+    // corpo — mas se algum dia ganhar física (roupa, ragdoll etc.), esta
+    // máscara evita que o jogador "mire em si mesmo" sem querer.
+    // NÃO pode ser "static readonly" com inicializador: LayerMask.NameToLayer
+    // é proibido em inicializador de campo/construtor estático de
+    // MonoBehaviour (Unity lança exceção toda vez que o tipo é usado) —
+    // por isso é lido em Start(), como qualquer outra referência da cena.
+    private int camadaCorpoJogador = -1;
 
     private readonly List<HighlightEntry> highlighted = new List<HighlightEntry>();
 
@@ -56,6 +68,8 @@ public class Interactor : MonoBehaviour
     void Start()
     {
         cam = Camera.main;
+        entrada = GetComponent<EntradaJogador>();
+        camadaCorpoJogador = LayerMask.NameToLayer("CorpoJogador");
     }
 
     void Update()
@@ -84,9 +98,11 @@ public class Interactor : MonoBehaviour
 
         UpdateHighlightPulse();
 
-        // Clique esquerdo do mouse interage com o objeto mirado.
+        // Clique esquerdo do mouse (ou "Attack" no controle) interage com o objeto mirado.
         Mouse mouse = Mouse.current;
-        if (mouse != null && mouse.leftButton.wasPressedThisFrame && currentTarget != null)
+        bool interagir = (mouse != null && mouse.leftButton.wasPressedThisFrame) ||
+                         (entrada != null && entrada.InteragirPressionado);
+        if (interagir && currentTarget != null)
             currentTarget.Interact();
     }
 
@@ -98,7 +114,8 @@ public class Interactor : MonoBehaviour
 
         Ray ray = cam.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f));
 
-        if (Physics.Raycast(ray, out RaycastHit hit, interactionRange))
+        int mascara = camadaCorpoJogador >= 0 ? ~(1 << camadaCorpoJogador) : ~0;
+        if (Physics.Raycast(ray, out RaycastHit hit, interactionRange, mascara))
         {
             // Focos já concluídos que ficam na cena (ex.: vaso com areia) não são mais alvo.
             Interactable found = hit.collider.GetComponentInParent<Interactable>();

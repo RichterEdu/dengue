@@ -15,6 +15,11 @@ using UnityEngine;
  *  - Sobe sozinha com o tempo; cada foco eliminado desafoga uma fração
  *    fixa. Vitória: todos os focos eliminados antes de bater 100%.
  *    Derrota: ocupação bate 100% antes de todos os focos sumirem.
+ *  - O ritmo NÃO é constante (pedido do usuário, "pra dar tempo do player
+ *    pensar e ler o que tá acontecendo"): começa calmo (aumentoNoInicio),
+ *    depois de duracaoInicioCalmo sobe em rampa até aumentoPorSegundo.
+ *    E enquanto o celular está aberto a taxa cai (multiplicadorComCelular)
+ *    — sem nenhum aviso na tela, o jogador não precisa saber.
  *
  *  Mesma varredura de Interactable usada por DengueHUD/RedeSocial/
  *  FocoListaHUD — não existe gerenciador central de focos no projeto,
@@ -33,6 +38,24 @@ public class FluxoDeJogo : MonoBehaviour
     [Tooltip("Quanto a ocupação desce a cada foco eliminado (0.04 = 4%).")]
     [SerializeField] private float reducaoPorFoco = 0.04f;
 
+    [Header("Ritmo (começo calmo, depois pressão)")]
+    [Tooltip("Taxa por segundo logo que o jogador sai do hospital (0.002 = 0.2%/s) — tempo pra ler o celular e se situar.")]
+    [SerializeField] private float aumentoNoInicio = 0.002f;
+
+    [Tooltip("Segundos (desde a saída do hospital) em que a taxa fica em aumentoNoInicio.")]
+    [SerializeField] private float duracaoInicioCalmo = 45f;
+
+    [Tooltip("Segundos da rampa que leva de aumentoNoInicio até aumentoPorSegundo.")]
+    [SerializeField] private float duracaoRampa = 60f;
+
+    [Tooltip("Com o celular aberto, a taxa é multiplicada por isto (0.25 = sobe 4x mais devagar). Não aparece na tela.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float multiplicadorComCelular = 0.25f;
+
+    [Tooltip("Vazio = procura o CelularController na cena.")]
+    [SerializeField] private CelularController celular;
+
+    public event Action OnPartidaIniciada;
     public event Action OnVitoria;
     public event Action OnDerrota;
 
@@ -48,6 +71,7 @@ public class FluxoDeJogo : MonoBehaviour
     void Start()
     {
         Ocupacao = Mathf.Clamp01(ocupacaoInicial);
+        if (celular == null) celular = FindFirstObjectByType<CelularController>();
 
         foreach (Interactable foco in FindObjectsByType<Interactable>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
@@ -70,7 +94,11 @@ public class FluxoDeJogo : MonoBehaviour
     /* Chamado pelo SaidaDoHospital.cs quando o jogador cruza a porta. */
     public void IniciarPartida()
     {
+        if (PartidaIniciada)
+            return;
+
         PartidaIniciada = true;
+        OnPartidaIniciada?.Invoke();
     }
 
     void Update()
@@ -79,13 +107,27 @@ public class FluxoDeJogo : MonoBehaviour
             return;
 
         TempoDecorrido += Time.deltaTime;
-        Ocupacao = Mathf.Clamp01(Ocupacao + aumentoPorSegundo * Time.deltaTime);
+        Ocupacao = Mathf.Clamp01(Ocupacao + TaxaAtual() * Time.deltaTime);
 
         if (Ocupacao >= 1f)
         {
             PartidaEncerrada = true;
             OnDerrota?.Invoke();
         }
+    }
+
+    /* Quanto a ocupação sobe por segundo AGORA: calmo no começo, rampa até
+     * aumentoPorSegundo, e mais devagar com o celular aberto. */
+    private float TaxaAtual()
+    {
+        float rampa = duracaoRampa > 0f
+            ? Mathf.Clamp01((TempoDecorrido - duracaoInicioCalmo) / duracaoRampa)
+            : (TempoDecorrido >= duracaoInicioCalmo ? 1f : 0f);
+        float taxa = Mathf.Lerp(aumentoNoInicio, aumentoPorSegundo, rampa);
+
+        if (celular != null && celular.Aberto)
+            taxa *= multiplicadorComCelular;
+        return taxa;
     }
 
     private void HandleFocoCompletado(Interactable foco)

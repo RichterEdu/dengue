@@ -60,6 +60,8 @@ public static class DengueHUDBuilder
         }
 
         GameObject old = GameObject.Find(RootName);
+        Transform oldParent = null;
+        int oldIndex = 0;
         if (old != null)
         {
             bool replace = EditorUtility.DisplayDialog("Criar HUD",
@@ -67,6 +69,8 @@ public static class DengueHUDBuilder
                 "Recriar do zero", "Cancelar");
             if (!replace)
                 return;
+            oldParent = old.transform.parent;
+            oldIndex = old.transform.GetSiblingIndex();
             Undo.DestroyObjectImmediate(old);
         }
 
@@ -77,6 +81,7 @@ public static class DengueHUDBuilder
         GameObject root = new GameObject(RootName, typeof(RectTransform), typeof(Canvas),
             typeof(UnityEngine.UI.CanvasScaler), typeof(UnityEngine.UI.GraphicRaycaster));
         Undo.RegisterCreatedObjectUndo(root, "Criar HUD");
+        HierarquiaOrganizador.RecolocarNoLugar(root, oldParent, oldIndex);
 
         Canvas canvas = root.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;

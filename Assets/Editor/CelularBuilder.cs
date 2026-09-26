@@ -68,8 +68,14 @@ public static class CelularBuilder
         LimparVersao3D();
 
         GameObject antigo = GameObject.Find(NomeHUD);
+        Transform paiAntigo = null;
+        int indiceAntigo = 0;
         if (antigo != null)
+        {
+            paiAntigo = antigo.transform.parent;
+            indiceAntigo = antigo.transform.GetSiblingIndex();
             Undo.DestroyObjectImmediate(antigo);
+        }
 
         Sprite ui = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
         Sprite knob = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
@@ -77,6 +83,7 @@ public static class CelularBuilder
         /* ---------- Canvas ---------- */
         GameObject root = new GameObject(NomeHUD, typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
         Undo.RegisterCreatedObjectUndo(root, "Criar Celular");
+        HierarquiaOrganizador.RecolocarNoLugar(root, paiAntigo, indiceAntigo);
         root.layer = LayerMask.NameToLayer("UI");
 
         Canvas canvas = root.GetComponent<Canvas>();

@@ -108,6 +108,15 @@ public class RedeSocial : MonoBehaviour
     public int Eliminados => eliminados;
     public int TotalFocos => focos.Count;
     public IReadOnlyList<PostRedeSocial> Publicados => publicados;
+    public IReadOnlyList<PostRedeSocial> PostsFinais => postsFinais;
+
+    /* Quantas publicações ainda esperam a vez na fila. */
+    public int NaFila => fila.Count;
+
+    /* Quando true, a RedeSocial só publica a ABERTURA sozinha: incentivos
+     * e finais passam a ser decididos por um narrador externo
+     * (HistoriaRedeSocial.cs), que posta sobre cada ação do jogador. */
+    public bool NarradorExterno { get; set; }
 
     /* Fração de focos eliminados (0 a 1). Serve de entrada para a futura
      * barra de ocupação hospitalar. */
@@ -182,6 +191,9 @@ public class RedeSocial : MonoBehaviour
         foco.OnCompleted -= HandleFocoEliminado;
         eliminados++;
 
+        if (NarradorExterno)
+            return;
+
         // Acabou o mapa: entram as publicações finais no lugar do incentivo.
         if (!finaisEnfileirados && focos.Count > 0 && eliminados >= focos.Count)
         {
@@ -231,7 +243,8 @@ public class RedeSocial : MonoBehaviour
         return postsDeIncentivo[i];
     }
 
-    private void Enfileirar(PostRedeSocial post)
+    /* Coloca uma publicação na fila (sai no ritmo de intervaloEntrePosts). */
+    public void Enfileirar(PostRedeSocial post)
     {
         if (post != null && !string.IsNullOrWhiteSpace(post.texto))
             fila.Enqueue(post);
@@ -294,7 +307,7 @@ public class RedeSocial : MonoBehaviour
                 "{eliminados} focos eliminados e meu filho já está reagindo melhor. Acho que não é coincidência.",
                 112, HumorPost.Positivo),
 
-            Novo("UBS Vila Nova", "@ubs.vilanova",
+            Novo("UPA Vila Nova", "@upa.vilanova",
                 "Cada criadouro eliminado evita centenas de mosquitos. Faltam {restantes} no bairro — seguimos!",
                 134, HumorPost.Neutro),
 
@@ -314,7 +327,7 @@ public class RedeSocial : MonoBehaviour
                 "Tampei minha caixa d'água depois de ver o serviço do agente. Se cada um fizer a parte dele, acaba.",
                 74, HumorPost.Positivo),
 
-            Novo("UBS Vila Nova", "@ubs.vilanova",
+            Novo("UPA Vila Nova", "@upa.vilanova",
                 "Registramos queda nos casos suspeitos esta semana. Continuem: está funcionando.",
                 156, HumorPost.Positivo),
 
@@ -334,7 +347,7 @@ public class RedeSocial : MonoBehaviour
                 "Lembrete: calha entupida também vira criadouro. Vale dar uma olhada na sua hoje.",
                 72, HumorPost.Neutro),
 
-            Novo("UBS Vila Nova", "@ubs.vilanova",
+            Novo("UPA Vila Nova", "@upa.vilanova",
                 "Já são {eliminados} de {total} focos eliminados. O bairro está virando o jogo.",
                 143, HumorPost.Positivo),
         };
@@ -348,7 +361,7 @@ public class RedeSocial : MonoBehaviour
                 "Bairro limpo! Obrigada, agente. No fim das contas isso aqui foi a comunidade inteira.",
                 231, HumorPost.Positivo),
 
-            Novo("UBS Vila Nova", "@ubs.vilanova",
+            Novo("UPA Vila Nova", "@upa.vilanova",
                 "Ocupação hospitalar estabilizada. Prevenção funciona — e ela começa dentro de casa.",
                 189, HumorPost.Positivo),
 

@@ -21,6 +21,7 @@ public class FluxoDeJogoHUD : MonoBehaviour
     [Header("Referências")]
     [SerializeField] private FluxoDeJogo fluxo;
     [SerializeField] private Interactor interactor;
+    [SerializeField] private ControladorJogador jogador;
 
     [Header("Briefing inicial")]
     [SerializeField] private CanvasGroup briefingGrupo;
@@ -51,10 +52,16 @@ public class FluxoDeJogoHUD : MonoBehaviour
     private bool vitoriaAtiva;
     private bool derrotaAtiva;
 
+    /* Enquanto true, a tela de vitória/derrota espera (fica em alpha 0)
+     * mesmo com a partida encerrada — o HistoriaDoJogo.cs liga isso para
+     * tocar o epílogo antes das estatísticas. */
+    public bool SegurarTelaFinal { get; set; }
+
     void Start()
     {
         if (fluxo == null) fluxo = FindFirstObjectByType<FluxoDeJogo>();
         if (interactor == null) interactor = FindFirstObjectByType<Interactor>();
+        if (jogador == null) jogador = FindFirstObjectByType<ControladorJogador>();
 
         if (fluxo != null)
         {
@@ -143,15 +150,17 @@ public class FluxoDeJogoHUD : MonoBehaviour
 
     private void AtualizarFimDeJogo()
     {
+        bool liberado = !SegurarTelaFinal;
         if (vitoriaGrupo != null)
-            vitoriaGrupo.alpha = Mathf.MoveTowards(vitoriaGrupo.alpha, vitoriaAtiva ? 1f : 0f, Time.deltaTime * 2f);
+            vitoriaGrupo.alpha = Mathf.MoveTowards(vitoriaGrupo.alpha, vitoriaAtiva && liberado ? 1f : 0f, Time.deltaTime * 2f);
         if (derrotaGrupo != null)
-            derrotaGrupo.alpha = Mathf.MoveTowards(derrotaGrupo.alpha, derrotaAtiva ? 1f : 0f, Time.deltaTime * 2f);
+            derrotaGrupo.alpha = Mathf.MoveTowards(derrotaGrupo.alpha, derrotaAtiva && liberado ? 1f : 0f, Time.deltaTime * 2f);
     }
 
     private void HandleVitoria()
     {
         if (interactor != null) interactor.Bloqueado = true;
+        if (jogador != null) jogador.ControleAtivo = false; // fica parado na tela final
         vitoriaAtiva = true;
         if (vitoriaTexto != null)
             vitoriaTexto.text = MontarEstatisticas(tituloVitoria);
@@ -160,6 +169,7 @@ public class FluxoDeJogoHUD : MonoBehaviour
     private void HandleDerrota()
     {
         if (interactor != null) interactor.Bloqueado = true;
+        if (jogador != null) jogador.ControleAtivo = false; // fica parado na tela final
         derrotaAtiva = true;
         if (derrotaTexto != null)
             derrotaTexto.text = MontarEstatisticas(tituloDerrota);

@@ -9,6 +9,10 @@ Data de criação do projeto:
    O jogador assume o papel de um agente comunitário de saúde que sai a campo pelas ruas vizinhas com a missão urgente de inspecionar residências, terrenos baldios e calçadas para erradicar todos os focos do mosquito antes que o hospital entre em colapso total.  
    A rede social do bairro reflete essa urgência: comentários negativos inicialmente ("Que abandono\!", "Meu filho tem dengue 😞") que evoluem para positivos conforme o jogador completa sua missão ("Muito bom\! Graças a você\!"). 
 
+   **A história é contada pelo celular (decisão de 2026-09-26):** tudo o que o jogador faz vira uma publicação de um personagem do bairro sobre *aquela* ação — chegar perto de um criadouro, eliminá-lo (o primeiro, os seguintes e o último de cada tipo), largar um pela metade, sair do hospital, ficar parado, demorar sem limpar nada, limpar dois seguidos, pular à toa, a ocupação do hospital subir ou cair. Com o celular fechado, cada post aparece como notificação na tela. O jogo abre com cartelas em tela preta ("Vila Nova, fevereiro. Três semanas de chuva...") e termina com um epílogo "Uma semana depois..." em que cada personagem conta como ficou — o texto muda conforme o que o jogador limpou ou deixou para trás.
+
+   **Nome do jogo: Foco Zero (decisão de 2026-09-26).** O jogo abre numa tela de título (cena `MenuInicial`): "FOCO ZERO", com o "ZERO" em vermelho, sobre o bairro em fim de tarde, e a câmera alternando entre a rua do hospital, a praça e um sobrevoo. "Jogar" leva às cartelas da abertura.
+
 3. **Dinâmica do jogo:** Perspectiva: Primeira Pessoa (FPS) para máxima imersão e simplicidade técnica.
 
 Loop Principal:
@@ -40,8 +44,17 @@ Loop Principal:
 
 
 4. **Personagens:**  Jogador: Agente comunitário de saúde em primeira pessoa. Sem rosto visível, sem diálogos — apenas ações e presença.  
-   Personagens da Rede Social: Genéricos do bairro (nomes aleatórios como "João Silva", "Maria Santos", "Carlos", etc). Não aparecem fisicamente no mapa, apenas seus comentários na rede social.  
-   Sem NPCs no mapa: O foco é puramente na mecânica de busca e eliminação, criando imersão através do áudio 3D e feedback visual/social.  
+   Personagens da Rede Social (elenco fixo, cada um "dono" de um tipo de criadouro — não aparecem no mapa, só no celular):  
+   * **Carlos Mendes** (@carlinhos.m) — pneus do terreno baldio; reclamava há meses. Epílogo: o terreno vira horta comunitária.  
+   * **Dona Neusa** (@neusa.flores) — vasos/pratinhos; a vizinha das flores. Epílogo: vira "fiscal de vaso" da rua.  
+   * **João Silva** (@joaosilva) — caixas d'água; o filho está internado com dengue. Epílogo: o filho tem alta (ou continua internado).  
+   * **Ana Paula** (@anapaula.rs) — piscina de plástico do filho; também comenta quando o agente fica parado ou pula à toa. Epílogo: o filho monta a "patrulha do mosquito".  
+   * **Bruna Lima** (@bru.lima) — garrafas/lixo e dicas; comenta sequências rápidas. Epílogo: a rua ganha ponto de coleta de recicláveis.  
+   * **Seu Osvaldo** (@osvaldo.bar) — ralos da calçada; dono do bar da esquina, deixava a grelha de lado para lavar o chão. Epílogo: põe tela em todos os ralos e ensina os clientes.  
+   * **Lúcia Andrade** (@lu.plantas) — bromélias da praça; tem medo de o agente arrancar as plantas. Epílogo: as bromélias ficam, e a criançada ajuda a esvaziar as folhas toda semana.  
+   * **Enf. Rita** (@enf.rita.ubs) — a enfermeira da recepção (único NPC com corpo, na sala do hospital); posta a saída do agente e a lotação.  
+   * **UBS Vila Nova** (@ubs.vilanova) — perfil oficial; marcos de ocupação e derrota.  
+   Na sala do hospital: a enfermeira Rita (balão de fala com a missão) e dois pacientes que existem só como voz (balões, sem corpo).  
      
      
 5. **Trilha sonora (som de fundo):**  Uma trilha urgente/tensa que reforça a pressão do tempo e a gravidade da situação hospitalar. Tom urbano, possivelmente com elementos de ambiente hospitalar (sinais de alerta leves, batidas de coração sutis) que diminuem conforme o jogador completa focos — criando feedback auditivo de progresso.  
@@ -922,3 +935,556 @@ O acabamento da sessão anterior (`PainelBordado`: retângulo inteiro na cor de 
 - Antes de aceitar "intensidade da luz está errada" como causa de um hotspot, **testar a hipótese isoladamente**: mudar só a intensidade (ordem de grandeza, tipo 6→0.35) e comparar a mesma cena/ângulo. Se nada mudar, a causa é outra (aqui era distância à superfície, depois confirmou-se que também tinha Bloom do Volume global somando).
 - Pivô de prefab de asset pack de terceiros: **nunca assumir centralizado**. Medir `MeshFilter.sharedMesh.bounds` (local, não world) antes de escrever qualquer matemática de grade/módulo — e depois verificar pra ONDE cada rotação (`Quaternion.Euler(0,ang,0) * Vector3.right/forward`) aponta o eixo local, já que o sinal da fórmula de posicionamento muda com a rotação.
 - Screenshot com `source=screen` neste ambiente **trava num frame antigo** até algo forçar um novo tick real — comparar `bytes` do resultado é um jeito rápido de detectar isso (bytes idênticos = mesmo frame, a mudança que você fez não foi capturada). Não adianta insistir tentando forçar repaint por código; é uma limitação do ambiente, não do jogo.
+
+### 2026-09-20 — Recepção do hospital ganhou gente: médico no balcão + 2 pacientes esperando
+
+**Objetivo:** A sala do hospital (da sessão anterior) tinha mobília mas nenhum personagem — o próprio `contexto do jogo.md` (seção "Cena: Início no Hospital", no topo deste arquivo) descreve pacientes numa fila caótica e uma enfermeira/médica estressada, nunca implementado. Não existia NENHUM modelo humano em lugar nenhum do projeto (confirmado por busca exaustiva antes de começar), então dois pacotes gratuitos novos foram importados pelo usuário via Package Manager > My Assets: `Assets/BackRock Studios/LowPoly-Doctor` (um médico rigged/animado) e `Assets/PolyOne/People Lowpoly` (8 poses estáticas genéricas, sem rig). Escopo combinado com o usuário: só personagens nesta rodada (áudio 3D/trilha fica pra depois), 1 médico + 2 pacientes, estáticos (sem animação, como o documento pede).
+
+**Dois problemas de import corrigidos ANTES de posicionar qualquer coisa (ambos no pacote do médico, não no PolyOne):**
+1. **Escala bugada do FBX**: `Lowpoly_Doctor.fbx` vinha com `fileScale=0.01` (herdado do arquivo) resultando numa altura real de só ~0,36 m — testado isolando `useFileScale=false` (deu ~36,3 "unidades cruas") e corrigido com `globalScale=0.0482` no `ModelImporter`, batendo ~1,75 m (altura real de adulto). Sem esse teste isolado (comparar com/sem `useFileScale`) não dava pra saber se o problema era o fileScale ou a malha em si.
+2. **Materiais Built-in (magenta no URP)**: os 3 materiais do médico (`lambert2`, `lambert2Editable`, `nf2_aiStandardSurface1`) usavam shader `Standard`/`Autodesk Interactive` (Built-in RP) — apareciam magenta. O menu `Edit/Rendering/Materials/Convert Selected Built-in Materials to URP` **não existe** nesta versão do Editor (6000.5.6f1) — `ExecuteMenuItem` falhou silenciosamente (retornou `false`, sem exceção). Corrigido manualmente: capturar `material.color`/`material.mainTexture` ANTES de trocar `material.shader` pra `Universal Render Pipeline/Lit`, e reatribuir os dois depois — funciona porque esses dois property acessores são resolvidos pelas tags `[MainColor]`/`[MainTexture]` do shader (não por nome fixo de propriedade), então sobrevivem à troca de shader sem precisar saber o nome exato da propriedade em cada shader.
+
+**Pose do médico:** o Animator (Avatar Humanoid, controller com idle/walk/run) foi testado com `AnimationClip.SampleAnimation(instancia, tempo)` na clip "idle" antes de decidir — a clip tem curvas de root motion que descolam o pivô da posição dos pés de um jeito difícil de compensar (pés saíam a -0,90 do pivô em vez de ~0). A pose de BIND (Animator removido, nenhuma clip amostrada) já era uma pose relaxada de braços entreabertos (nada de T-pose esticada, conferido por screenshot) com os pés a só -0,06 do pivô — usada no lugar, mais simples e com resultado melhor.
+
+**Arquivo novo:** `Assets/Editor/PersonagensHospitalBuilder.cs` — companheiro do `QuartoHospitalBuilder.cs` (mesmo padrão de `TerrenoBaldioMato.cs`/`TerrenoBaldioAssets.cs`: método público `Popular(Transform pai, float metade)`, **sem** `[MenuItem]` próprio, chamado de dentro de `QuartoHospitalBuilder.Criar()` logo após `MobiliarSala()` — os personagens nascem/morrem junto com a sala, sem precisar de lógica de limpeza própria). `QuartoHospitalBuilder.Instanciar()` promovido de `private` pra `internal` pra ser reaproveitado. Nenhum dos dois pacotes trazia Collider — `CapsuleCollider` adicionado em cada personagem (dimensões medidas via `Renderer.bounds` antes de escrever os números, mesma disciplina de sempre) pra o `CharacterController` do player esbarrar neles.
+
+**Posicionamento (sala 6×6 m, `metade=3`):** médico ao LADO do balcão (não atrás — medido: o balcão fica com a face de trás encostada exatamente na parede Norte, sem vão nenhum atrás dele) em `(-0.55, 0.06, -2.75)`; paciente sentado (pose `SM_People_Lowpoly_01`, já vem com pés no chão sem precisar de cadeira — conferido visualmente) em `(2.0, 0, 0.4)`; paciente em pé (`SM_People_Lowpoly_03`) em `(1.6, 0, 1.7)` — os dois do lado Leste da sala, longe do corredor até a porta (vão X entre -0.7 e 0.7 perto de Z=3.6) e do armário (canto Nordeste).
+
+**Verificado no Editor conectado:** recompile sem erros; rodado o menu `Dengue > Criar Sala do Hospital` duas vezes seguidas — sem duplicar personagens (sempre 3 filhos em `Personagens`) e com `posicaoNoBairro` preservada. Uma screenshot inicial (câmera alta, olhando de cima-e-de-trás) deu a impressão de personagens "flutuando" — **era ilusão de perspectiva**: medido programaticamente (`Renderer.bounds.min.y` vs. Y do piso da sala) o gap real era 0,002 m pro médico e exatamente 0 pros dois pacientes. Screenshots num ângulo mais horizontal confirmaram visualmente. Console final: 0 erros, 0 warnings.
+
+**Achado à parte (não é bug, não mexido):** por um ângulo de câmera olhando pra cima através do vão da porta, aparecia uma textura parecendo um "deck de madeira" no céu — investigado com uma varredura de todos os `Renderer` da cena numa região acima/além da porta: nada encontrado ali além das próprias peças da sala. Conclusão: é só o Skybox do projeto (uma textura HDRI que por coincidência tem esse padrão), visível through qualquer vão que aponte pra cima — não é geometria de verdade, não precisa de correção.
+
+**Observações para futuras sessões de IA:**
+- Import de FBX de asset pack de terceiros: **sempre** medir a altura real (`Renderer.bounds`, não confiar no nome/descrição do pacote) antes de posicionar. Se a escala parecer errada, testar `useFileScale=false` com `globalScale=1` primeiro pra ver o tamanho "cru" do arquivo, depois calcular o `globalScale` que bate com uma altura humana real (~1.6-1.8 m) — muito mais confiável que chutar um fator de correção direto.
+- Material com shader Built-in (`Standard`, `Autodesk Interactive`, etc.) aparece magenta em projeto URP. O menu de conversão automática (`Edit/Rendering/Materials/Convert...`) pode não existir nessa versão do Editor — não assumir que `ExecuteMenuItem` funcionou só porque não lançou exceção (ele retorna `bool`, confira o retorno). Alternativa manual que sempre funciona: capturar `material.color`/`material.mainTexture` antes de trocar `material.shader`, reatribuir depois (esses dois acessores seguem as tags `[MainColor]`/`[MainTexture]` do shader ativo, não um nome fixo).
+- `AnimationClip.SampleAnimation()` em clipes Humanoid com root motion pode descolar o pivô da posição real dos pés/corpo de um jeito não-óbvio — sempre medir `Renderer.bounds` depois de amostrar antes de confiar na pose. Às vezes a pose de BIND (sem nenhum Animator/clip) já é boa o bastante e evita esse problema inteiro.
+- Screenshot de câmera em ângulo alto/de-cima-pra-baixo **engana muito** sobre se um objeto está "flutuando" ou não (perspectiva + chão distante recuando no quadro). Quando a dúvida for só "está encostado no chão ou não", medir `Renderer.bounds.min.y` contra o Y do piso é muito mais confiável e rápido do que ajustar ângulo de câmera repetidamente até "parecer certo".
+
+### 2026-09-20 — Jogador com o corpo do médico, sala branca/vermelha, balões de fala nos pacientes
+
+**Objetivo:** usuário achou os pacientes da sessão anterior "muito feios/low poly", a sala "muito morta" e pediu 4 coisas: (1) o jogador passar a SER visualmente o médico, inclusive vendo o próprio corpo ao olhar pra baixo; (2) trocar o pacote de pacientes por um menos feio (pendente — ver abaixo); (3) sala branca com acentos vermelhos, cara de hospital de verdade; (4) "contexto" — pacientes "falando" que estão doentes, decidido como texto (balão de fala 3D), sem áudio.
+
+**Arquivo novo: `Assets/Editor/PlayerBuilder.cs`** (menu `Dengue > Configurar Player (Corpo Visível)`) — diferente dos outros builders (que apagam/reconstroem do zero), este é idempotente no sentido de **não mexer de novo** no que já está pronto, porque edita um GameObject (`"Cube"`, achado por `CharacterController`, não por nome) que já existe na cena, não algo descartável:
+- **Corrigiu 2 bugs reais encontrados no player** (não só o pedido do usuário): o Cube tinha **dois componentes `Mover` ao mesmo tempo**, ambos com `Update()` ativo — `CharacterController.Move()` estava sendo chamado 2x por frame com deslocamentos calculados de forma independente (não é só "componente duplicado inofensivo"). `Pular.cs` usa `GetComponent<Mover>()`, que resolve pro primeiro (`jumpForce=7`) — esse foi o mantido, o outro (`jumpForce=3`) foi destruído.
+- Removeu o `MeshFilter`/`MeshRenderer`/`BoxCollider` do Cube (o "corpo" antigo era um cubo esticado via `lossyScale=(0.70,1.32,0.36)`) — confirmado que nenhum outro script depende de o player ter Renderer/BoxCollider.
+- `transform.localScale` resetado pra `(1,1,1)` — o médico já nasce na escala real certa (corrigida no import da sessão anterior).
+- `CharacterController` recalculado pra `height=1.75, radius=0.28, center=(0,0.875,0)` (mesmos números do `CapsuleCollider` do NPC médico — mesmo prefab, mesma medição). Como `center.y == height/2`, o chão da cápsula virou `transform.position.y` DIRETO — mudança de convenção importante, propagada pro spawn dentro da sala (`QuartoHospitalBuilder.cs`, `Y: 1.2f → 0.05f`).
+- Instancia `Lowpoly_Doctor.prefab` como filho `"Modelo"`. Pra ver o corpo sem a câmera ficar "dentro" da própria cabeça: pegou `Animator.GetBoneTransform(HumanBodyBones.Head)` **antes** de remover o Animator, mediu a altura real desse bone (não chutou) pra calcular `MouseLook.eyeHeight` (deu `1.4886`, aplicado via `SerializedObject`, substituindo o `eyeHeight=1` que estava gravado manualmente na cena), encolheu `head.localScale` pra `0.001` (some com a cabeça sem separar malha nem criar material, já que é um único `SkinnedMeshRenderer`) e só então removeu o Animator (reaproveitando `PersonagensHospitalBuilder.RemoverAnimator`, promovido a `internal`).
+- Criou a User Layer `"CorpoJogador"` (primeiro slot livre do `TagManager.asset` via `SerializedObject`) e aplicou recursivamente no `Modelo` — seguro pro dia em que o corpo ganhar Collider (hoje não tem, então não afeta o raycast do `Interactor`, mas a `Interactor.cs` ganhou uma máscara de exclusão defensiva mesmo assim).
+- **Pendência anotada pro usuário, não automatizável:** a posição de spawn no BAIRRO (`SaidaDoHospital.posicaoNoBairro`, gravada em runtime da primeira vez que a sala foi criada) foi salva com a convenção ANTIGA — na primeira saída da sala depois desta mudança, o jogador aparece uns 0,5-0,66 m afundado no chão do bairro. Correção manual, única vez, direto no Transform no Editor.
+
+**Bug real encontrado e corrigido no `MaterialTingido()` do `QuartoHospitalBuilder.cs`:** o cache (`CacheTingido`) era indexado só pelo material ORIGINAL, sem a cor — inofensivo enquanto só o `Teto` usava um cubo primitivo (`CreatePrimitive`) com uma única cor. Ao introduzir o friso vermelho e a cruz de saúde (também cubos primitivos, MESMO material padrão do Unity, mas cores diferentes: vermelho e branco), o primeiro tingimento pedido pra esse material "vencia" e todo o resto saía com a cor errada. Corrigido trocando a chave do dicionário pra `(Material, Color)` (tupla).
+
+**Sala com cara de hospital (`QuartoHospitalBuilder.cs`):** paleta trocada pra branco clínico (`CorParede=(0.95,0.95,0.94)`, `CorTeto=(0.98,0.98,0.97)`, `CorPiso=(0.80,0.83,0.85)`, antes um azul escuro `(0.30,0.36,0.42)` — principal causa do "morto") + `CorVermelho=(0.82,0.10,0.10)` novo. Cadeira do balcão tingida de vermelho (era branca). Dois elementos novos, só com `GameObject.CreatePrimitive(PrimitiveType.Cube)` (sem asset novo): **`FrisoVermelho`** (faixa baixa ~0,9m nas 4 paredes, 2 segmentos na parede Sul pra não cruzar o vão da porta) e **`CruzDeSaude`** (placa branca + 2 barras vermelhas, na parede Leste — livre, nada preso nela até então —, espelhando a posição do `quadro` já existente na parede Oeste).
+
+**Balão de fala 3D nos pacientes — arquivo novo `Assets/Scripts/BalaoDeFala.cs`:** primeira vez que o projeto usa `TextMeshPro` "puro" (3D/world-space) em vez de `TextMeshProUGUI` (Canvas 2D, usado em toda a HUD até agora). **Dois bugs pegos e corrigidos só depois de ver renderizado**, ambos previsíveis em retrospecto mas não óbvios de antemão:
+1. `fontSize` num `TextMeshPro` 3D é em UNIDADES DO MUNDO, não pixels — o valor inicial (`3.5`, "parecia razoável" por analogia com Canvas 2D) cobriu a parede inteira. Corrigido pra `0.7`.
+2. O billboard (`Quaternion.LookRotation(direcao)`) apontando `transform.position - cam.position` deixava o texto de costas/espelhado pro jogador — o `+Z` de um `TextMeshPro` precisa apontar NA DIREÇÃO da câmera (texto "olha" pro leitor), não pra longe dela. Invertido pra `cam.position - transform.position`.
+Fundo do balão via tag nativa `<mark=#RRGGBBAA>` (sem Quad/material novo). Billboard só no eixo Y (yaw) — não inclina olhando de cima/baixo. Frases: paciente sentado *"Já faz três dias com febre... isso é dengue, com certeza."*; paciente em pé *"Que demora! Minha filha tá com dengue e ninguém atende direito."*
+
+**Bug de infraestrutura sério, achado e corrigido no meio da sessão:** `Interactor.cs` ganhou uma máscara de raycast excluindo a layer `CorpoJogador`, inicialmente como `private static readonly int CamadaCorpoJogador = LayerMask.NameToLayer("CorpoJogador");`. Isso **quebrou o jogo inteiro**: `LayerMask.NameToLayer` chamado num inicializador de campo estático de `MonoBehaviour` lança `UnityException` ("not allowed to be called from a MonoBehaviour constructor..."), e como é um `static readonly` a exceção fica "presa" no `TypeInitializationException` do tipo — TODA leitura futura do tipo `Interactor` (por qualquer script, ex. `DengueHUD.Update()` tentando achar o `Interactor` da cena) relança a mesma exceção. Resultado: **51 mil+ erros idênticos no console** em segundos, um a cada tentativa de acesso. Corrigido movendo a leitura pra uma variável de instância (`camadaCorpoJogador`), preenchida em `Start()` — mesmo padrão de qualquer outra referência de cena no projeto. **Lição:** nunca inicializar um campo `static` de `MonoBehaviour` chamando API do Unity (`LayerMask`, `GameObject.Find`, `Resources.Load` etc.) — só é seguro em `Awake`/`Start`/métodos de instância.
+
+**Pendente (depende do usuário):** trocar o pacote de pacientes (`Assets/PolyOne/People Lowpoly`) por `"PolyPeople Series - Hospital [Free]"` (Simply Poly Lab) — aguardando o usuário baixar via Package Manager > My Assets. Quando importado: medir bounds reais, checar shader (Built-in→URP se precisar), adicionar `CapsuleCollider` se não vier, escolher 2 poses e atualizar `PersonagensHospitalBuilder.CaminhoPacienteSentado`/`CaminhoPacienteEmPe`.
+
+**Verificado no Editor conectado:** recompile sem erros a cada etapa; os dois menus (`Configurar Player`, `Criar Sala do Hospital`) rodados 2x seguidas cada — sem duplicar `Modelo`/personagens, `eyeHeight`/layer preservados entre rodadas. Visão em primeira pessoa (câmera reposicionada via reflection nos campos privados `pitch`/`yaw` do `MouseLook`, já que não há input real neste ambiente) confirmou: corpo do médico visível olhando pra baixo (pernas/pés no chão, sem gap), cabeça não aparece (sem tela preta nem clipping), braços em A-pose ficam meio "flutuando" nas bordas do campo de visão quando o ângulo é bem íngreme — efeito esperado de uma pose estática sem animação de braço, não um bug. Console final: 0 erros, 0 warnings.
+
+**Achado à parte, não corrigido (fora do escopo deste pedido, avisar o usuário):** o piso da sala aparece visivelmente mais escuro/azulado do que o valor real do material (`(0.80,0.83,0.85)`, cinza claro) sugere. Causa raiz identificada via `RenderSettings`: `ambientMode=Skybox` com `ambientSkyColor=(0.21,0.23,0.26)` (azulado) — superfícies com normal voltada pra CIMA (o piso) recebem esse tom ambiente do "céu" do Unity, enquanto as paredes (normais horizontais) usam `ambientEquatorColor` e ficam mais dominadas pela luz direta das duas `Point Light` da sala. Não mexido: a sala já teve uma rodada inteira de ajuste fino de iluminação numa sessão anterior (evitar hotspot), e essa mudança tocaria configuração de ambiente que também afeta o bairro lá fora — precisa de decisão/aprovação do usuário antes de tocar nisso.
+
+**Pivô no meio da sessão — pacientes ficaram SEM CORPO:** o plano original (item 2) era trocar o pacote de pacientes (PolyOne, "feio") por `"PolyPeople Series - Hospital [Free]"`. O usuário baixou e importou (`Assets/PolyPeople_Hospital_Free/`), mas o pacote gratuito só traz **1 personagem de amostra — uma enfermeira de bata branca (`Female_WhiteCoat`, 544 triângulos, já com shader URP/Lit, sem Collider)**, nenhuma pose de paciente; o resto do conjunto (incluindo pacientes) só existe na versão paga. Perguntado ao usuário como proceder — decisão: **abandonar corpo visível de paciente de vez**, deixando só a "voz" (balão de fala) nos lugares onde os pacientes estariam. `PersonagensHospitalBuilder.cs` foi reescrito: removidas as constantes/instanciação dos prefabs do PolyOne e o `AdicionarColisor` deles; agora `CriarVozPaciente(pai, nome, posicaoLocal, texto, altura)` cria só um `GameObject` vazio (`VozPacienteSentado`/`VozPacienteEmPe`) na mesma posição de antes, com o `BalaoDeFala` como filho — sem malha, sem collider. O pacote `PolyPeople_Hospital_Free` **ficou importado mas sem uso** (nenhum código referencia `Female_WhiteCoat`) — disponível caso o usuário queira uma 2ª pessoa da equipe (enfermeira) no futuro; os prefabs do PolyOne (`Assets/PolyOne/People Lowpoly`) também ficaram no projeto sem uso, mesma lógica (não apaguei nenhum dos dois pacotes, só parei de referenciá-los).
+
+**Verificado no Editor conectado após o pivô:** recompile sem erros; `Dengue > Criar Sala do Hospital` rodado de novo — `Personagens` agora com 3 filhos (`Medico`, `VozPacienteSentado`, `VozPacienteEmPe`), balões de fala nas mesmas posições de antes, sem nenhum modelo de paciente visível. Console final: 0 erros.
+
+### 2026-09-20 — Player com animação de andar/correr + sala mais cheia de vida (monitor, telefone, planta, abajur)
+
+**Objetivo:** usuário confirmou "sem pacientes" (já feito) e pediu mais duas coisas: (1) o corpo do jogador **andando parado** ("esquisito") — precisa de animação de verdade; (2) a sala "falta assets, você pode construir assets, qualquer coisa" — deixar menos vazia.
+
+**Animação do jogador — `Assets/Scripts/AnimadorJogador.cs` (novo) + `Assets/Editor/PlayerBuilder.cs` reescrito:**
+- Descoberta importante: o `Doctor_AnimController.controller` (Blend Tree pronto: parâmetro `Speed` Float, `Idle` no threshold 0, `Walk` em 0.5, `Run` em 1 — confirmado inspecionando o `BlendTree` via `UnityEditor.Animations.AnimatorController` no Editor conectado, não chutado) **nunca esteve atribuído a nenhum Animator do pacote** — nem no prefab, nem na FBX, nem na cena de demo (`grep` por "Doctor_AnimController" em todo `Assets/BackRock Studios` só encontra o próprio arquivo do controller). `PlayerBuilder.cs` agora atribui isso manualmente (`animModelo.runtimeAnimatorController = ...`) — sem isso, `SetFloat("Speed", ...)` não tinha efeito nenhum (`runtimeAnimatorController` ficava `null`, confirmado no Editor conectado antes de perceber o problema).
+- `Mover.cs` ganhou duas propriedades públicas (`VelocidadeAtual`, `VelocidadeMaxima`) só de leitura, sem mudar nenhum comportamento existente.
+- `AnimadorJogador.cs`: fica no player (Cube), lê `Mover.VelocidadeAtual/VelocidadeMaxima` a cada frame, suaviza (`MoveTowards`) e manda pro parâmetro `Speed` do Animator — como não há sprint/andar devagar no jogo (um `moveSpeed` só), na prática alterna Idle↔Run com uma transição suave pelo meio (Walk), o que já resolve o "andando parado".
+- `Animator.applyRootMotion = false` — quem move o player continua sendo só o `CharacterController` via `Mover.cs`; a animação nunca desloca o personagem (evita de vez o problema de root motion descolando o pivô, já visto numa sessão anterior testando a pose "idle" do NPC).
+- **Diferente do NPC da recepção** (que fica com o Animator REMOVIDO, estático): o player agora MANTÉM o Animator. Isso funciona junto com o truque de esconder a cabeça (`head.localScale = 0.001`) porque animação Humanoid só afeta ROTAÇÃO dos ossos, nunca a escala — a cabeça continua escondida com o Animator rodando.
+- `PlayerBuilder.Configurar()` deixou de ser "só cria o Modelo se não existir" — agora **sempre apaga e recria o Modelo** a cada rodada (mais fácil iterar; as outras partes — Mover duplicado, CharacterController, layer — continuam idempotentes por natureza, sem precisar apagar nada).
+- **Não verificado por screenshot nesta sessão** (ver observação de ambiente abaixo) — verificado por API: `runtimeAnimatorController` atribuído corretamente, `SetFloat("Speed", 1f)` aceito sem erro, valores do Blend Tree conferem exatamente com o parâmetro alimentado. Risco residual baixo (mecanismo padrão do Unity, nada exótico), mas vale o usuário confirmar visualmente jogando.
+
+**Sala mais cheia de vida — `QuartoHospitalBuilder.cs`, `CriarDecoracaoExtra()` (novo):** tudo peças do pacote Office já no projeto (sem import novo):
+- Monitor (`new_monitor.prefab`) + telefone (`phone.prefab`) no lado direito do balcão (o dispensador já ocupa o esquerdo) — a recepção parece "em uso".
+- Planta (`nature_deco_plant.prefab`) perto da porta.
+- Abajur de chão (`lamp.prefab`) no canto Sudoeste, o único que sobrou livre — por coincidência feliz, a cúpula dele já é vermelha na textura original do pack, combinando com a paleta sem precisar tingir.
+- **Achado no meio do caminho**: a primeira tentativa de rotação do monitor (200°) deixou a tela de costas pra sala — só percebi depois de finalmente conseguir uma screenshot que funcionou (ver observação de ambiente abaixo); corrigido pra 20°, reconstruído e confirmado visualmente que a tela (com um "desktop" na textura) fica de frente pra quem entra.
+
+**Observação de ambiente (relevante pra qualquer sessão futura que dependa de screenshot):** nesta sessão, além do já documentado "screenshot trava num frame antigo", surgiu um caso novo: depois de editar um arquivo `.cs` já compilado antes, `unity command recompile` respondeu `"up_to_date"` (achando que nada mudou) mesmo com o arquivo em disco já atualizado — o menu rodou de novo mas com o CÓDIGO ANTIGO ainda carregado (rotação do monitor continuava 200° depois de eu já ter editado pra 20°). Só resolveu com `AssetDatabase.ImportAsset(caminho, ImportAssetOptions.ForceUpdate)` chamado explicitamente sobre o arquivo — isso disparou um reload de domínio de verdade (o Pipeline server até trocou de porta, 7801→7800). **Lição: depois de editar um `.cs`, não confiar cegamente em `recompile` dizer "up_to_date" — se uma mudança de valor simples não aparecer na cena depois de reconstruir, forçar `AssetDatabase.ImportAsset(caminho, ImportAssetOptions.ForceUpdate)` no arquivo específico antes de continuar depurando por outros motivos.**
+
+**Verificado no Editor conectado:** recompile sem erros (depois do ForceUpdate); os dois menus (`Configurar Player`, `Criar Sala do Hospital`) rodados 2x seguidas — sem duplicar nada. Screenshots (depois de finalmente conseguir contornar o travamento do ambiente, ver abaixo) confirmaram visualmente: monitor com tela de frente, planta e abajur bem posicionados e sem flutuar, os dois médicos (NPC da recepção e o jogador, agora ambos com o mesmo modelo) lado a lado na mesma cena. Console final: 0 erros, 0 warnings.
+
+**Como contornei o travamento de screenshot nesta sessão:** `capture_game_view` (`source=screen` e `source=camera`) e até `capture_scene_view` ficaram travados num frame antigo por boa parte da sessão, mesmo depois de `editor_focus`, `SceneView.RepaintAll()` e `EditorApplication.QueuePlayerLoopUpdate()` forçados via `eval` — nada disso resolveu enquanto o Play Mode estava rodando há um tempo. O que finalmente destravou: **voltar pro modo Editor (sair do Play Mode)** — os `capture_scene_view` seguintes vieram frescos de novo. Ou seja, a limitação parece specific a sessões de Play Mode prolongadas nesse ambiente, não ao mecanismo de screenshot em si. Pra verificar animação/gameplay de verdade no futuro, o jeito mais confiável continua sendo o usuário rodar no próprio Editor.
+
+### 2026-09-20 — Corpo do jogador "afundado"/deformado com a animação — corrigido (pés grudados no chão)
+
+**Objetivo:** usuário reportou, jogando de verdade, que o corpo animado do player estava "muito esquisito", "parece que todos o modelo se unificou, ficou tudo feio" — e sugeriu usar a animação que o modelo "já tem" em vez de uma criada do zero (a entrada anterior já usava o Blend Tree PRONTO do pacote, `Doctor_AnimController`, não uma animação nova — o problema não era a origem da animação, e sim um bug de posicionamento, descoberto ao investigar).
+
+**Causa raiz (medida ao vivo em Play Mode, não só amostrando o clipe fora do ar — foi isso que enganou na entrada anterior):** mesmo com `Animator.applyRootMotion = false`, a pose que o Blend Tree produz de verdade (Idle/Walk/Run) fica **~0,84 m mais baixa** do que a pose de bind usada pra calcular `OffsetPeMedico` (0,06). Ou seja: o `applyRootMotion=false` impede a TRANSLAÇÃO automática do GameObject, mas não impede que a pose interna do esqueleto reflita a altura mais baixa das curvas de root motion do clipe. Resultado: o personagem ficava enterrado até a cintura no piso — o que o usuário descreveu como "modelo unificado". É um defeito nos próprios clipes do pacote gratuito (mesma raiz do problema já visto e documentado ao testar a animação "idle" isoladamente, numa sessão anterior), não do script.
+
+**Correção em `Assets/Scripts/AnimadorJogador.cs`:** em vez de tentar consertar o asset (ou calcular um offset fixo, que não funcionaria igual pra Idle/Walk/Run já que cada clipe descola o pivô de um jeito diferente), a solução foi **"pés grudados no chão" recalculado TODO FRAME**: um novo `LateUpdate()` (roda depois do Animator já ter aplicado a pose do frame) mede `Renderer.bounds.min.y` de todos os renderers do `Modelo` e desloca o `Modelo` inteiro (não os ossos individuais — não mexe na malha, só na raiz) o suficiente pra encostar de nascença no piso (`transform.position.y` do player, mesma convenção já estabelecida). Funciona igual não importa qual pose o Blend Tree estiver tocando.
+
+**Descoberta lateral que quase levou a um diagnóstico errado:** logo depois de corrigir isso, uma medição em Play Mode ainda mostrava o gap antigo (-0,84) — só depois de forçar `AssetDatabase.ImportAsset(caminho, ImportAssetOptions.ForceUpdate)` no `AnimadorJogador.cs` (mesmo truque já documentado na entrada anterior pro `QuartoHospitalBuilder.cs`) e **salvar a cena antes de entrar em Play Mode** (`EditorSceneManager.SaveOpenScenes()`) que a correção passou a valer de verdade. Two descobertas separadas aqui, ambas relevantes pra qualquer sessão futura:
+1. Editar um `.cs` nem sempre é pego automaticamente por `unity command recompile` (pode responder `"up_to_date"` mesmo com o arquivo mudado) — reforça a lição já registrada acima.
+2. **Sempre salvar a cena (`EditorSceneManager.SaveOpenScenes()`) depois de rodar um builder e ANTES de entrar em Play Mode** — mudanças feitas em modo Editor (via `eval`) que não foram salvas correm risco de não estarem presentes no estado que o Play Mode realmente usa (confirmado: sem salvar, `Animator.applyRootMotion` voltava pra `true` ao entrar em Play, mesmo o código tendo acabado de setar `false`).
+
+**Verificado no Editor conectado, AO VIVO em Play Mode (não só por API/asset como a entrada anterior tinha ficado, dessa vez com medição real):** `gap pés-piso` medido em `Renderer.bounds.min.y` contra `player.transform.position.y` — **0,0 exato**, parado (Idle) e reconferido depois de forçar `Speed=1` (Run) também. Screenshot (finalmente consegui uma fresca, depois do Play Mode recém-iniciado) confirmou visualmente: sem o efeito de "afundado"/deformado, corpo bem posicionado olhando pra baixo. Console final: 0 erros. Os dois menus rodados de novo em sequência (idempotência) sem duplicar nada.
+
+### 2026-09-20 — Brilho por proximidade nos focos de dengue
+
+**Objetivo:** o usuário pediu que os focos de criadouro ficassem mais fáceis de enxergar: eles devem **brilhar quando o jogador chegar perto**, complementando (sem substituir) o highlight de mira que já existia. Raio, prioridade e cor foram decididos com o usuário: raio médio (~5,5 m), mira sempre tem prioridade sobre o brilho de proximidade quando os dois coincidem, e cor/raio globais (sem customização por tipo de foco).
+
+**`Assets/Scripts/EmissionHighlightUtil.cs` (novo):** helper estático que extrai a técnica de emissão já usada em `Interactor.ApplyHighlight`/`RestoreHighlight` e em `Interactable.FlashRoutine` (instanciar `renderer.material`, guardar `_EmissionColor`/estado do `_EMISSION` original, aplicar, restaurar) — evita triplicar essa lógica. `Interactor.cs` e `Interactable.cs` não foram tocados, continuam com a própria cópia da lógica (risco desnecessário mexer em código já estável só para reaproveitar).
+
+**`Assets/Scripts/FocoProximityGlow.cs` (novo):** componente colocado no player (mesmo objeto que tem `Interactor`). No `Start()` cacheia `Camera.main` e a lista de `Interactable` da cena (`FindObjectsByType`, incluindo inativos). No `Update()`, para cada foco ainda `CanInteract` e ativo na hierarquia, mede a distância de `Camera.main.transform.position` até o foco; dentro do raio (`raioProximidade = 5.5`) aplica um brilho verde-água fixo (`corBrilho = (0.25, 1, 0.8)` — a mesma cor de "foco/sucesso" já usada em `Interactable.popColor` e `FocoHUDInfo.corDaBarra` — vezes `intensidadeBrilho = 0.5`, sem pulso); fora do raio, restaura. **Nunca mexe num foco que seja `Interactor.CurrentTarget` no frame** — assim a mira (amarela, mais forte) sempre tem prioridade e os dois sistemas nunca disputam a mesma instância de material.
+
+**`Assets/Editor/FocoProximityGlowBuilder.cs` (novo):** menu **Dengue > Configurar Brilho de Proximidade dos Focos**, idempotente (acha o player por `CharacterController`, só adiciona o componente se ainda não existir) — mesmo padrão do `PlayerBuilder.cs`.
+
+**Como foi aplicado na cena:** com o Editor já aberto e conectado via `unity command`, rodei `recompile` (checado por `recompile_status` até `completed`, sem erros), depois `menu --path "Dengue/Configurar Brilho de Proximidade dos Focos"` e `save_scene`. Confirmado por `find_gameobjects --type FocoProximityGlow` que o componente ficou no GameObject `/Player` (o mesmo que tem `CharacterController`, `Interactor` e `MouseLook` — **não** existe mais um "Cube": o player foi renomeado para "Player" em alguma sessão anterior, mas o comentário de cabeçalho do `PlayerBuilder.cs` ainda cita "Cube"; há também um outro GameObject chamado literalmente "Cube" na cena sem nenhum desses componentes — **cuidado ao usar `GameObject.Find("Cube")` em sessões futuras, o nome certo do player é "Player"**).
+
+**Verificado ao vivo em Play Mode:** teleportei o player pra 3 m de um pneu (dentro do raio) via `eval` e li a cor de emissão do material do pneu — bateu exatamente com o valor esperado (`corBrilho × intensidadeBrilho` = RGBA 0,125/0,500/0,400/0,500), confirmando que a captura e a aplicação do brilho funcionam. Ao se afastar, a keyword `_EMISSION` voltou a ficar desligada (restaurada). **Achado sobre o ambiente de teste, não sobre o jogo:** neste projeto o Editor às vezes entra em Play Mode mas fica com o loop de jogo **congelado** (`Time.frameCount` parado) quando a janela está sem foco — `editor_status` reportou `"playMode":"stopped"` mesmo depois de um `editor_play` bem-sucedido anterior; foi preciso reentrar em Play (`editor_play` de novo) e confirmar `Time.frameCount` avançando antes de qualquer teste valer. Não visto testar o comportamento com múltiplos focos próximos ao mesmo tempo nem o cruzamento mira↔proximidade jogando manualmente (só validado via `eval`, não com o mouse/teclado de verdade) — vale conferir numa sessão jogável normal.
+
+**Arquivos alterados:**
+- `Assets/Scripts/EmissionHighlightUtil.cs` (novo)
+- `Assets/Scripts/FocoProximityGlow.cs` (novo)
+- `Assets/Editor/FocoProximityGlowBuilder.cs` (novo)
+- `Assets/Scenes/SampleScene.unity` — componente `FocoProximityGlow` adicionado ao Player, salvo via `save_scene`.
+
+**Observações para futuras sessões de IA:**
+- Se for customizar cor/raio por tipo de foco no futuro, o ponto de extensão natural é `FocoHUDInfo` (mesmo padrão já usado pra textos/cor da barra) — decisão consciente de não fazer isso agora porque o usuário pediu valores globais.
+- `raioProximidade`, `corBrilho` e `intensidadeBrilho` são `[SerializeField]` no Inspector do `FocoProximityGlow` (no GameObject Player) — dá pra ajustar sem mexer em código.
+
+### 2026-09-26 — Skill de preview para mudanças visuais
+
+**Objetivo:** a pedido do usuário, criada uma skill para que, sempre que ele pedir um plano que mude a interface gráfica ou o design do jogo, a IA mostre um preview visual (mockup antes × depois) antes de implementar.
+
+**Arquivos alterados:**
+- `.claude/skills/preview-design/SKILL.md` (novo) — instruções: ler o estado atual, capturar screenshot da Game view se possível, montar mockup com `show_widget` usando cores/tamanhos reais do código, apresentar plano e aguardar aprovação.
+- **Atualização (mesmo dia):** o usuário pediu que o preview seja gerado **dentro do Unity**. A skill foi reescrita: em Play Mode, aplica a mudança temporária via `unity command eval_file` sob um GameObject `__Preview`, captura antes/depois com `unity command screenshot '{"view":"game"}'` e depois limpa. Verificado ao vivo: Canvas `ScreenSpaceOverlay` não sai na captura (nem o HUD OnGUI); `ScreenSpaceCamera` com `Camera.main` sai corretamente. Mockup HTML só como fallback se o Editor não estiver conectado.
+
+### 2026-09-26 — Player refeito: movimentação nova + corpo de agente de saúde modelado do zero
+
+**Objetivo:** o usuário pediu para "melhorar o player, refazer toda a movimentação já existente e colocar um asset de agente de saúde". Decisões com o usuário: **primeira pessoa** continua; recursos novos **correr com Shift**, **balanço de câmera** e **suporte a controle (gamepad)**; agachar fica de fora. O plano era usar o pacote CC0 da Quaternius ("Ultimate Animated Character Pack"), mas o Google Drive dele recusou o download (*Quota exceeded*). O usuário então pediu: "faça você mesmo um modelo foda". O agente foi **modelado, rigado e animado do zero no Blender 5.2** (instalado na máquina), por script.
+
+**Estado encontrado na cena (diferente do que as entradas anteriores descrevem):** o player (`/Player`) não tinha mais o corpo do médico (`Modelo`). Tinha um filho `Cube` achatado (escala 0,31×1×0,08, com `BoxCollider` na layer Default), `MouseLook.eyeHeight = 2,12` e `CharacterController.skinWidth = 0,08`, que deixava o corpo flutuando 8 cm. O `Cube` foi tratado como corpo provisório e removido pelo builder.
+
+**Modelo: `Ferramentas/Blender/gerar_agente.py` (novo, fora de `Assets/`).**
+- Uso: `blender -b --factory-startup --python gerar_agente.py -- <pasta_saida> [--sem-render]`.
+- Gera `AgenteSaude.fbx`, `AgenteSaude.blend` e prévias PNG.
+- Low poly: 7,8 mil triângulos no corpo e 1,4 mil na cabeça. Altura ~1,78 m com o boné.
+- Visual: colete azul ACS com duas faixas refletivas amarelo-limão, zíper, bolsos com lapela, "ACS" no peito direito e "AGENTE DE SAÚDE" nas costas; camiseta branca, calça jeans, tênis com sola branca; boné azul com logo (círculo branco + cruz azul); crachá no peito esquerdo (faixa, foto, linhas de nome, clipe); bolsa tiracolo bege com "SAÚDE" na lapela; relógio no pulso esquerdo (aparece em primeira pessoa).
+- Esqueleto Generic com nomes compatíveis com Humanoid (`Hips`, `Spine`, `Chest`, `Neck`, `Head`, `Left/RightUpperArm`, `LowerArm`, `Hand`, `UpperLeg`, `LowerLeg`, `Foot`). Pesos por proximidade de junta, com mistura suave.
+- Animações in-place a 30 fps: `Idle` (90 f), `Walk` (16 f, passo ~0,74 m, feita para 2,8 m/s), `Run` (15 f, passo ~1,45 m, feita para 5,8 m/s) e `Air` (pose no ar, 20 f).
+- A **cabeça é uma malha separada** (`AgenteSaude_Cabeca`): no jogo fica em *Shadows Only*. Some da câmera em primeira pessoa mas continua fazendo sombra, sem o truque antigo de encolher o osso `Head`.
+
+**Asset no Unity:** `Assets/Meus/Assets Gerados/Agente de Saude/` com `AgenteSaude.fbx`, `Materiais/Agente_*.mat` (19 materiais URP/Lit, cor sólida, instancing ligado, sem emissão), `Agente_AnimController.controller` e `Agente de Saude.prefab` (variante do FBX com o controller).
+
+**Scripts novos (`Assets/Scripts/`):**
+- `EntradaJogador.cs` — único lugar que lê a entrada, via `Assets/InputSystem_Actions.inputactions` (mapa `Player`: Move, Look, Jump, Sprint, Attack). Teclado, mouse e controle funcionam.
+  - `sensibilidadeMouse` em graus por pixel; o builder copiou o valor que o usuário tinha ajustado no `MouseLook` (0,5). `sensibilidadeControle` em graus por segundo.
+  - Buffer de pulo de 0,12 s. `Habilitado` bloqueia tudo. `DefaultExecutionOrder(-100)`.
+- `ControladorJogador.cs` — substitui `Mover` + `Pular` + o giro do `MouseLook`. Um único `Update`: olhar → andar/correr → pulo → gravidade → um `CharacterController.Move`.
+  - Andar 2,8 m/s; correr 5,8 m/s (Shift + andar para a frente).
+  - Pulo por altura (`alturaPulo` 1,1 m) com coyote time de 0,12 s. A gravidade é integrada pela velocidade média do frame, então a altura sai exata em qualquer FPS.
+  - O `yaw` inicial vem da rotação da cena; o `MouseLook` começava em 0 e dava um "estalo".
+  - API pública: `ControleAtivo`, `Yaw`, `Pitch`, `VelocidadeHorizontal`, `VelocidadeVertical`, `VelocidadeAndar/Correr`, `NoChao`, `Correndo`, `TempoNoAr`, eventos `OnPulou` e `OnAterrissou(float velQueda)`, `Teleportar(Vector3)` e `DefinirOlhar(yaw, pitch)`.
+- `CameraJogador.cs` (na Main Camera) — a câmera gira em torno do **pescoço** (`alturaPivo` medido no osso `Head`, ~1,49 m) com os olhos em `olhosNoPivo` (0,10 m à frente e 0,13 m acima). Olhando para baixo, os olhos vão para a frente, como uma cabeça de verdade, e aparecem colete, mãos e pontas dos pés sem a câmera entrar no peito.
+  - Head bob sincronizado com a distância andada (mesmo comprimento de passo das animações).
+  - Afundada com mola amortecida ao aterrissar; FOV +6° na corrida; `nearClipPlane` 0,05.
+- `AnimadorJogador.cs` (reescrito, mesmo GUID) — `Speed` mapeado pela velocidade real (andar = 0,5, correr = 1), por isso os pés não patinam. `NoChao` troca para a pose no ar na hora ao pular e com 0,15 s de tolerância ao cair de degrau. **A gambiarra "pés grudados no chão" por frame foi removida**; ela era específica dos clipes do médico.
+
+**Removidos:** `Assets/Scripts/mover.cs`, `pular.cs` e `MouseLook.cs` (+ `.meta`), via `delete_asset`, depois de salvar a cena. Não sobrou referência a eles em cena ou prefab; só nas cópias automáticas de `Assets/_Recovery/`, que não são usadas.
+
+**Integrações:**
+- `SaidaDoHospital.cs` usa `ControladorJogador.Teleportar` (com fallback para o CC puro).
+- `FluxoDeJogoHUD.cs`: campo `jogador`; na vitória ou derrota faz `ControleAtivo = false` e o jogador fica parado na tela final.
+- `Interactor.cs`: além do clique esquerdo, aceita a ação `Attack` do `EntradaJogador` (botão Oeste do controle).
+
+**`Assets/Editor/PlayerBuilder.cs` (reescrito):** menu **Dengue > Configurar Player (Agente de Saúde)**. É idempotente e acha o player pelo `CharacterController`. Etapas:
+- **Materiais:** cria ou atualiza os materiais da paleta.
+- **Import do FBX:** `bakeAxisConversion`, Generic, sem root motion, clipes renomeados `AgenteSaude|Walk` → `Walk` e em loop, remap de material por nome.
+- **Controller:** recria o controller (Blend Tree 1D `Speed` Idle 0 / Walk 0,5 / Run 1; estado `NoAr` pelo bool `NoChao`, padrão true).
+- **Prefab:** recria o prefab com a pose Idle aplicada.
+- **Player:** troca os componentes antigos (por nome de tipo, funciona mesmo com os scripts já apagados) e ajusta o CC (altura 1,75, raio 0,3, centro 0,875, degrau 0,35, `skinWidth` 0,03, com o modelo descendo 0,03).
+- **Corpo:** substitui o corpo antigo (`Modelo` ou `Cube`) pelo prefab, com a cabeça em *Shadows Only*, `updateWhenOffscreen` e a layer `CorpoJogador`.
+- **Câmera:** coloca o `CameraJogador` na Main Camera.
+- **Checagem:** avisa no console se o modelo estiver olhando para -Z.
+
+**Verificado no Editor conectado (Unity CLI):**
+- Recompile sem erros.
+- Builder rodado várias vezes sem duplicar nada.
+- Play Mode com teclado e mouse virtuais do Input System:
+  - Parado: câmera a 1,62 m.
+  - W: 2,80 m/s com `Speed` 0,50. W + Shift: 5,80 m/s com `Speed` 1,00 e FOV 66. Soltar: para.
+  - Pulo: 1,100 m exatos, estado `NoAr` tocado e `OnAterrissou` disparado uma vez.
+  - Mouse: 60 px → 30° de yaw, com o corpo girando junto.
+  - Porta do hospital: teleporta e inicia a partida.
+  - Ocupação forçada a 100%: derrota, `ControleAtivo` false e W não move mais.
+- Capturas em primeira pessoa (fora do Play, com a mesma conta de câmera) mostram mãos e pontas dos tênis a ~60° para baixo, e colete, alça, zíper e crachá bem para baixo.
+
+**Observações para futuras sessões de IA:**
+- **Mudar o visual do agente:** editar `Ferramentas/Blender/gerar_agente.py`, rodar no Blender, copiar o FBX para `Assets/Meus/Assets Gerados/Agente de Saude/` e rodar o menu. O script já gira o objeto do esqueleto 180° só na exportação. Com *Bake Axis Conversion*, o `axis_forward` do exportador não faz diferença: sem a rotação o agente entra no Unity olhando para -Z (de costas).
+- **Play Mode com o Editor sem foco** fica parado no frame 2. `Application.runInBackground = true` destrava, mas **também grava `PlayerSettings.runInBackground = true` no projeto**: voltar para false depois. Trocar `InputSystem.settings` por uma cópia (`IgnoreFocus` + `AllDeviceInputAlwaysGoesToGameView`) faz o teclado virtual funcionar sem mexer no asset; restaurar e remover os dispositivos no fim.
+- `capture_game_view` com `save_path` relativo grava em `Assets/Temp/...`: apagar a pasta depois, senão vira asset.
+- Se um `.cs` for salvo durante o Play Mode (por exemplo, por outra sessão), o Unity recompila e recarrega o domínio no meio do teste e todo o estado se perde.
+- Ajustes finos pelo Inspector, sem código: velocidades, pulo e aceleração no `ControladorJogador`; sensibilidade no `EntradaJogador`; balanço, afundada, FOV e posição dos olhos (`olhosNoPivo`) no `CameraJogador` da Main Camera.
+
+### 2026-09-26 — História contada pelo celular + abertura/epílogo em cartelas + enfermeira na recepção
+
+**Objetivo:** o usuário pediu o jogo "numa pegada mais de história". Decisões dele: (1) o celular/tweets SÃO a história — tudo o que o jogador fizer gera um tweet de alguém do bairro sobre aquilo; (2) abertura + epílogo em cartelas; (3) protagonista = agente comunitário de saúde, e o NPC da recepção deixa de ser o médico (mesmo modelo do corpo antigo do jogador) e vira a enfermeira.
+
+**Arquivos novos:**
+- `Assets/Scripts/HistoriaRedeSocial.cs` — o narrador. `PersonagemDoBairro` (autor, @, `TipoFoco`, falas `aoChegarPerto`/`aoEliminar` (lista em ordem, depois sorteio)/`aoEliminarUltimo`/`aoLargarPelaMetade`, `epilogoLimpo`/`epilogoPendente`). Elenco padrão: Carlos (pneus), Dona Neusa (vasos), João (caixas d'água, filho internado), Ana Paula (piscina), Bruna (garrafas); Enf. Rita e UBS para hospital/ocupação. Outros gatilhos: saída do hospital (`FluxoDeJogo.OnPartidaIniciada`), ~60 s sem foco, ~35 s parado (mede o deslocamento real do player, ignora com o celular aberto), 2 focos em < 20 s, 4 pulos em 6 s (`ControladorJogador.OnPulou`), marcos de ocupação 70/85/95% subindo e 40% descendo (só disparam depois de "armados" do outro lado do limite), derrota. Posts de comportamento só entram se `RedeSocial.NaFila <= 2`. Marcadores próprios: `{restantesTipo} {eliminadosTipo} {totalTipo} {ocupacao}`. Liga `RedeSocial.NarradorExterno` no Awake e enfileira os `PostsFinais` quando o último foco cai. `LinhasEpilogo(vitoria)` monta o epílogo (derrota = só tipos pendentes). Tudo editável no Inspector do objeto `Historia`.
+- `Assets/Scripts/CartelasNarrativas.cs` — tela preta + frase com fade, em tempo real (`unscaledDeltaTime`); clique/Espaço/Enter avança (clique na entrada só completa o fade), Esc pula tudo; callback `antesDeClarear` e `aoTerminar`.
+- `Assets/Scripts/HistoriaDoJogo.cs` — abertura (5 cartelas) com `Time.timeScale = 0`, `ControleAtivo = false`, `Interactor.Bloqueado` e `CelularController` desligado; pulada ao reiniciar com R (flag estática zerada a cada Play por `RuntimeInitializeOnLoadMethod(SubsystemRegistration)`); restaura `timeScale` no `OnDestroy`. Epílogo 1,6 s após vitória/derrota: "Uma semana depois..." + fala de cada personagem em formato de post + fechamento; segura a tela de estatísticas (`FluxoDeJogoHUD.SegurarTelaFinal`) até o fim.
+- `Assets/Scripts/NotificacaoCelular.cs` — banner push acima do ícone do celular (avatar com a cor do feed, autor, @, 2 linhas com reticências); fila com mínimo de 2,6 s por aviso; some e descarta a fila com o celular aberto.
+- `Assets/Editor/HistoriaBuilder.cs` — menu **Dengue > Configurar Historia** (idempotente): cria `CartelasCanvas` (sortingOrder 30), `CelularHUD/Notificacao`, objeto `Historia` com os dois componentes, liga referências e troca o texto antigo do `BriefingTexto`.
+
+**Arquivos alterados:** `RedeSocial.cs` (`Enfileirar` público, `NaFila`, `PostsFinais`, `NarradorExterno`); `FeedRedeSocial.cs` (`Marcadores`, `CorDoAutor`, `Inicial` públicos); `FluxoDeJogo.cs` (evento `OnPartidaIniciada`, `IniciarPartida` não dispara 2x); `FluxoDeJogoHUD.cs` (`SegurarTelaFinal`); `FluxoDeJogoHUDBuilder.cs` (`BriefingPadrao` internal, agora aponta pro celular); `PersonagensHospitalBuilder.cs` (recepção = `Female_WhiteCoat` com `BaixarBracos()` — gira os ossos Humanoid da T-pose antes de remover o Animator —, collider 1,6/0,26, balão com a missão; cai no médico se o pacote sumir); `QuartoHospitalBuilder.cs` (só comentário); `BalaoDeFala.cs` (billboard invertido — ver pendências).
+
+**Aplicado na cena (via CLI, salva):** grupo `SalaDoHospital/Personagens` refeito chamando `PersonagensHospitalBuilder.Popular(sala, 3f)` (sem reconstruir a sala inteira, para não mexer no player da sessão paralela); menu `Configurar Historia` rodado 2x (2ª: nada a criar).
+
+**Verificado em Play Mode:** abertura com `timeScale 0`, controles travados e 4 posts de abertura retidos na fila; ao fim, tudo destrava e os posts saem; saída do hospital → posts da Enf. Rita e da UBS ("Ocupação da UBS em 70%"); pneu eliminado → Carlos com "Faltam 3"; marcos 85/95/100% + derrota postados; epílogo de derrota com as 5 falas pendentes, depois a tela de derrota; banner visível com avatar/autor. Enfermeira com pés exatamente no piso (raycast + vértices do `BakeMesh`; o `Renderer.bounds` do prefab enganava com 5 cm de folga).
+
+**Pendente (limite de uso atingido no meio):**
+1. `BalaoDeFala.cs` foi editado mas **não recompilado/testado**. Diagnóstico confirmado em Play: com a versão antiga o texto aparecia espelhado; girando o balão com a frente para longe da câmera ficou legível.
+2. O balão da enfermeira (1,25 m de largura) entra na parede Norte quando visto de lado — pôr o balão num filho âncora ~0,5 m à frente dela (o `BalaoDeFala.Start` sobrescreve `localPosition`, então precisa da âncora) e recriar o grupo `Personagens`.
+3. Não testados ainda: aproximação, foco largado pela metade, combo, pulos, parado, tempo sem foco, marco de 40% descendo, vitória + epílogo de vitória, reinício com R pulando a abertura.
+4. Balanceamento já existente na cena: `FluxoDeJogo` começa em 70% e sobe ~1%/s → derrota em 30 s sem limpar nada (o default do código é 0,3%/s, mas a cena guarda o valor antigo).
+
+**Observações para futuras sessões de IA:**
+- Em projeto URP, TextMeshPro 3D fica legível com o +Z apontando PRA LONGE da câmera.
+- `capture_game_view --save_path` relativo grava em `Assets/Temp/` — apagar os PNG + .meta depois. `Application.runInBackground = true` (necessário para o Play avançar com o Editor sem foco) grava `PlayerSettings.runInBackground` — voltar para false no fim.
+- No PowerShell 5.1, `unity command eval --code '...'` perde as aspas duplas; usar `eval_file`.
+
+### 2026-09-26 — História (parte 2): ritmo da ocupação, balões de fala legíveis e testes que faltavam
+
+**Objetivo:** fechar as pendências da entrada anterior e dois pedidos novos do usuário: (1) "no início seja mais lenta, pra dar tempo do player pensar e ler um pouco o que tá acontecendo; quando a pessoa puxa o celular a taxa de ocupação suba mais devagar — o player não precisa saber disso"; (2) "os balões de fala mais legíveis".
+
+**Ritmo da ocupação — `Assets/Scripts/FluxoDeJogo.cs`:** campos novos (a cena pegou os defaults sozinha; o `aumentoPorSegundo = 0.01` que o usuário configurou foi mantido): `aumentoNoInicio` 0.002 (0,2%/s), `duracaoInicioCalmo` 45 s, `duracaoRampa` 60 s (sobe linear até `aumentoPorSegundo`), `multiplicadorComCelular` 0.25 e referência `celular` (vazia = procura). `TaxaAtual()` privado junta tudo; nenhum aviso na tela. Com os valores da cena (70% inicial, −15% por foco): ~87 s até perder sem limpar nada, em vez de 30 s. Medido em Play: 0,200%/s logo após sair do hospital (Δocupação real em 7,5 s de jogo), 0,600%/s no meio da rampa, 1,000%/s depois, 0,250%/s com o celular aberto.
+- `HistoriaRedeSocial.cs`: o timer de "muito tempo sem foco" também para com o celular aberto (igual ao de "parado") — ler o feed não rende cobrança. Conferido: 7 s com o celular aberto → timer em 0 e nenhum post; ao fechar, o post saiu.
+
+**Balões de fala — preview antes de implementar (skill `preview-design`):** montados em Play Mode (descartado) e capturados no mesmo enquadramento: "antes" × variante A (balão claro de HQ) × variante B (painel escuro sóbrio igual à HUD). O usuário escolheu a **B**.
+- `Assets/Scripts/BalaoDeFala.cs` reescrito: o visual é montado em RUNTIME como Canvas world-space filho — `Painel` (UISprite fatiado, `pixelsPerUnitMultiplier` 0.3, cor 0.07/0.09/0.11, `Shadow` + `Outline` 14% branco, `VerticalLayoutGroup` + `ContentSizeFitter`), `Nome` (24 px, negrito, maiúsculas, verde-água 0.25/1/0.8, espaçamento 4), `Texto` (36 px, branco, 400 px de largura via `LayoutElement`), `Rabo` (quadrado 30 px girado 45°). 400 px = 1 m; de longe cresce até 1,5× (a partir de 3,5 m). Sempre de frente total pra câmera (`rotation = cam.rotation`) — acabou o texto espelhado. Campos novos: `quemFala`, `deslocamentoFrente`, `spriteFundo`, cores/tamanhos com nomes novos (não herdam os 0,7/1,4 serializados do TMP 3D). Se o objeto ainda tiver o `TextMeshPro` 3D antigo, ele é desligado no `Awake`.
+- `Assets/Editor/PersonagensHospitalBuilder.cs`: `CriarBalao(pai, quem, texto, altura, frente)` cria só o `BalaoDeFala` (sem TMP 3D) e preenche `spriteFundo` com `UI/Skin/UISprite.psd` (em runtime não dá pra carregar o sprite embutido). Enfermeira: "Enf. Rita", altura 1,95, 0,6 m pra frente (o balão entrava na parede Norte). Pacientes: "Paciente", alturas 1,2 (sentado) e 1,85 (em pé) — no preview os dois balões encostavam.
+- Aplicado na cena via `eval_file` (apagar `SalaDoHospital/Personagens` + `PersonagensHospitalBuilder.Popular(sala, 3f)`, sem reconstruir a sala nem mexer no player) e `save_scene`. Conferido em Play: igual ao preview B de longe (~5 m) e de perto, de lado, no ângulo que antes cortava o balão na parede.
+
+**Testes em Play que faltavam (todos OK, via `eval_file`, com a ocupação zerada por reflection só no teste):** aproximação de vaso → Dona Neusa; 1 clique numa caixa d'água e ir embora → João "largou aberta"; muito tempo sem foco → João/Enf. Rita/Ana Paula (com `{restantes}` certo no card); duas garrafas em < 20 s → Bruna (1ª e 2ª fala) + combo; parado → Ana Paula e depois Carlos; `OnPulou` 4× → Ana Paula; ocupação abaixo de 40% → UBS "caiu para 38%"; vitória → falas de cada tipo ("primeiro", seguintes, "último"), epílogo de vitória com as falas "limpo" e a tela de vitória só depois dele; reinício (mesma chamada do R) → abertura pulada, `timeScale` 1, controles ativos. Console: só o erro antigo do `Default-Particle.psd` (`Interactable.cs:303`).
+
+**Observação sobre a cena atual:** ela tem **13 focos e nenhuma piscina** (nenhum `PiscinaInteractable`), então a Ana Paula nunca posta sobre piscina e o epílogo de vitória tem 4 falas. Se a piscina voltar pra cena, a fala dela entra sozinha.
+
+**Observações para futuras sessões de IA:**
+- Para o Play avançar com o Editor sem foco, `unity command set_autotick --enable true` NÃO bastou nesta sessão (avançava alguns frames por comando e travava). O que funcionou foi `Application.runInBackground = true` no Play e, no fim, `PlayerSettings.runInBackground = false` (conferido no disco: `runInBackground: 0`). Chamar `set_autotick` antes do `editor_play` não adianta: o reload de domínio do Play desliga.
+- Durante testes, `ControladorJogador.ControleAtivo = false`: o Input System do Editor recebe teclado/mouse mesmo sem foco, e o jogador andava/girava sozinho entre as capturas (o usuário digitando em outra janela).
+- `unity command screenshot --view game` grava em `Temp/pipeline-screenshots/` (fora de `Assets`) e captura canvases world-space (não pega Screen Space Overlay).
+- No PowerShell, não nomear função como `R` (é alias do histórico).
+
+### 2026-09-26 — Menu de pausa (Esc) com Configurações, Reiniciar do zero e Sair
+
+**Objetivo:** o usuário pediu um menu ao apertar Esc com um botão de configurações (volume, sensibilidade, FOV "e etc."), um que reinicia o jogo do zero e um para fechar. Preview feito antes com a skill `preview-design` (menu, configurações e confirmação montados em Play Mode e capturados); o usuário aprovou com um pedido: **"os botões de dentro do menu com um padding um pouco menor do que o resto"** — interpretado como: texto dos cartões a 44 px da borda (`PaddingConteudo`), botões e linhas de configuração a 28 px (`PaddingBotoes`), então os botões ficam mais largos que a coluna de texto e o texto deles fica alinhado ao título. As duas constantes estão no topo do `MenuPausaBuilder.cs`.
+
+**Arquivos novos:**
+- `Assets/Scripts/MenuPausa.cs` — no Canvas `MenuPausaCanvas`. Esc (ou Start no controle) abre/fecha. Abrir: `Time.timeScale = 0`, `ControladorJogador.ControleAtivo = false`, `Interactor.Bloqueado = true`, `CelularController` desligado, cursor solto; guarda o estado anterior de cada um e restaura ao fechar (o cursor sempre volta travado). A restauração é feita no `LateUpdate` do mesmo frame, para o clique/Espaço que fechou o menu não virar clique num foco nem pulo. Não abre com `CartelasNarrativas.Tocando` (lá o Esc pula a história) e fecha sozinho se o epílogo começar por baixo. Com o celular levantado, o Esc primeiro guarda o celular. Telas: Menu (rótulo muda: "UBS VILA NOVA · RECEPÇÃO" antes de sair do hospital, "MISSÃO EM ANDAMENTO", "MISSÃO ENCERRADA"; status com focos eliminados/total e ocupação colorida), Configurações e Confirmação (reiniciar/sair; abre por cima do menu, com "Cancelar" selecionado). Esc / B = voltar uma tela. `GarantirSelecao()` mantém sempre um item da tela atual selecionado (clicar no vazio desmarcaria tudo e o controle ficaria perdido). `AjustarAoTamanhoDaTela()` encolhe os cartões se a janela for baixa. Reiniciar do zero: `ConfiguracoesJogo.Salvar()`, `HistoriaDoJogo.EsquecerAbertura()`, `timeScale = 1`, `LoadScene`. Sair: `Application.Quit()` (no Editor, sai do Play).
+- `Assets/Scripts/ConfiguracoesJogo.cs` — classe estática + enum `CanalSom`. Valores em PlayerPrefs (`config.*`), carregados em `RuntimeInitializeOnLoadMethod(BeforeSceneLoad)` e reaplicados ao player/câmera em todo `SceneManager.sceneLoaded` (inclusive no reinício). Padrões: volume geral 100%, música 80%, efeitos 100%, sensibilidade 1,0× (0,1–3,0), FOV 60° (60–100), inverter Y desligado, balanço ligado, qualidade = a do projeto. Volume geral → `AudioListener.volume`; tela cheia → `Screen.fullScreenMode` (sem PlayerPrefs, o Unity já guarda). Evento `Mudou`. `Salvar()` é chamado ao sair das Configurações e ao fechar o menu.
+- `Assets/Scripts/CanalDeAudio.cs` — põe uma `AudioSource` no canal Música ou Efeitos: volume = volume do Inspector × volume do canal. **Não foi usado AudioMixer**: o Unity não tem API pública para criar mixer/grupos por script; o componente resolve sem asset novo. Toda `AudioSource` nova deve ganhar um (trilha → Música; zumbido, notificação, sons de foco → Efeitos).
+- `Assets/Scripts/ItemDeMenu.cs` — visual de cada item: passar o mouse SELECIONA o alvo (mouse e controle usam o mesmo destaque), destaque = fundo mais claro + barrinha de acento; se o alvo for `Toggle`, desenha a chave liga/desliga (bolinha, cor da pista, "Ligado/Desligado"). Funciona com `timeScale = 0`.
+- `Assets/Editor/MenuPausaBuilder.cs` — menu **Dengue > Criar Menu de Pausa**. Reconstrói do zero a cada execução (apaga o `MenuPausaCanvas` antigo). Canvas Overlay, `sortingOrder 40` (acima das cartelas, 30), `CanvasScaler` 1920×1080 / 0,5, `CanvasGroup`. Sliders com `wholeNumbers` (volume de 5 em 5%, sensibilidade de 0,1 em 0,1, FOV de 5 em 5°); toggles na própria linha (clicar em qualquer lugar da linha liga/desliga); "Qualidade gráfica" = Slider sem trilho na linha (esquerda/direita no controle) + setas clicáveis; navegação explícita (cima/baixo; na confirmação, esquerda/direita). Cria `EventSystem` + `InputSystemUIInputModule` se faltar (troca `StandaloneInputModule`, que não funciona com só o Input System novo) e põe `CanalDeAudio` (Efeitos) na `AudioSource` do `CelularHUD`. Cores: botão de destaque normal um pouco mais escuro (`AccentEscuro`/`PerigoEscuro`) e cor cheia quando selecionado.
+
+**Arquivos alterados:**
+- `EntradaJogador.cs` — `MultiplicadorSensibilidade` (vale para mouse E controle) e propriedade `InverterY`.
+- `CameraJogador.cs` — `FovBase` (muda na hora, inclusive pausado) e `BalancoAtivo` (zera o peso do head bob/inclinação).
+- `HistoriaDoJogo.cs` — `public static EsquecerAbertura()`: o "Reiniciar do zero" toca a abertura de novo (o R do fim de jogo continua pulando).
+
+**Aplicado na cena (via CLI, salva):** menu `Dengue > Criar Menu de Pausa` rodado; criou `EventSystem`, `MenuPausaCanvas` e o `CanalDeAudio` no `CelularHUD`. Conferido: as 39 referências do `MenuPausa` ligadas e 17 `ItemDeMenu`.
+
+**Verificado em Play Mode:** abrir → `timeScale 0`, controle/interação/celular travados, cursor solto, "Continuar" selecionado; Configurações → FOV 75 aplicado na câmera na hora, sensibilidade 1,4× e Y invertido no `EntradaJogador`, textos "75°"/"1,4×", chaves com estado certo, linha do FOV destacada; Voltar → menu com "Configurações" selecionado; Reiniciar → confirmação com "Cancelar" selecionado; Cancelar → menu com "Reiniciar do zero" selecionado; Continuar → `timeScale 1` na hora e controles/cursor restaurados no `LateUpdate`; PlayerPrefs gravados; Reiniciar + Confirmar → cena recarregada com a abertura tocando de novo e as configurações reaplicadas ao player/câmera novos. As preferências de teste foram apagadas no fim (`config.*`). Capturas do menu, das configurações e da confirmação conferidas (canvas trocado para Screen Space Camera só no Play, para aparecer no screenshot).
+
+**NÃO verificado:** a tecla Esc/Start de verdade. Com o Editor sem foco o Input System descartou os eventos de teclado sintéticos (nem as cartelas os receberam), mesmo com `InputSystem.settings` em `IgnoreFocus`/`AllDeviceInputAlwaysGoesToGameView` (restaurados depois). O código usa o mesmo padrão já em uso (`Keyboard.current.escapeKey.wasPressedThisFrame`). Conferir numa sessão normal: Esc abre/fecha, Esc nas Configurações volta, Esc nas cartelas só pula a história.
+
+**Descoberta — qualidade gráfica:** fora do Play, `QualitySettings.count` = 2 (Mobile, PC); no Play/build de PC = 1, porque o nível "Mobile" está excluído do Standalone. Por isso o `MenuPausa.OcultarQualidadeSeUnica()` decide em runtime: com um nível só, a linha "Qualidade gráfica" some, as de baixo sobem, o cartão encolhe (880 → 826) e a navegação é religada. Hoje ela não aparece no jogo; para aparecer, habilitar mais de um nível para PC em Project Settings > Quality ("Mobile" vira "Baixa" e "PC" vira "Alta" no menu).
+
+**Observações para futuras sessões de IA:**
+- Neste Unity (6000.5), `FindFirstObjectByType` e `FindObjectsByType(..., FindObjectsSortMode)` estão obsoletos (CS0618): usar `FindAnyObjectByType` e `FindObjectsByType<T>()` / `FindObjectsByType<T>(FindObjectsInactive)` em código novo.
+- `unity command menu` recebe o caminho em `--path "Dengue/..."` (JSON `{"path":...}` só lista os itens). Logo depois de um `recompile` o comando pode falhar com "Network error": esperar `editor_status` com `domainReloadInProgress:false`.
+- Com os frames parados (Editor sem foco), `UnityEditor.EditorApplication.isPaused = true; EditorApplication.Step();` via `eval_file` avança um frame por chamada — foi o que fez o `LoadScene` do reinício acontecer. Lembrar de `isPaused = false` no fim.
+- Atalho de teste que pula a abertura parando a corrotina (`StopAllCoroutines` nas cartelas) deixa `CartelasNarrativas.Tocando` preso em `true` — o menu então fecha sozinho. Zerar o backing field `<Tocando>k__BackingField` junto.
+- `Camera.main.Render()` chamado via `eval` para capturar com os frames parados gera erros do URP "attachment dimensions do not match RenderPass" no console — são do teste, não do jogo.
+- O canvas de UI em Screen Space Camera passa pelo HDR/tonemapping: véus translúcidos parecem bem mais claros na captura do que no Overlay real.
+- Python no Git Bash deste Windows lê heredoc com a codificação errada (acentos): escrever o script com a ferramenta Write e rodar com `python -X utf8`.
+
+---
+
+### 2026-09-26 — Troca de "UBS" por "UPA" em todo o jogo
+
+**Objetivo:** a pedido do usuário, todo texto do jogo que dizia "UBS" passa a dizer "UPA".
+
+**Arquivos alterados:**
+- `Assets/Scripts/HistoriaDoJogo.cs` — cartelas narrativas ("A UPA do bairro…", "A ocupação da UPA…", "A UPA Vila Nova fechou…").
+- `Assets/Scripts/HistoriaRedeSocial.cs` — perfis `UPA Vila Nova` / `@upa.vilanova` / `@enf.rita.upa`, textos dos posts; constantes renomeadas `Ubs`/`UbsUsuario` → `Upa`/`UpaUsuario`.
+- `Assets/Scripts/RedeSocial.cs` — posts padrão do perfil `UPA Vila Nova`.
+- `Assets/Scripts/MenuPausa.cs` — rótulo "UPA VILA NOVA · RECEPÇÃO".
+- `Assets/Editor/PersonagensHospitalBuilder.cs` — comentário (`@enf.rita.upa`).
+- `Assets/Scenes/SampleScene.unity` — valores serializados dos mesmos textos (substituição direta no YAML, 31 ocorrências).
+
+**Observações técnicas:** substituição por palavra inteira (`UBS`→`UPA`, `ubs`→`upa`). O gênero gramatical se mantém ("da UPA"). As menções a "UBS" em entradas antigas deste histórico foram mantidas como registro.
+
+---
+
+### 2026-09-26 — Hierarquia da cena organizada em grupos
+
+**Objetivo:** o usuário pediu ajuda com a hierarquia do jogo no Unity. A `SampleScene` tinha 53 objetos soltos na raiz (prédios, focos, HUDs, sistemas, câmera e luz misturados). Escolhas do usuário: organizar em **pais vazios recolhíveis** (sem limpar sobras) e **ajustar os builders** para recriarem os objetos dentro do mesmo grupo.
+
+**Hierarquia resultante (8 grupos na raiz, todos na origem, rotação 0, escala 1):**
+```
+--- SISTEMAS ---            FluxoDeJogo, Historia
+--- JOGADOR ---             Main Camera, Player   (câmera continua irmã do Player, não filha)
+--- ILUMINACAO ---          Directional Light, Global Volume
+--- UI ---                  DengueHUD, CelularHUD, FluxoDeJogoCanvas, CartelasCanvas, EventSystem, MenuPausaCanvas
+--- FOCOS ---               pneu ×4, Vaso de Flor ×3, Caixa d'Agua ×2
+--- BAIRRO ---
+    Terrenos                Terreno Baldio, Terrain, Cenario Terreno Baldio
+    Ruas e Praca            Quadra, Praca
+    Construcoes             Hospital, Coffe house, House_01 ×3, Building01-03, Market, School, Police_Station,
+                            Workshop, NaturePark Hovels, Fire_Station, building, building 2
+    Vegetacao               LPW_Tree_B1_9m_01, NaturePark, NatureParkAutumn
+    Objetos de Rua          Car_03, Trash_01, Escada de Mao ×2
+    Cercas                  cerca
+    Limites do Mapa         FimDoMundo (paredes invisíveis)
+--- HOSPITAL (INTERIOR) --- SalaDoHospital
+--- TESTES ---              TesteDoutor (Lowpoly_Doctor do pack BackRock parado em 0,0,0; não documentado — decidir depois se fica)
+```
+Nomes sem acento, no padrão da cena (`Praca`, `Cenario`, `Mobilia`). Os focos que já estavam aninhados (ex.: garrafas dentro do `Cenario Terreno Baldio`) não foram mexidos: em Play continuam 13 `Interactable`.
+
+**Arquivo novo:**
+- `Assets/Editor/HierarquiaOrganizador.cs` — menu **Dengue > Organizar Hierarquia**. Só mexe nos objetos soltos na **raiz** (ignora nomes começando com `--- `). Classifica primeiro por componente: `Interactable` → FOCOS; `Canvas`/`EventSystem` → UI; `ControladorJogador`/`CameraJogador` → JOGADOR; `Light`/`Volume` → ILUMINACAO; `FluxoDeJogo`/`HistoriaDoJogo` → SISTEMAS; `SaidaDoHospital` em algum filho → HOSPITAL; `Terrain` → BAIRRO/Terrenos. Depois usa a tabela `Prefixos` (primeiro prefixo que bater; `NaturePark Hovels` antes de `NaturePark`). O que não se encaixa **fica na raiz** e sai listado no Console. `Undo.SetTransformParent(..., worldPositionStays: true)`, um passo só de Undo, relatório só por `Debug.Log` (sem `DisplayDialog`, para não travar o CLI). Helper público `RecolocarNoLugar(novo, pai, indice)` para os builders.
+
+**Arquivos alterados (builders que apagam e recriam):** guardam `parent` + `GetSiblingIndex()` do objeto antigo antes de `Undo.DestroyObjectImmediate` e chamam `HierarquiaOrganizador.RecolocarNoLugar` no novo:
+- `Assets/Editor/DengueHUDBuilder.cs`, `CelularBuilder.cs`, `MenuPausaBuilder.cs`, `QuartoHospitalBuilder.cs` (na sala, depois de `root.transform.position = CentroDaSala`).
+- `Assets/Editor/TerrenoBaldioBuilder.cs` — `Popular` e `Limpar` procuravam `Cenario Terreno Baldio` só na raiz (`GetRootGameObjects`); dentro de um grupo, o `Popular` criaria um cenário **duplicado**. Agora usam `AcharCenarios(Scene)`, que procura em qualquer nível, e o `Popular` recria no mesmo grupo.
+- Os builders do tipo "acha ou cria" (`HistoriaBuilder`, `FluxoDeJogoHUDBuilder`, `PersonagensHospitalBuilder`) e os de prefab de foco não precisaram de mudança: `GameObject.Find(nome)` acha objetos ativos em qualquer nível.
+
+**Aplicado na cena (via CLI, salva):** menu rodado → 53 objetos movidos, 0 na raiz sem grupo, 15 GameObjects de grupo criados (8 grupos + 7 subgrupos do BAIRRO).
+
+**Verificado:**
+- Snapshot de pose no mundo + `activeSelf`/`activeInHierarchy` dos 1871 transforms antes e depois: nenhum sumiu, nenhum mudou de estado ativo, maior diferença de pose 1,5e-5 (arredondamento de float ao reparentar).
+- Segunda execução do menu: "0 objetos movidos", sem grupo duplicado.
+- `Dengue > Criar Menu de Pausa` rodado de teste: o `MenuPausaCanvas` novo nasceu dentro de `--- UI ---` no mesmo índice (5), uma cópia só, e o builder não gravou nenhum arquivo. A cena foi reaberta do disco para descartar o teste.
+- `TerrenoBaldioBuilder.AcharCenarios` via reflection: acha exatamente 1 cenário, em `--- BAIRRO ---/Terrenos`. `Popular` não foi rodado (regrava assets e refaz o espalhamento).
+- Play Mode: nenhum erro novo no console; `FluxoDeJogo` achado (ocupação 0,7), Player e `Camera.main` na sala do hospital, os canvases ativos, 13 focos. `PlayerSettings.runInBackground` voltou para `false`; `git status` idêntico ao de antes do teste.
+- HUD, Celular e Sala **não** foram rodados de novo: o da HUD abre diálogo (trava o CLI) e o da Sala gera materiais duplicados (`Lit (clinica) 1.mat`, `2.mat`...). A validação deles foi pela compilação e pela revisão do trecho, que é o mesmo do Menu de Pausa.
+
+**Observações para futuras sessões de IA:**
+- Soltou foco/prédio/UI novo na raiz? Rodar **Dengue > Organizar Hierarquia**. Se aparecer "Ficaram na raiz" no Console, adicionar um prefixo em `HierarquiaOrganizador.Prefixos`.
+- Builder novo que apaga e recria um objeto de cena: guardar pai + índice do antigo e chamar `HierarquiaOrganizador.RecolocarNoLugar`. Nunca procurar objetos só com `GetRootGameObjects()` — a raiz agora só tem os grupos.
+- Não marcar os grupos com a tag `EditorOnly`: isso tiraria os filhos da build.
+- No `eval` do CLI, avisos de API obsoleta viram erro de compilação: usar `GetEntityId()` em vez de `GetInstanceID()`.
+
+
+### 2026-09-26 — Preview dos novos focos: Ralo e Bromélia (Blender)
+
+**Objetivo:** Criar dois novos tipos de foco (ralo destampado e bromélia com água acumulada), modelados no Blender por script. A pedido do usuário, primeiro só o **preview** (renders); nada foi importado no Unity ainda.
+
+**Arquivos criados:**
+- `Ferramentas/Blender/gerar_focos.py` — gera os dois modelos low poly e exporta `Ralo.fbx`, `Bromelia.fbx`, `Focos.blend` e as prévias (`previa_ralo`, `previa_ralo_fechado`, `previa_bromelia`, `previa_bromelia_seca`, `previa_bromelia_cima`, `previa_juntos`). Uso: `blender -b --factory-startup --python gerar_focos.py -- <pasta_saida> [--sem-render]`.
+
+**Estrutura dos modelos (nomes que os scripts do Unity vão usar):**
+- `Ralo` → `Caixa` (moldura 0,42 m + poço de 12 cm), `Tampa` (grelha, começa tirada e encostada ao lado), `Agua` (lâmina 3 cm abaixo da boca), `Tela` (tela verde de proteção, aparece no fim).
+- `Bromelia` → `Vaso` (terracota), `Folhas` (3 anéis de folhas em calha, pontas vermelhas), `Flor`, `Agua` com filhos `Agua_Centro` e `Agua_1..4` (uma poça por clique).
+
+**Próximo passo (após aprovação):** exportar FBX para `Assets/Meus/Assets Gerados/Focos/`, criar `RaloInteractable`/`BromeliaInteractable` e o builder `Dengue > Criar Ralo / Criar Bromélia`.
+### 2026-09-26 — Integração dos focos Ralo e Bromélia
+
+**Objetivo:** Colocar no projeto os dois focos aprovados no preview (ralo destampado e bromélia), com modelo do Blender, script de interação e prefab gerado por menu.
+
+**Arquivos criados:**
+- `Assets/Scripts/RaloInteractable.cs` — herda `Interactable`. Cada clique leva a grelha (`tampa`) de `posAberta/rotAberta` para `posFechada/rotFechada`, com arco. No fim a `agua` some e a `tela` aparece; o ralo fica na cena (`removeOnComplete` opcional). **Não** herda `CaixaDaguaInteractable` de propósito: `FocoListaHUD` e `HistoriaRedeSocial` classificam o foco por `is`, e o ralo seria contado como caixa d'água.
+- `Assets/Scripts/BromeliaInteractable.cs` — herda `Interactable`. Array `pocas` na ordem de secar; cada clique seca `ceil(n × cliques / total)` poças (encolhem em `duracaoSecar` e desativam). A planta fica na cena.
+- `Assets/Editor/FocosBlenderBuilder.cs` — menus **Dengue > Criar Ralo** e **Dengue > Criar Bromélia**. Configura o import do FBX (`bakeAxisConversion`, `preserveHierarchy`, sem animação/collider), cria materiais URP Lit `Focos/Materiais/Foco_*.mat` com a paleta do Blender (a água usa `Assets/Meus/agua do pneu.mat`), monta o prefab com o Interactable, `FocoHUDInfo` e um `BoxCollider` na raiz cobrindo todos os renderers. A pose aberta da grelha é lida do FBX; a fechada é `(0, 0.034, 0)` sem rotação.
+- `Assets/Meus/Assets Gerados/Focos/` — `Ralo.fbx`, `Bromelia.fbx`, `Ralo.prefab`, `Bromelia.prefab`, `Materiais/Foco_*.mat`.
+
+**Arquivos alterados:**
+- `Ferramentas/Blender/gerar_focos.py`:
+  - Export com `bake_space_transform=True`: o Unity funde o nó raiz do FBX e perdia a correção de eixo (o modelo entrava deitado).
+  - As poças da bromélia agora são filhas diretas da raiz, com pivô no centro de cada uma. Dentro de um Empty, o export as girava 90°.
+  - A água do ralo subiu para 1 cm abaixo da borda (`ALT - 0.01`) e agora ocupa toda a boca: as calçadas do jogo não têm buraco, e o poço abaixo de y=0 ficava escondido.
+
+**Configuração dos prefabs:**
+- Ralo: 3 cliques, `punchScale` 0.04. HUD: "o ralo" / "Clique para tampar {nome}" / dica sobre manter fechado ou com tela e limpar toda semana.
+- Bromélia: 5 cliques (1 por poça: Agua_1..4, depois Agua_Centro), `punchScale` 0.06. HUD: "a bromélia" / "Clique para esvaziar {nome}" / dica sobre esvaziar com jato d'água toda semana.
+
+**Verificado:**
+- Menus rodados pelo CLI; os prefabs foram renderizados numa *preview scene* do Unity (sem tocar na SampleScene), no estado inicial e no final.
+- Play Mode com instâncias temporárias, destruídas depois; a cena não foi salva:
+  - Ralo: 3/3, a grelha assenta em y=0.034, a água some e a tela aparece.
+  - Bromélia: cada clique seca uma poça, o centro por último.
+- `PlayerSettings.runInBackground` foi ligado só durante o teste e voltou a `false`.
+
+**Observações para futuras sessões de IA:**
+- Os prefabs ainda **não** foram colocados na cena. A lista de focos (`FocoListaHUD`) e a rede social usam `FocoHUDInfo.nome` ("Ralo", "Bromélia"). `HistoriaRedeSocial` classifica esses focos como `TipoFoco.Nenhum`, então nenhum personagem da rede social comenta sobre eles ainda. Para isso, é preciso adicionar tipos ao enum `TipoFoco` e um personagem.
+- Ao testar pelo CLI: o jogo abre com `Time.timeScale = 0` (cartelas da `HistoriaDoJogo`), e o Editor em segundo plano quase não avança frames. Coroutines e o `Start()` de objetos instanciados atrasam. Para testar a lógica, zere as durações das animações por reflection.
+- Regerar um modelo: rodar `gerar_focos.py`, copiar o FBX para `Assets/Meus/Assets Gerados/Focos/` e rodar o menu de novo (o GUID do prefab é mantido).
+
+### 2026-09-26 — Personagens da rede social para Ralo e Bromélia
+
+**Objetivo:** Os focos novos eram classificados como `TipoFoco.Nenhum`. Por isso ninguém comentava sobre eles na rede social (chegar perto, eliminar, último do tipo, largar pela metade) e eles ficavam fora do epílogo. Agora cada um tem tipo e personagem "dono".
+
+**Arquivos alterados:**
+- `Assets/Scripts/HistoriaRedeSocial.cs`:
+  - Enum `TipoFoco` ganhou `Ralo` e `Bromelia` **no fim**, porque o enum é salvo como número na cena e os 5 personagens antigos precisam manter o tipo.
+  - `TipoDoFoco()` reconhece `RaloInteractable` e `BromeliaInteractable`.
+  - `PersonagensPadrao()` ganhou **Seu Osvaldo** (@osvaldo.bar, Ralo) e **Lúcia Andrade** (@lu.plantas, Bromelia), com todas as falas e os dois epílogos.
+  - Novo `public int CompletarPersonagens()`: acrescenta o personagem padrão de cada tipo que ainda não tem dono na lista, sem mexer nos existentes. `PreencherPadroes(false)` (no `Awake`) chama esse método quando a lista não está vazia, então o jogo já funciona em Play mesmo com a cena antiga.
+- `Assets/Editor/HistoriaBuilder.cs` — `Dengue > Configurar Historia` chama `CompletarPersonagens()` (com Undo e SetDirty), para os personagens novos aparecerem no Inspector do objeto "Historia".
+- Seção **4. Personagens** deste arquivo: os dois personagens novos.
+
+**Aplicado na cena (via CLI, NÃO salva):** o menu foi rodado e a lista passou de 5 para 7 personagens. A cena já tinha alterações não salvas do usuário e ficou para ele salvar.
+
+**Verificado:**
+- Compilação OK.
+- Menu rodado 2×: 7 personagens nas duas vezes, sem duplicar; os textos dos 5 originais estão intactos.
+- `TipoDoFoco` por reflection: `Ralo.prefab` → Ralo, `Bromelia.prefab` → Bromelia, Caixa d'Água da cena → CaixaDagua (sem regressão).
+- `CompletarPersonagens()` devolve 0 com a lista completa.
+
+**Observações para futuras sessões de IA:**
+- Novo tipo de foco na rede social: acrescentar no **fim** do enum `TipoFoco`, um `if (foco is X)` em `TipoDoFoco()` e um personagem em `PersonagensPadrao()`. Depois rodar `Dengue > Configurar Historia`.
+- Como o jogo abre com `timeScale = 0`, `TipoDoFoco`, que é estático, dá para testar em modo Edição por reflection, sem Play Mode.
+
+### 2026-09-26 — Dica "Pressione [Shift] para correr"
+
+**Objetivo:** Mostrar na lateral esquerda da tela a dica "Pressione **[Shift]** para correr" quando o jogador passa um tempo sem correr. O visual foi aprovado pelo usuário com preview no Unity: caixa preta a 60% de opacidade, barrinha branca à esquerda e texto branco com "[Shift]" em negrito.
+
+**Arquivos alterados:**
+- `Assets/Scripts/DicaCorrer.cs` (novo):
+  - Se instala sozinho via `RuntimeInitializeOnLoadMethod(AfterSceneLoad)` no objeto que tem o `ControladorJogador`. Não é preciso mexer na cena nem num builder.
+  - Cria o próprio Canvas (`DicaCorrer_Canvas`, Overlay, `sortingOrder` 50, referência 1920×1080). A caixa tem 380×70, fica ancorada no meio da borda esquerda e deslocada 30 px.
+  - Soma o tempo sem `EntradaJogador.CorrerSegurado`. Ao passar de `tempoSemCorrer` (20 s), a dica aparece com fade (`duracaoFade` 0,4 s, com tempo *unscaled*). Ao segurar Shift, o contador zera e a dica some.
+  - Fica oculta e não conta tempo com `Time.timeScale == 0` (pausa e cartelas), `ControleAtivo == false` ou `EntradaJogador.Habilitado == false`.
+
+**Verificado:** A compilação passou. Em Play Mode, a dica fica oculta durante a introdução, com o controle desligado. Com o controle ativo e o contador forçado, `alpha` foi para 1. A cena não foi salva.
+
+**Observações para futuras sessões de IA:** Os valores são ajustáveis no Inspector do componente em Play. Como ele é adicionado em tempo de execução, para mudar os padrões é preciso editar os campos no script. A dica sempre diz "[Shift]", inclusive quando se joga com controle.
+
+### 2026-09-26 — Menu de pausa (Esc) no tema branco
+
+**Objetivo:** O menu de pausa passa do tema escuro com verde-água para o tema branco do jogo. O usuário comparou prévias no Unity e escolheu a variante "B refinada" com o **véu escuro**: cartão branco opaco, texto grafite e botão principal grafite. O vermelho aparece só em "Sair do jogo" e na confirmação de reinício.
+
+**Arquivos alterados:**
+- `Assets/Editor/MenuPausaBuilder.cs`:
+  - Paleta nova (l. ~47–72): `CorFundo` branco, `CorTexto`/`CorTextoFraco`/`CorTextoDica` em cinzas **opacos** (não usam mais transparência), `CorRotulo`, `Primaria`/`PrimariaHover` (grafite, substituem `Accent*`), `Perigo*` e `Neutro`/`NeutroDestaque` sólidos. Também `CorTrilho`, `CorChaveDesligada`, `CorCaixa` e `CorVeuConfirmar`.
+  - Contornos e sombras escuros, sombra do cartão mais longa (-10).
+  - Botões secundários com fundo cinza-claro sólido. "Sair do jogo" tem fundo vermelho a 8% e "Reiniciar" (confirmação) é vermelho sólido com texto branco.
+  - Cruz grafite com traço branco; sliders, chaves e setas em grafite.
+  - Grava no `MenuPausa` as cores `corOcupacaoBaixa`/`corOcupacaoAlta`/`corFocosEliminados`, e no `ItemDeMenu` das chaves as cores `pistaLigada`/`pistaDesligada`/`bolaLigada`/`bolaDesligada`.
+- `Assets/Scripts/MenuPausa.cs`:
+  - Ocupação vai de grafite (baixa) a vermelho (alta).
+  - Novo `corFocosEliminados` no lugar do `#FFFFFFEE` fixo no texto de status.
+- `Assets/Scripts/ItemDeMenu.cs` — os valores padrão das cores (destaque e chave) seguem o tema branco.
+
+**Aplicado na cena (via CLI, NÃO salva):** `Dengue > Criar Menu de Pausa` rodado. O `MenuPausaCanvas` foi reconstruído e a cena ficou suja para o usuário salvar.
+
+**Verificado:**
+- Compilação OK.
+- Em Play Mode foram capturados o menu principal, as Configurações (slider selecionado) e a confirmação. Os três conferem com a prévia aprovada e não sobrou verde-água.
+
+**Observações para futuras sessões de IA:**
+- `MenuPausa.Abrir()` é recusado enquanto as `CartelasNarrativas` tocam (`PodeAbrir`). Para capturar o menu pelo CLI, force `CanvasGroup.alpha = 1` e `interactable = true`. Sem `interactable`, os Selectables aparecem na cor *disabled*.
+- A captura de tela só pega o canvas em ScreenSpaceCamera. Desligue `renderPostProcessing` da câmera para as cores da UI saírem fiéis (o Overlay real não passa pelo pós-processamento).
+- A `FluxoDeJogoHUD` ainda usa verde-água na barra de ocupação (`corOcupacaoBaixa`). Ela não fez parte desta mudança.
+
+### 2026-09-26 — Menu inicial "Foco Zero" (cena MenuInicial) + "Menu inicial" no pause
+
+**Objetivo:** o usuário pediu um menu inicial. Decisões dele, tomadas com um preview renderizado no Unity (skill `preview-design`, Play Mode descartado, capturas em 16:9):
+- **Cena separada** `Assets/Scenes/MenuInicial.unity`, índice 0 do build. A `SampleScene` passa a ser o índice 1.
+- Nome do jogo **Foco Zero**. O título é "FOCO" em branco e "ZERO" em vermelho (`#E04848`).
+- Estilo **cinematográfico**:
+  - Título à esquerda sobre um degradê escuro, e botões só de texto.
+  - A câmera **alterna 3 tomadas** (rua do hospital, praça e sobrevoo), de ~20 s cada, com fade entre elas.
+  - **Luz de fim de tarde**, só no menu.
+- Botões: Jogar, Como jogar, Configurações e Sair. Sem créditos.
+- O pause ganhou o botão **"Menu inicial"**, com confirmação.
+
+**Arquivos novos:**
+- `Assets/Scripts/MenuInicial.cs`
+  - Telas: Título, Como jogar e Configurações. Esc ou B volta uma tela.
+  - Pré-carrega a `SampleScene` com `LoadSceneAsync` e `allowSceneActivation = false` enquanto o jogador está no menu.
+  - "Jogar": fade para preto de 0,5 s e ativa a cena. A `SampleScene` nasce com a tela preta das cartelas, então a troca é de preto para preto. Se a carga não tiver terminado, aparece "Carregando… N%".
+  - "Sair" sai direto, sem confirmação. No Editor, sai do Play.
+  - `Awake` põe `timeScale = 1` e solta o cursor, porque a volta pelo pause chega com ambos travados.
+  - Constantes `NomeCena` e `NomeCenaJogo`.
+- `Assets/Scripts/CameraMenu.cs`
+  - Lista de tomadas `{posInicio, alvoInicio, posFim, alvoFim, duracao}`.
+  - Travelling com *ease* leve e parallax pelo mouse de ±1,5°, em tempo *unscaled*.
+  - Na troca de tomada, o `fadeTomada` (uma tela preta **atrás** do texto) escurece só o cenário.
+  - Os caminhos aparecem na Scene view com a câmera selecionada.
+- `Assets/Scripts/PainelConfiguracoes.cs`
+  - A tela de Configurações saiu do `MenuPausa` sem mudar o comportamento.
+  - É a mesma no pause e no menu inicial.
+  - `Preparar()` pode ser chamado com a tela desativada. `Mostrar()`, `PrimeiroItem` e `BotaoVoltar` ficam expostos.
+- `Assets/Editor/MenuInicialBuilder.cs`: menu **Dengue > Criar Menu Inicial**. Refaz a cena do zero a cada execução e **só lê** a `SampleScene`; se ela não estiver aberta, abre por trás e fecha sem salvar.
+  - Copia todo o `--- BAIRRO ---` e o `--- FOCOS ---`.
+  - Remove por *whitelist* tudo que não desenha: ficam Transform, MeshFilter, Renderer, LODGroup e Terrain. Objetos vazios ou inativos também saem.
+  - As malhas embutidas na cena (as **cercas de ProBuilder**, 864 malhas, e uma de `Ruas e Praca`) viram 3 malhas combinadas por material, sem tangente e com a normal em Float16. Elas ficam em `Assets/Meus/Assets Gerados/Menu Inicial/CenarioMalhas.asset`, de ~20 MB.
+  - Monta a luz de fim de tarde:
+    - Sol a (16°, 285°), cor (1; 0,74; 0,50), intensidade 1,9.
+    - Ambiente *flat* (0,42; 0,36; 0,40).
+    - Neblina linear de 40 a 170 m, que também esconde o horizonte cinza do sobrevoo.
+  - Monta a câmera (FOV 55, **sem pós-processamento**, como no preview), a UI e o `EventSystem`.
+  - Gera `Degrade.png` e `DegradeBaixo.png`.
+  - Confere o caminho das tomadas com `Physics.CheckSphere` e avisa no Console se a câmera atravessar algo.
+  - Atualiza o Build Settings.
+- `Assets/Scenes/MenuInicial.unity` (gerada, ~1,8 MB) e a pasta `Assets/Meus/Assets Gerados/Menu Inicial/`.
+
+**Arquivos alterados:**
+- `Assets/Scripts/MenuPausa.cs`
+  - A lógica de configurações foi para o `PainelConfiguracoes`.
+  - Botão `botaoMenuInicial` com a confirmação "Voltar ao menu inicial?". Ao confirmar: `HistoriaDoJogo.EsquecerAbertura()`, `timeScale = 1` e `LoadScene(MenuInicial.NomeCena)`.
+  - Se a cena do menu não estiver no build, o botão some e o cartão encolhe.
+- `Assets/Editor/MenuPausaBuilder.cs`
+  - As peças de UI (cores, `Novo`, `Pos`, `Img`, `Txt`, `Botao`, `BotaoCentral`, `Cartao`, `Tecla`, `Linha*` etc.) passaram a `internal`, e entrou o `PrepararRecursos()`.
+  - `MontarConfiguracoes(pai, rotulo, out tela, out painel)` virou `internal`.
+  - Botão "Menu inicial" entre "Reiniciar do zero" e a divisória. O cartão cresceu de 640 para 712.
+- `Assets/Scripts/ItemDeMenu.cs`: campos opcionais `texto`, `corTextoNormal` e `corTextoDestaque`. O texto dos botões do título acende quando selecionado.
+- `ProjectSettings/EditorBuildSettings.asset`: MenuInicial (0) e SampleScene (1).
+- Seção 2 (História) deste arquivo: o nome do jogo.
+
+**Aplicado na cena:**
+- `Dengue > Criar Menu de Pausa` rodado e `SampleScene` salva. Ela estava limpa antes.
+- `Dengue > Criar Menu Inicial` rodado 3×. O GUID da cena se manteve e o Build Settings ficou sem duplicata.
+
+**Verificado:**
+- Compilação OK.
+- Auditoria da cena `MenuInicial`: só Transform, MeshFilter, MeshRenderer, LODGroup e Terrain no cenário, 0 malhas embutidas ou nulas, e todas as referências de `MenuInicial`, `CameraMenu` e `PainelConfiguracoes` ligadas.
+- Em Play a partir do menu (capturas em 16:9 conferidas com o preview):
+  - Cursor livre, "Jogar" selecionado e `SampleScene` pré-carregada (0,90).
+  - As 3 tomadas corretas. O fade de troca vai de 1 → 0 em 0,6 s no começo e de 0 → 1 nos últimos 0,6 s.
+  - Como jogar → Voltar ("Como jogar" volta selecionado).
+  - Configurações: FOV 75, e a linha "Qualidade gráfica" oculta (um nível só no PC).
+  - Jogar: a `SampleScene` ativa com as cartelas tocando e o FOV 75 aplicado no `CameraJogador`.
+  - Pause (5 botões) → Menu inicial → confirmação com "Cancelar" selecionado → Confirmar: volta ao menu com `timeScale` 1, cursor livre e pré-carga pronta.
+  - Jogar de novo: a abertura toca outra vez.
+  - Console sem erros novos.
+- Limpeza: `PlayerSettings.runInBackground = false` e as PlayerPrefs `config.*` do teste apagadas.
+
+**NÃO verificado:** as teclas de verdade (Esc/Enter/B), pelo mesmo motivo das entradas anteriores: com o Editor sem foco, o Input System descarta o teclado sintético. Os testes acionaram os botões por código.
+
+**Observações para futuras sessões de IA:**
+- **CUIDADO com ProBuilder ao copiar objetos por script:** `Object.Instantiate` de um objeto com `ProBuilderMesh` **compartilha a mesma Mesh** com o original. Destruir o `ProBuilderMesh` da cópia apaga essa malha (`OnDestroy` → `DestroyUnityMesh`), e as 864 cercas da `SampleScene` aberta ficaram sem malha **na memória**. A primeira versão do builder fez isso. Foi desfeito reabrindo a cena do disco; ela não estava suja e tinha sido salva antes.
+  - O builder agora liga `preserveMeshAssetOnDestroy = true` (por reflexão) antes de limpar, e dá erro no Console se a `SampleScene` perder malhas.
+  - Se isso aparecer: **não salve a SampleScene**, reabra-a do disco.
+- Mudou o bairro? Rode **Dengue > Criar Menu Inicial** de novo. O `CenarioMalhas.asset` é apagado e recriado (GUID novo) a cada execução.
+- Play direto na `SampleScene` continua funcionando sem menu. Para testar o fluxo completo, abra `MenuInicial.unity` e dê Play.
+- Enquadramentos e luz: constantes no topo do `MenuInicialBuilder` (`Tomadas()`, `RotacaoSol`, `CorSol`...). Para ajustar só em teste, mexa no Inspector do `CameraMenu` em Play.
+- `unity command capture_game_view '{"width":1920,"height":1080}'` devolve um PNG em base64 a 1280×720 (16:9), independente do tamanho da Game view (que está ultralarga no Editor do usuário). Serve para conferir o layout real da UI; o canvas precisa estar em ScreenSpaceCamera durante o teste.
+- No `eval` do CLI, `Object` é ambíguo (`UnityEngine.Object` × `object`): escrever `UnityEngine.Object`.
+
+### 2026-09-26 — AGENTS.md com o nome Foco Zero
+
+**Objetivo:** a pedido do usuário, o resumo do `AGENTS.md` passa a usar o nome do jogo.
+
+**Arquivos alterados:**
+- `AGENTS.md`:
+  - "Nome" passou a ser "Foco Zero — jogo educativo sobre dengue / Aedes aegypti".
+  - A linha "Cena" virou "Cenas", com `MenuInicial.unity` (índice 0, tela de título) antes da `SampleScene.unity` (índice 1). Ela descrevia só a `SampleScene` e estava desatualizada desde o menu inicial.

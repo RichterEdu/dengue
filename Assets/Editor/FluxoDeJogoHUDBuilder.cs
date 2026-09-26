@@ -42,8 +42,10 @@ public static class FluxoDeJogoHUDBuilder
     private static readonly Color AccentDerrota = new Color(1f, 0.4f, 0.4f, 1f);
     private static readonly Color BarBgColor = new Color(1f, 1f, 1f, 0.14f);
 
-    private const string BriefingPadrao =
-        "A equipe médica avisa: erradique os criadouros no bairro. Sem isso, o tratamento não adianta.";
+    // internal: o HistoriaBuilder troca o briefing antigo ("A equipe médica
+    // avisa...") de uma cena já montada por este texto.
+    internal const string BriefingPadrao =
+        "A enfermeira Rita conta com você. Saia pela porta: no bairro, tudo o que você fizer vira assunto no celular <b>[T]</b>.";
 
     private static Sprite uiSprite;
     private static Sprite knobSprite;

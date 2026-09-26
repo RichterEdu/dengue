@@ -183,14 +183,17 @@ public class TerrenoBaldioBuilder : EditorWindow
 
         UnityEngine.SceneManagement.Scene cena = terreno.gameObject.scene;
 
-        // raiz: refaz do zero
-        GameObject[] raizes = cena.GetRootGameObjects();
-        for (int i = 0; i < raizes.Length; i++)
-            if (raizes[i].name == RaizCenario) Undo.DestroyObjectImmediate(raizes[i]);
+        // raiz: refaz do zero, no mesmo grupo da Hierarchy em que estava
+        List<GameObject> antigos = AcharCenarios(cena);
+        Transform paiAntigo = antigos.Count > 0 ? antigos[0].transform.parent : null;
+        int indiceAntigo = antigos.Count > 0 ? antigos[0].transform.GetSiblingIndex() : 0;
+        for (int i = 0; i < antigos.Count; i++)
+            Undo.DestroyObjectImmediate(antigos[i]);
 
         GameObject raiz = new GameObject(RaizCenario);
         raiz.transform.position = terreno.transform.position;
         Undo.RegisterCreatedObjectUndo(raiz, "Popular Terreno Baldio");
+        HierarquiaOrganizador.RecolocarNoLugar(raiz, paiAntigo, indiceAntigo);
 
         Vector3 tamanho = terreno.terrainData.size;
         float margem = Mathf.Min(_margem, Mathf.Min(tamanho.x, tamanho.z) * 0.4f);
@@ -398,18 +401,32 @@ public class TerrenoBaldioBuilder : EditorWindow
             : UnityEngine.SceneManagement.SceneManager.GetActiveScene();
 
         int n = 0;
-        GameObject[] raizes = cena.GetRootGameObjects();
-        for (int i = 0; i < raizes.Length; i++)
+        List<GameObject> cenarios = AcharCenarios(cena);
+        for (int i = 0; i < cenarios.Count; i++)
         {
-            if (raizes[i].name != RaizCenario) continue;
-            n += raizes[i].GetComponentsInChildren<Transform>(true).Length;
-            Undo.DestroyObjectImmediate(raizes[i]);
+            n += cenarios[i].GetComponentsInChildren<Transform>(true).Length;
+            Undo.DestroyObjectImmediate(cenarios[i]);
         }
 
         string mato = terreno != null ? TerrenoBaldioMato.Apagar(terreno) : "";
         EditorSceneManager.MarkSceneDirty(cena);
         _relatorio = "Cenario removido (" + n + " transforms). " + mato;
         Debug.Log("[Terreno Baldio] " + _relatorio);
+    }
+
+    // acha "Cenario Terreno Baldio" em qualquer nivel da Hierarchy (pode estar dentro
+    // de um grupo do Dengue > Organizar Hierarquia), nao so na raiz
+    static List<GameObject> AcharCenarios(UnityEngine.SceneManagement.Scene cena)
+    {
+        List<GameObject> achados = new List<GameObject>();
+        GameObject[] raizes = cena.GetRootGameObjects();
+        for (int i = 0; i < raizes.Length; i++)
+        {
+            Transform[] todos = raizes[i].GetComponentsInChildren<Transform>(true);
+            for (int j = 0; j < todos.Length; j++)
+                if (todos[j].name == RaizCenario) achados.Add(todos[j].gameObject);
+        }
+        return achados;
     }
 
     // -------------------------------------------------------------- catalogo

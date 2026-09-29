@@ -12,14 +12,23 @@ using UnityEngine;
  *  - A ocupação SÓ sobe depois que o jogador sai do quarto do hospital
  *    (SaidaDoHospital.cs chama IniciarPartida()) — antes disso, o
  *    relógio fica parado.
- *  - Sobe sozinha com o tempo; cada foco eliminado desafoga uma fração
- *    fixa. Vitória: todos os focos eliminados antes de bater 100%.
+ *  - Como no GameDoc, cada foco eliminado DESACELERA a subida: a taxa é
+ *    proporcional aos focos ainda ativos (taxaComTodosOsFocos com todos,
+ *    menos recuperacaoSemFocos). Quando sobram poucos focos a taxa fica
+ *    negativa e a ocupação DESCE — o "clímax" de sucesso. Cada foco ainda
+ *    dá um alívio pequeno na hora (alivioPorFoco), e a ocupação nunca fica
+ *    abaixo de ocupacaoMinima: não dá pra "guardar" vantagem zerando a
+ *    barra no começo.
+ *    Vitória: todos os focos eliminados antes de bater 100%.
  *    Derrota: ocupação bate 100% antes de todos os focos sumirem.
  *  - O ritmo NÃO é constante (pedido do usuário, "pra dar tempo do player
- *    pensar e ler o que tá acontecendo"): começa calmo (aumentoNoInicio),
- *    depois de duracaoInicioCalmo sobe em rampa até aumentoPorSegundo.
- *    E enquanto o celular está aberto a taxa cai (multiplicadorComCelular)
- *    — sem nenhum aviso na tela, o jogador não precisa saber.
+ *    pensar e ler o que tá acontecendo"): a taxa começa multiplicada por
+ *    fatorInicioCalmo e, depois de duracaoInicioCalmo, sobe em rampa até
+ *    o valor cheio. E enquanto o celular está aberto a SUBIDA cai
+ *    (multiplicadorComCelular) — sem nenhum aviso na tela, o jogador não
+ *    precisa saber.
+ *  - Para reajustar os números: Dengue > Simular Balanceamento
+ *    (Assets/Editor/BalanceamentoSimulador.cs), que usa o mesmo TaxaPara.
  *
  *  Mesma varredura de Interactable usada por DengueHUD/RedeSocial/
  *  FocoListaHUD — não existe gerenciador central de focos no projeto,
@@ -29,26 +38,35 @@ using UnityEngine;
 public class FluxoDeJogo : MonoBehaviour
 {
     [Header("Ocupação hospitalar (0 a 1)")]
-    [Tooltip("Ocupação ao nascer o jogo (0.5 = 50%).")]
-    [SerializeField] private float ocupacaoInicial = 0.5f;
+    [Tooltip("Ocupação ao nascer o jogo (0.7 = 70%).")]
+    [SerializeField] private float ocupacaoInicial = 0.7f;
 
-    [Tooltip("Quanto a ocupação sobe por segundo enquanto o tempo passa (0.003 = 0.3%/s — sem eliminar nenhum foco, dá uns 2min50 até perder, tempo o bastante pra sair da sala e se situar).")]
-    [SerializeField] private float aumentoPorSegundo = 0.003f;
+    [Tooltip("A ocupação nunca fica abaixo disto (0.3 = 30%) — o hospital não esvazia, e limpar focos no começo não 'guarda' vantagem.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float ocupacaoMinima = 0.3f;
 
-    [Tooltip("Quanto a ocupação desce a cada foco eliminado (0.04 = 4%).")]
-    [SerializeField] private float reducaoPorFoco = 0.04f;
+    [Header("Taxa (cada foco eliminado desacelera a subida)")]
+    [Tooltip("Quanto a ocupação sobe por segundo com TODOS os focos ativos (0.003 = 0.3%/s). A subida cai na proporção dos focos eliminados.")]
+    [SerializeField] private float taxaComTodosOsFocos = 0.003f;
+
+    [Tooltip("Recuperação do hospital por segundo, descontada da subida (0.001 = 0.1%/s). Quando sobram poucos focos a taxa fica negativa e a ocupação desce.")]
+    [SerializeField] private float recuperacaoSemFocos = 0.001f;
+
+    [Tooltip("Quanto a ocupação desce na hora, a cada foco eliminado (0.025 = 2,5%).")]
+    [SerializeField] private float alivioPorFoco = 0.025f;
 
     [Header("Ritmo (começo calmo, depois pressão)")]
-    [Tooltip("Taxa por segundo logo que o jogador sai do hospital (0.002 = 0.2%/s) — tempo pra ler o celular e se situar.")]
-    [SerializeField] private float aumentoNoInicio = 0.002f;
+    [Tooltip("Multiplicador da taxa logo que o jogador sai do hospital (0.2 = 5x mais devagar) — tempo pra ler o celular e se situar.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float fatorInicioCalmo = 0.2f;
 
-    [Tooltip("Segundos (desde a saída do hospital) em que a taxa fica em aumentoNoInicio.")]
+    [Tooltip("Segundos (desde a saída do hospital) em que a taxa fica multiplicada por fatorInicioCalmo.")]
     [SerializeField] private float duracaoInicioCalmo = 45f;
 
-    [Tooltip("Segundos da rampa que leva de aumentoNoInicio até aumentoPorSegundo.")]
+    [Tooltip("Segundos da rampa que leva de fatorInicioCalmo até a taxa cheia.")]
     [SerializeField] private float duracaoRampa = 60f;
 
-    [Tooltip("Com o celular aberto, a taxa é multiplicada por isto (0.25 = sobe 4x mais devagar). Não aparece na tela.")]
+    [Tooltip("Com o celular aberto, a SUBIDA é multiplicada por isto (0.25 = sobe 4x mais devagar). A descida do fim não muda. Não aparece na tela.")]
     [Range(0f, 1f)]
     [SerializeField] private float multiplicadorComCelular = 0.25f;
 
@@ -66,14 +84,19 @@ public class FluxoDeJogo : MonoBehaviour
     public int FocosEliminados { get; private set; }
     public int FocosTotal { get; private set; }
 
+    /* Lidos pelo simulador de balanceamento (Editor). */
+    public float OcupacaoInicial => Mathf.Clamp(ocupacaoInicial, ocupacaoMinima, 1f);
+    public float OcupacaoMinima => ocupacaoMinima;
+    public float AlivioPorFoco => alivioPorFoco;
+
     private readonly List<Interactable> focos = new List<Interactable>();
 
     void Start()
     {
-        Ocupacao = Mathf.Clamp01(ocupacaoInicial);
-        if (celular == null) celular = FindFirstObjectByType<CelularController>();
+        Ocupacao = OcupacaoInicial;
+        if (celular == null) celular = FindAnyObjectByType<CelularController>();
 
-        foreach (Interactable foco in FindObjectsByType<Interactable>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        foreach (Interactable foco in FindObjectsByType<Interactable>(FindObjectsInactive.Include))
         {
             focos.Add(foco);
             if (foco.IsComplete)
@@ -107,7 +130,8 @@ public class FluxoDeJogo : MonoBehaviour
             return;
 
         TempoDecorrido += Time.deltaTime;
-        Ocupacao = Mathf.Clamp01(Ocupacao + TaxaAtual() * Time.deltaTime);
+        float taxa = TaxaPara(TempoDecorrido, FocosTotal - FocosEliminados, celular != null && celular.Aberto);
+        Ocupacao = Mathf.Clamp(Ocupacao + taxa * Time.deltaTime, ocupacaoMinima, 1f);
 
         if (Ocupacao >= 1f)
         {
@@ -116,16 +140,24 @@ public class FluxoDeJogo : MonoBehaviour
         }
     }
 
-    /* Quanto a ocupação sobe por segundo AGORA: calmo no começo, rampa até
-     * aumentoPorSegundo, e mais devagar com o celular aberto. */
-    private float TaxaAtual()
+    /* Quanto a ocupação varia por segundo (negativo = desce) com `focosAtivos`
+     * ainda de pé, `tempo` segundos depois da saída do hospital: proporcional
+     * aos focos ativos, calmo no começo e com a subida mais lenta com o
+     * celular aberto. `focosTotal` < 0 usa o FocosTotal da partida (o
+     * simulador do Editor passa o total, porque fora do Play o Start não rodou). */
+    public float TaxaPara(float tempo, int focosAtivos, bool celularAberto, int focosTotal = -1)
     {
-        float rampa = duracaoRampa > 0f
-            ? Mathf.Clamp01((TempoDecorrido - duracaoInicioCalmo) / duracaoRampa)
-            : (TempoDecorrido >= duracaoInicioCalmo ? 1f : 0f);
-        float taxa = Mathf.Lerp(aumentoNoInicio, aumentoPorSegundo, rampa);
+        if (focosTotal < 0)
+            focosTotal = FocosTotal;
+        float pressao = focosTotal > 0 ? Mathf.Clamp01((float)focosAtivos / focosTotal) : 0f;
 
-        if (celular != null && celular.Aberto)
+        float progressoRampa = duracaoRampa > 0f
+            ? Mathf.Clamp01((tempo - duracaoInicioCalmo) / duracaoRampa)
+            : (tempo >= duracaoInicioCalmo ? 1f : 0f);
+        float rampa = Mathf.Lerp(fatorInicioCalmo, 1f, progressoRampa);
+
+        float taxa = rampa * (taxaComTodosOsFocos * pressao - recuperacaoSemFocos);
+        if (taxa > 0f && celularAberto)
             taxa *= multiplicadorComCelular;
         return taxa;
     }
@@ -134,7 +166,7 @@ public class FluxoDeJogo : MonoBehaviour
     {
         foco.OnCompleted -= HandleFocoCompletado;
         FocosEliminados++;
-        Ocupacao = Mathf.Clamp01(Ocupacao - reducaoPorFoco);
+        Ocupacao = Mathf.Max(ocupacaoMinima, Ocupacao - alivioPorFoco);
 
         if (!PartidaEncerrada && FocosEliminados >= FocosTotal)
         {

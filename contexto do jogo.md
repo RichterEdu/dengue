@@ -1488,3 +1488,444 @@ Nomes sem acento, no padrão da cena (`Praca`, `Cenario`, `Mobilia`). Os focos q
 - `AGENTS.md`:
   - "Nome" passou a ser "Foco Zero — jogo educativo sobre dengue / Aedes aegypti".
   - A linha "Cena" virou "Cenas", com `MenuInicial.unity` (índice 0, tela de título) antes da `SampleScene.unity` (índice 1). Ela descrevia só a `SampleScene` e estava desatualizada desde o menu inicial.
+
+### 2026-09-26 — Sons do jogo (todos gerados por script)
+
+**Objetivo:** o usuário pediu para colocar sons no jogo, que estava mudo (o projeto não tinha nenhum arquivo de áudio). Decisões dele:
+- Todos os sons são **gerados por script**, sem baixar nada.
+- Entram todos os grupos: essenciais do GameDoc, jogador, ambiente/trilha e interface.
+- O ambiente é de **cidade pequena e parada**: **sem carros**, porque nenhum passa no mapa.
+- **Pouquíssimos sons de interface**: ficou um só, o clique.
+
+**Gerador — `Ferramentas/Audio/gerar_sons.py` (novo):**
+- Uso: `python -X utf8 Ferramentas/Audio/gerar_sons.py "Assets/Meus/Assets Gerados/Sons" [--so nome1,nome2] [--listar]`. Leva ~16 s.
+- Só usa numpy e `wave` (a máquina não tem scipy).
+- Filtros e ruído colorido por FFT, reverb por convolução com ruído que decai, e síntese modal para batidas (plástico, vidro, metal, sino).
+- Cada som tem semente fixa (crc32 do nome), então regerar dá o mesmo arquivo. Sobrescrever o `.wav` mantém o `.meta`/GUID.
+- Loops montados em linha do tempo circular, sem crossfade: tons com número inteiro de ciclos, e eventos que passam do fim voltam para o começo. A emenda de todos ficou dentro da variação normal entre amostras vizinhas (medido).
+- Efeitos em 44,1 kHz mono. Loops longos (ambiente e trilha) em 32 kHz estéreo.
+- **44 arquivos (~30 MB) em `Assets/Meus/Assets Gerados/Sons/`.** O `.gitattributes` já manda `*.wav` para o Git LFS.
+
+**Os sons:**
+
+| Grupo | Arquivos |
+|---|---|
+| Focos | `mosquito_zumbido_loop` (6 s: enxame de 5 mosquitos entre 470 e 640 Hz, com harmônicos e vibrato), `foco_agua_1-3` (bolhas + respingo), `foco_areia_1-2`, `foco_tampa_1-2`, `foco_garrafa_1-3` (vidro; o 3 é PET amassando), `foco_metal_1-2` (grelha do ralo), `foco_eliminado` (whoosh + Ré-Fá#-Lá subindo) |
+| Hospital | `ocupacao_alerta` (bipe duplo), `ocupacao_desce` (duas notas subindo), `vitoria`, `derrota` |
+| Jogador | `passo_rua_1-4`, `passo_piso_1-4`, `pulo`, `aterrissagem` |
+| Celular / UI | `celular_notificacao`, `celular_abrir`, `celular_fechar`, `ui_clique` |
+| Ambiente | `ambiente_bairro_loop` (45 s: vento, folhas, cigarras crescendo e sumindo), `ambiente_hospital_loop` (30 s: lâmpada de 120 Hz, ar-condicionado, murmúrio abafado, monitor a 72 bpm), `passaro_1-3` (bem-te-vi, pardal, assobio), `latido_1-2` |
+| Trilha | 80 BPM, Ré menor, Dm–B♭–Gm–A: `trilha_base` (pad), `trilha_pulso` (batimento + baixo), `trilha_tensao` (ostinato + tique-taque), `trilha_esperanca` (marimba com eco). As 4 têm 24 s e exatamente 768.000 amostras. `trilha_menu` (32 s, pad de fim de tarde) |
+
+**Arquivos novos (`Assets/Scripts/`):** cada componente cria as próprias `AudioSource` em runtime, sempre com `CanalDeAudio`. A cena só guarda os componentes e os clipes.
+- `SomDosFocos.cs` (objeto `Sons`):
+  - Cria um loop 3D de zumbido por foco em `Sons/Zumbidos` (não mexe na hierarquia dos focos), posicionado no centro dos renderers do foco.
+  - Curva de rolloff própria: volume cheio até 0,8 m, depois cai como 1/d × (1 − x²) e chega a 0 em 11 m.
+  - Só toca com o ouvinte a menos de 11,5 m: 23 focos, e o projeto tem 32 vozes reais. Ponto de início e pitch aleatórios em cada foco.
+  - Cada clique toca o som do tipo do foco (tabela `sonsPorTipo`) num pool de 4 fontes 3D.
+  - Ao eliminar: o zumbido some em 0,4 s, toca `foco_eliminado` e, 0,45 s depois, `ocupacao_desce`. Esse último não toca no último foco (é a vitória).
+- `SomDoJogador.cs` (Player):
+  - O passo toca quando `CameraJogador.FasePasso` cruza π/2 + kπ, o ponto mais baixo do head bob. Só no chão e acima de 0,3 m/s.
+  - Volume de 0,35 andando a 0,6 correndo, pitch ±8%, sem repetir a variação anterior.
+  - Passo de piso antes de `PartidaIniciada`, de rua depois.
+  - Pulo e aterrissagem vêm dos eventos do `ControladorJogador`. Quedas abaixo de 3 m/s, que não disparam o evento, viram um passo se o jogador ficou mais de 0,2 s no ar.
+- `AmbienteSonoro.cs` (Sons):
+  - Loop do hospital, com crossfade de 1,2 s para o do bairro em `OnPartidaIniciada`.
+  - Fade de entrada de 2,5 s em tempo de jogo, então só começa depois das cartelas.
+  - No bairro, avulsos 3D em volta do ouvinte: pássaros a cada 5–14 s (12–30 m, 4–8 m de altura) e latidos a cada 25–60 s (25–45 m).
+- `TrilhaSonora.cs` (Sons):
+  - As 4 camadas com `PlayScheduled` no mesmo `dspTime`, em loop, com `ignoreListenerPause`.
+  - Pesos: base 0,8; pulso = `InverseLerp(0,55; 0,95; ocupação)`; tensão = (1 − progresso)^0,7 depois de sair do hospital (0,2 antes); esperança = progresso^0,8. Mudam a 0,25/s.
+  - Vitória: pulso e tensão vão a 0 e toca o sting. Derrota: tudo some em 1,5 s e toca o sting.
+  - Alerta ao cruzar 80, 90 e 95% subindo; o marco se rearma 3% abaixo.
+  - **Pausa global:** `AudioListener.pause = (Time.timeScale == 0)`. No pause e nas cartelas da abertura, zumbido, ambiente e passos congelam; música e interface continuam. Com o `MenuPausa` aberto, a música cai para 55%. No `OnDestroy`, volta para `false`.
+- `MusicaDeFundo.cs` (menu inicial): loop no canal Música, volume × (1 − `fade.alpha`) do `MenuInicial`. Entra com a imagem e some no "Jogar", sem mexer no `MenuInicial.cs`.
+- `SomDeInterface.cs` (um por cena): no `Start`, assina o `onClick` dos `Button` e o `onValueChanged` dos `Toggle` de todos os `ItemDeMenu`, inclusive das telas escondidas. Toca `ui_clique`. Sem hover e sem sliders. Os toggles das Configurações usam `SetIsOnWithoutNotify`, então não tocam sozinhos.
+
+**Arquivos novos (`Assets/Editor/`):**
+- `ImportadorDeSons.cs`: `AssetPostprocessor` que só age na pasta dos sons.
+  - `*_loop` e `trilha_*`: Compressed In Memory, Vorbis 0,6.
+  - O resto, inclusive o zumbido: Decompress On Load, PCM.
+  - `mosquito_`, `foco_`, `passaro_`, `latido_` e `passo_`: mono.
+  - Todos com `preloadAudioData`.
+- `SomBuilder.cs`: menu **Dengue > Configurar Sons**, idempotente.
+  - Cria `--- SISTEMAS ---/Sons` com os 4 componentes e põe `SomDoJogador` no Player.
+  - Religa os clipes toda vez. Na tabela `sonsPorTipo`, só acrescenta o tipo que falta, preservando ajustes feitos à mão.
+  - Liga os 3 clipes do `CelularController` e garante o `CanalDeAudio` (Efeitos).
+  - Abre a `MenuInicial` por trás, monta `Sons` (`MusicaDeFundo` + `SomDeInterface`), salva e fecha.
+  - Sem `FluxoDeJogo` na cena ativa, só configura o menu (se for a cena do menu) ou avisa.
+  - `MontarSomDoMenu(cena)` e `LigarSonsDoCelular(controller)` são públicos para os outros builders.
+
+**Arquivos alterados:**
+- `Interactable.cs`: evento `OnClicado`, disparado em `Interact()` logo depois de `OnInteract()`.
+- `CanalDeAudio.cs`:
+  - propriedade `Volume` (volume antes do canal). Fades mexem nela, nunca no `AudioSource.volume`, que seria desfeito no próximo `Mudou`;
+  - inicialização sob demanda;
+  - `Fonte`;
+  - helper `CanalDeAudio.Criar(pai, nome, canal, espacial)`.
+- `CameraJogador.cs`: `public float FasePasso`.
+- `HistoriaRedeSocial.cs`: `TipoDoFoco` passou de `private` para `internal` (usado pelo `SomDosFocos`).
+- `CelularBuilder.cs`: chama `SomBuilder.LigarSonsDoCelular`. Antes, recriar o celular perdia os clipes e o `CanalDeAudio`.
+- `MenuInicialBuilder.cs`: chama `SomBuilder.MontarSomDoMenu(menu)` depois de `MontarCamera`, porque o builder refaz a cena do zero.
+- `HierarquiaOrganizador.cs`: `TrilhaSonora` → SISTEMAS.
+
+**Aplicado nas cenas (via CLI):**
+- `Dengue > Configurar Sons` rodado com a `SampleScene` aberta, e as duas cenas salvas.
+- Segunda execução: nada novo criado.
+
+**Verificado em Play (via `eval_file`):**
+- Abertura:
+  - `listenerPause` fica ligado durante as cartelas.
+  - A trilha entra em fade: pesos 0,05 → 0,80 em ~3 s.
+  - O ambiente do hospital só entra depois das cartelas (0,5 com 2,5 s de fade).
+- Pulo, aterrissagem e passo tocam, com piso no hospital e rua depois.
+- Saída + teleporte a 2 m de um pneu:
+  - 3 zumbidos tocando (2,2 / 4,4 / 4,6 m) e os outros 20 parados;
+  - crossfade do ambiente para o bairro;
+  - pássaro tocando a 21 m;
+  - tensão = 1,0.
+- Os 5 cliques no pneu tocaram no centro dele, com pitch variado. No 5º: `foco_eliminado` tocou e o zumbido parou.
+- Ocupação de 0,58 para 0,899: os marcos de 80 e 90% dispararam e o de 95% continuou armado.
+- `MenuPausa.Abrir()`: `listenerPause` ligado, música a 55%, e o clique em "Configurações" tocou com o jogo pausado. `Fechar()`: tudo volta.
+- Vitória (todos os focos): sting tocando; pulso 0,17 e tensão 0,13 descendo; esperança 0,92.
+- Derrota (ocupação 0,999): as 4 camadas a 0 e o sting tocando.
+- Menu inicial:
+  - música tocando (0,56 = 0,7 × 80% do canal Música com o fade claro);
+  - clique em "Como jogar" e em "Jogar";
+  - a `SampleScene` carregou a partir do menu com os sons funcionando.
+- Console: só o erro antigo do `Default-Particle.psd` (`Interactable.cs:307`).
+- Limpeza: `PlayerSettings.runInBackground = false`, e a `MenuInicial` aberta como estava.
+
+**NÃO verificado:**
+- **Ninguém ouviu os sons.** O caráter foi conferido só por medição e espectrograma: bolhas subindo na água, sílabas do pássaro, colcheias da tensão, batimentos, e o fim dos sons modais sem estalo (−62 a −72 dB).
+- Passos com movimento real (andar, correr), porque as teclas não chegam com o Editor sem foco.
+- O fade da música no "Jogar" (0,5 s, rápido demais para medir entre duas chamadas do CLI). A regra é a mesma da entrada, que foi medida.
+- `Dengue > Criar Celular` e `Dengue > Criar Menu Inicial` **não** foram rodados de novo: um abre diálogo e o outro refaz o `CenarioMalhas.asset` com GUID novo. A chamada nova de cada um foi validada só pela compilação.
+
+**Observações para futuras sessões de IA:**
+- **NUNCA editar scripts com o jogo em Play.** O Editor recompila e continua o Play (reload de domínio): todas as inscrições em eventos são perdidas (inclusive `OnDerrota`/`OnVitoria` dos scripts antigos) e os campos `NonSerialized` zeram. Nesta sessão isso gerou um `NullReferenceException` falso no `AmbienteSonoro` e uma derrota sem sting. Saia do Play, edite, recompile e entre de novo.
+- `AudioSource.ignoreListenerPause` **não é salvo na cena**. Ligue-o em runtime (os componentes de som fazem isso ao criar as fontes).
+- Para mudar um som: edite a receita em `gerar_sons.py` e rode com `--so nome`. O GUID se mantém; não precisa rodar o builder de novo.
+- Som novo: gere o `.wav`, ponha o campo no componente e ligue em `SomBuilder`. Fonte nova sempre com `CanalDeAudio.Criar(...)`.
+- Com várias camadas de música, o `unscaledDeltaTime` do primeiro frame traz o tempo de carregamento da cena. Limite o passo (a `TrilhaSonora` usa 0,1 s), senão o fade de entrada é pulado.
+- Script de teste que pula a abertura: `StopAllCoroutines` nas cartelas + zerar `<Tocando>k__BackingField` + `EsconderImediato()` + invocar o `FimAbertura` privado do `HistoriaDoJogo`.
+
+### 2026-09-26 — Jogo mais calmo: trilha, mosquitos e notificações
+
+**Objetivo:** depois de ouvir os sons, o usuário achou o jogo **frenético**. Pedidos:
+1. "quero que a maior parte do jogo seja um ambiente calmo e tranquilo", sem a música tensa o tempo todo;
+2. menos som de mosquito;
+3. "tá vindo muito popup no celular ao mesmo tempo". Se dois gatilhos de mensagem dispararem num intervalo curto, só um deve aparecer, e o outro fica "guardado para outra vez" (não some).
+
+Escolhas dele: só o foco mais perto zumbe, e a mensagem que perde a vaga espera e aparece depois.
+
+**Notificações — `RedeSocial.cs`:**
+- Novo `enum PrioridadePost { Baixa, Normal, Alta, Maxima }` e `Enfileirar(post, prioridade = Normal)`.
+- A fila virou uma **reserva**:
+  - Gatilhos do mesmo instante (`janelaAgrupamento` 0,5 s) disputam a vaga. Vence a maior prioridade; empate, o que chegou antes.
+  - No máximo **1 aviso a cada `intervaloEntreAvisos` (8 s)**. O resto espera.
+  - Passou de `validadeReserva` (60 s) ou `validadeBaixa` (20 s, para prioridade Baixa): entra no feed **sem aviso**.
+  - Com o celular aberto, a reserva entra toda no feed na hora.
+- Novo evento `OnAviso`, só para os posts que viram popup + som. O `OnPostPublicado` continua sendo todo post do feed.
+- Nova propriedade `PodeAvisar`: reserva vazia e intervalo já passado. `NaFila` = reserva. Sai o `intervaloEntrePosts`.
+- Post publicado com o celular aberto já conta como lido. Antes, o badge voltava a contar o que o jogador tinha acabado de ver no feed.
+- Campo novo `celular`: vazio, procura na cena.
+
+**`HistoriaRedeSocial.cs`:**
+- Prioridades:
+  - **Máxima**: derrota e finais.
+  - **Alta**: fala do dono ao eliminar, marcos de ocupação, saída do hospital.
+  - **Normal**: chegar perto, largar pela metade, foco sem dono. A abertura da `RedeSocial` também.
+  - **Baixa**: sequência rápida, parado, pulos, demora.
+- `FilaLivre` = `rede.PodeAvisar`, e sai o `maxFilaParaExtras`. As mensagens de estado (chegar perto, largar, parado, pulos, demora) só nascem quando viram aviso na hora. Senão o índice não anda e o gatilho tenta de novo depois.
+- A "sequência rápida" é um evento único e chega junto com a fala do dono, que sempre ganha. Por isso ela vai para a reserva com prioridade Baixa (`extra: false`): aparece depois ou entra no feed em silêncio após 20 s. Foi um ajuste em relação ao plano, porque do outro jeito ela nunca apareceria.
+
+**`CelularController.cs` e `NotificacaoCelular.cs`:** o som, a pulsada do ícone e o banner escutam `OnAviso` (antes, `OnPostPublicado`).
+
+**Trilha — `TrilhaSonora.cs`:** calma na maior parte do jogo.
+- Pulso = ocupação **82→97%** (antes 55→95%).
+- Tensão = ocupação **88→98%** (campo novo `faixaTensao`). Antes era (1 − progresso)^0,7, cheia do começo ao fim; sai o `tensaoNoHospital`.
+- Esperança (marimba) = `Lerp(esperancaInicial 0,45; 1; progresso^0,8)`, presente desde o começo.
+- `volumeCamada` 0,55 → 0,4 e `velocidadeMistura` 0,25 → 0,15.
+- Alerta sonoro só em 90% e 95%.
+
+**Ambiente — `AmbienteSonoro.cs`:** `volumeBairro` 0,6 → 0,75.
+
+**Mosquitos — `SomDosFocos.cs`:**
+- `maxZumbidosJuntos` = 1: só o foco ativo mais perto, dentro do alcance, zumbe.
+- Cada zumbido tem um `peso` que entra e sai em `duracaoTroca` (0,5 s).
+- `distanciaMaxima` 11 → 7 m e `volumeZumbido` 0,6 → 0,35.
+- `gerar_sons.py` / `s_mosquito`: 3 insetos em vez de 5, harmônicos caindo mais rápido, passa-baixas em 3,5 kHz, oscilação de volume menor. Centróide espectral em 779 Hz, 1,9% da energia acima de 2 kHz. Regerado com `--so mosquito_zumbido_loop` (o GUID se manteve).
+
+**Aplicado na cena:** um `eval_file` com `SerializedObject` gravou os valores novos dos campos que já existiam na `SampleScene`: `volumeZumbido`, `distanciaMaxima`, `volumeCamada`, `velocidadeMistura`, `faixaPulso`, `marcos` e `volumeBairro`. Depois, `save_scene`. Os campos novos pegaram o padrão do código.
+
+**Verificado em Play (via `eval_file`; nenhum script editado durante o Play):**
+- Log dos avisos:
+  - Um a cada exatos **8,0 s** (1,2 / 9,2 / 17,2 / 25,2 / 33,2...).
+  - A saída do hospital e as falas dos donos passaram na frente das postagens de abertura.
+  - O combo da Bruna esperou e entrou no feed sem aviso aos 20 s.
+  - A fila do banner nunca passou de 0.
+- Celular aberto com 3 na reserva: as 3 entraram no feed sem aviso, e os não lidos ficaram em 0.
+- Trilha:
+  - ocupação 70% → pulso 0, tensão 0, esperança 0,45;
+  - 95% → pulso 0,87, tensão 0,70;
+  - de volta a 70% → as duas zeram.
+- Zumbidos: só 1 tocando. Ao teleportar para uma garrafa a 3 m da bromélia, a garrafa chegou a peso 1 e a bromélia a 0 em ~0,5 s.
+- Emenda do zumbido novo: gerado com 12 s, a segunda metade repete a primeira com diferença de 2×10⁻⁹ do pico.
+- Console sem erros novos. `PlayerSettings.runInBackground` voltou a `false`, e a `MenuInicial` ficou aberta.
+
+**Descoberta:** as configurações salvas do usuário estão com **Efeitos 25%** e **Geral 40%** (Música 80%). O zumbido, o ambiente do bairro e os passos estão no canal Efeitos, então com 25% eles ficam bem abaixo da música. Não foi mexido (é preferência dele); avisado.
+
+**NÃO verificado:** ninguém ouviu ainda a versão calma. Nos testes, o intervalo de 8 s foi visto só pelo log.
+
+**Observações para futuras sessões de IA:**
+- Mensagem nova no celular: escolha a prioridade. Se ela só faz sentido na hora (estado do jogador), use `extra: true` / `FilaLivre`, e ela tenta de novo depois. Se é um evento único, mande para a reserva.
+- Nos testes com a ocupação alta, **congele** a subida (`aumentoPorSegundo` e `aumentoNoInicio` = 0 por reflection). A 1%/s a derrota chega em segundos e zera a trilha no meio da medição.
+
+### 2026-09-26 — Mensagens na hora (a recusada só volta num novo gatilho) + passos sem chiado
+
+**Objetivo:** o usuário testou a reserva da entrada anterior e não gostou: "parece que as mensagens estão com delay. Depois que tu faz a ação, demora". Pedido dele: se a mensagem de uma ação não é a prioridade, ela fica guardada e **só é ativada se o gatilho dela acontecer de novo**. Nunca sai sozinha depois. Também: "os passos estão parecendo muito chiado".
+
+**`RedeSocial.cs` — sai a reserva inteira** (`reserva`, `intervaloEntreAvisos`, `janelaAgrupamento`, `validadeReserva`, `validadeBaixa`, `NaFila`, `PodeAvisar`):
+- `janelaConflito` (4 s) é o "intervalo curto".
+- `Aceitaria(prioridade)`: verdadeiro se já passou a janela desde o último aviso, ou se a prioridade é MAIOR que a dele.
+- `Postar(post, prioridade)`: publica **no mesmo frame** (feed + `OnAviso`) ou recusa sem publicar nada, devolvendo `false`.
+- `PostarNoFeed(post)`: só no feed, sem aviso.
+- `PostarGrupo(posts, prioridade)`: posts do mesmo momento. O 1º vira aviso e o resto entra só no feed, junto. Usado na abertura (depois de `atrasoInicial`, que conta a partir do fim das cartelas), na saída do hospital, nos finais e na derrota.
+- Continuam valendo: `OnAviso`, e o post que chega com o celular aberto já contar como lido.
+
+**`NotificacaoCelular.cs` — sem fila.** O aviso aparece na hora. Se já houver um banner (quando chega algo de prioridade maior logo depois), o conteúdo é trocado e ele reentra do meio da animação. Sai o `duracaoMinima`.
+
+**`HistoriaRedeSocial.cs` — consulta `Aceitaria` ANTES de gastar a mensagem. Recusada, o gatilho precisa acontecer de novo:**
+- **Parado / demora sem foco** (Baixa): o timer zera de qualquer jeito.
+- **Pulos** (Baixa): a contagem zera de qualquer jeito.
+- **Chegar perto** (Normal): agora dispara ao **ENTRAR** no raio (`dentroDoRaio`). Antes, tentava a cada 0,25 s enquanto o jogador estava perto.
+- **Largar pela metade** (Normal): dispara ao **SAIR** de perto (`pertoDoComecado`).
+- **Marco de ocupação** (Alta): recusado, ele **desarma**. Precisa voltar para o outro lado do limite e cruzar de novo.
+- **Fala do dono** (Alta): só é gasta se sair (`FalaAoEliminar` avança o índice e só é chamada depois de `Aceitaria`).
+- `PostarDaLista` só avança o índice quando o post sai.
+- **Uma mensagem por foco eliminado**, a mais importante: finais > "último do tipo" do dono > sequência rápida (agora Alta) > fala normal do dono > "sem dono". Sem essa regra, a sequência rápida perderia sempre para a fala do dono.
+- O `Enfileirar` interno virou `Postar` / `Formatar` / `Formatados`.
+
+**Passos — `gerar_sons.py`:**
+- `pisada_rua`:
+  - Sai o ruído de "cascalho" de 2,5–8 kHz e o ruído de banda larga até 2,2 kHz.
+  - Agora: baque de 90 → 60 Hz (0,45), modos curtos em 180 / 340 / 720 Hz e um raspão baixo só entre 250 e 1200 Hz.
+  - Passa-baixas de 2 kHz, sem reverb.
+- `s_passo_piso`: modos em 700–1400 Hz (antes 1,7–5,2 kHz), sem o estalo de ruído agudo, reverb de 0,3 s com brilho de 3 kHz.
+- `s_aterrissagem`: herda a pisada nova, baque em 0,7, sem reverb.
+- Medido:
+
+| Som | Energia acima de 2 kHz | Centróide |
+|---|---|---|
+| passo_rua | **61% → 0,0–0,1%** | 4239 → ~230 Hz |
+| passo_piso | 15% → 0% | 1512 → ~245 Hz |
+| aterrissagem | 32% → 0% | — |
+
+- A 1ª versão ficou grave demais (96% abaixo de 300 Hz, centróide em 114 Hz, e some em alto-falante pequeno). Foi reequilibrada: ~76% abaixo de 300 Hz.
+- Regerados com `--so` (os GUIDs se mantiveram).
+
+**Verificado em Play (`eval_file` + log do `OnAviso` com o `Time.time`):**
+- Abertura: 1 aviso e 3 no feed, todos em t=1,20.
+- Saída do hospital: aviso da Enf. Rita e o post da UPA no feed, no mesmo t.
+- Pneu eliminado 3 s depois da saída: recusado. A fala do Carlos ficou no índice 0.
+- Segundo pneu 7,6 s depois: a sequência rápida saiu **no mesmo t da eliminação** (16,05). O marco de 40%, que disparou junto, foi recusado e desarmado.
+- 21 s parado: nada saiu, fora o gatilho legítimo de "parado há 35 s".
+- Próximo pneu: a fala guardada do Carlos ("esvaziou o primeiro pneu") saiu no mesmo t da eliminação (63,12).
+- Marco: com a ocupação em 39%, não saiu sozinho. Saiu na hora só depois de voltar a 45% e cair de novo.
+- Prioridade: o marco (Alta) passou por cima do "parado" (Baixa) dentro da janela.
+- "Chegar perto":
+  - recusado ao entrar dentro da janela;
+  - 6 s parado lá: nada;
+  - saiu e voltou: saiu a da bromélia, e a da garrafa, que entrou junto, foi recusada;
+  - saiu e voltou de novo: saiu a da garrafa.
+- Console sem erros novos. `runInBackground = false` e a `MenuInicial` aberta como estava.
+
+**NÃO verificado:** a troca de conteúdo do banner (prioridade maior dentro da janela) foi validada só pela lógica, sem captura de tela. Os passos novos ainda não foram ouvidos.
+
+**Observações para futuras sessões de IA:**
+- O usuário deixou o Editor **em Play** depois de testar. Antes de `recompile`, confira `editor_status.playMode` e dê `editor_stop`: recompilar com o jogo rodando derruba todos os eventos.
+- Para mensagem nova no celular, escolha: (a) a prioridade; (b) o que conta como "o gatilho de novo" quando ela for recusada; (c) só gastar o conteúdo depois de `rede.Aceitaria(...)`. Nunca crie uma fila ou um "tenta de novo depois": o usuário recusou atraso.
+- No Git Bash deste Windows, heredoc com certos textos (acentos + aspas) quebra o parse. Escreva o script Python com a ferramenta Write e rode o arquivo.
+
+### 2026-09-27 — Rebalanceamento da ocupação: cada foco desacelera a taxa
+
+**Objetivo:** o usuário achou o jogo "meio desbalanceado" e pediu mais dificuldade. Escolhas dele: a alavanca **nova curva** (taxa proporcional aos focos ativos, como o GameDoc pede) e o alvo **desafio moderado** (na primeira vez dá para vencer explorando com calma; só perde quem fica muito tempo perdido). Nada de rejogabilidade por enquanto.
+
+**Diagnóstico do modelo antigo** (valores da cena: 70% inicial, 0,2%/s no início, rampa até 2%/s, −15% por foco, 23 focos = 345% de redução):
+- No começo era fácil demais: no período calmo, 5 focos zeravam a barra, e a redução que passava do 0% se perdia.
+- Depois virava um paredão: a 2%/s, cada foco comprava só 7,5 s. Simulado com ritmo uniforme, o jogador perdia por volta dos 2 min mesmo limpando um foco a cada 10 s.
+
+**Modelo novo — `Assets/Scripts/FluxoDeJogo.cs`:**
+```
+pressao = focosAtivos / focosTotal
+rampa   = Lerp(fatorInicioCalmo, 1, Clamp01((t − duracaoInicioCalmo) / duracaoRampa))
+taxa    = rampa × (taxaComTodosOsFocos × pressao − recuperacaoSemFocos)
+se taxa > 0 e celular aberto: taxa × multiplicadorComCelular
+Ocupacao = Clamp(Ocupacao + taxa·dt, ocupacaoMinima, 1); ao eliminar: −alivioPorFoco (respeitando o mínimo)
+```
+- Saíram `aumentoPorSegundo`, `reducaoPorFoco` e `aumentoNoInicio`. Os campos novos têm **nomes novos de propósito**, sem `FormerlySerializedAs`, para os valores antigos da cena não voltarem.
+- Valores: `taxaComTodosOsFocos` 0,003 (0,3%/s), `recuperacaoSemFocos` 0,001, `alivioPorFoco` 0,025, `ocupacaoMinima` 0,30, `fatorInicioCalmo` 0,2. Mantidos: `ocupacaoInicial` 0,7, `duracaoRampa` 60, `multiplicadorComCelular` 0,25 (que agora só vale para a subida).
+- **`duracaoInicioCalmo` ficou em 15 s**, o valor que o usuário tinha posto na cena (o código tem 45 de padrão). Não foi mexido.
+- Com os 23 focos, a taxa líquida é +0,2%/s. Com **7 focos restantes** ela fica negativa e a ocupação **desce**: é o "clímax" do GameDoc.
+- Novo `public float TaxaPara(float tempo, int focosAtivos, bool celularAberto, int focosTotal = -1)`, usado pelo `Update` e pelo simulador. Propriedades `OcupacaoInicial`, `OcupacaoMinima` e `AlivioPorFoco`.
+- APIs obsoletas trocadas neste arquivo: `FindAnyObjectByType` e `FindObjectsByType<Interactable>(FindObjectsInactive.Include)`.
+- Quem só lê `Ocupacao` não mudou: `TrilhaSonora`, `HistoriaRedeSocial`, `FluxoDeJogoHUD`, `MenuPausa` e `SomDosFocos`.
+
+**Arquivo novo — `Assets/Editor/BalanceamentoSimulador.cs`:** menu **Dengue > Simular Balanceamento**.
+- Lê o `FluxoDeJogo` da cena aberta e simula com o mesmo `TaxaPara`, a passos de 0,1 s.
+- Ritmos de 15 a 50 s por foco. Os últimos focos levam até 1,6× mais, porque são os mais difíceis de achar. O celular fica fechado.
+- Imprime pico, ocupação final e duração, ou o momento da derrota, e também o tempo até perder parado.
+- Estima a rota mínima: vizinho mais próximo a partir de `SaidaDoHospital.posicaoNoBairro`, na velocidade de corrida, mais 0,25 s por clique.
+- Saída só no Console.
+
+Resultado na cena atual:
+
+| Ritmo (s/foco) | Resultado |
+|---|---|
+| 15 | vence em 7:25, pico 71% |
+| 20 | vence em 9:53, pico 72% |
+| 25 | vence em 12:21, pico 79% |
+| 30 | vence em 14:49, pico 87% |
+| 35 | vence em 17:16, pico 95% |
+| 40 | perde aos 6:28 (8/23) |
+| 45 | perde aos 5:22 (6/23) |
+| parado | perde aos 3:06 |
+
+Rota mínima: 390 m ≈ 1:42 (4,4 s/foco, limite teórico de quem já conhece o mapa).
+
+**Marco "a ocupação caiu": de 40% para 55%.** Com o mínimo de 30% e a descida só no fim, 40% quase nunca aconteceria. Com 55%, o post da UPA sai no clímax.
+- `HistoriaRedeSocial.cs`: padrão em `MarcosPadrao`.
+- Na cena: `Historia` → `marcosDeOcupacao[3].limite`, via `SerializedObject`. A `SampleScene` estava limpa e foi salva.
+
+**Verificado em Play (via `eval_file`; abertura pulada; `ControleAtivo = false`):**
+- `TaxaPara`: +0,200%/s com os 23 ativos depois da rampa; +0,050%/s com o celular; +0,040%/s no início calmo; −0,061%/s com 3 ativos (o celular não muda a descida).
+- Subida real no `Update`: +1,95% em 9,77 s de jogo.
+- 20 focos eliminados por código: −2,5% cada, parando em 30,00% (não passa do mínimo).
+- Ocupação forçada a 58% com 3 ativos: desceu a −0,061%/s. Ao cruzar 55%, saiu o post "A ocupação caiu para 55%!".
+- Todos eliminados: `OnVitoria`, partida encerrada, epílogo segurando a tela final, relógio parado.
+- Partida nova com a ocupação a 99,5%: chegou a 100%, `OnDerrota` disparou, e a HUD e o epílogo de derrota foram ativados. Nenhum erro no Console.
+- Os únicos erros foram os antigos do `Default-Particle.psd` (`Interactable.cs:307`), 2 por foco que usa a animação padrão de conclusão (6 pneus = 12).
+- Limpeza: `PlayerSettings.runInBackground = false`.
+
+**NÃO verificado:**
+- Partida real com teclado e mouse (o Editor sem foco não recebe input). Falta o usuário jogar e dizer se ficou moderado.
+- Ao sair do Play, a `SampleScene` voltou marcada como modificada sem nenhuma edição desta sessão depois do save. Não foi salva de novo.
+
+**Observações para futuras sessões de IA:**
+- Para reajustar a dificuldade: mexa primeiro em `taxaComTodosOsFocos` (pressão geral) e `duracaoInicioCalmo` (folga do começo) no Inspector do `FluxoDeJogo` e rode **Dengue > Simular Balanceamento**. `recuperacaoSemFocos` / `taxaComTodosOsFocos` × total = quantos focos restantes fazem a barra descer.
+- ~~Com as cenas `MenuInicial` e `SampleScene` abertas juntas no Editor, o Play gera milhares de avisos "There are 2 event systems in the scene". Não é bug do jogo.~~ **Errado.** Isso fazia as duas cenas rodarem juntas no Play, e o usuário viu o jogo "iniciando direto". Ver a entrada seguinte (`GuardaDeCenas`).
+- `unity command eval_file` recebe o caminho em `--file` (não `--path`).
+
+### 2026-09-28 — MenuInicial e SampleScene rodando juntas no Play + proteção `GuardaDeCenas`
+
+**Problema:** o usuário reclamou que o jogo estava "iniciando direto". A causa era o estado do Editor, não arquivo nenhum:
+- a `SampleScene` (ativa) e a `MenuInicial` estavam abertas juntas na Hierarchy, e o Play rodava as duas;
+- o console mostrava "There are 2 event systems" e "2 audio listeners";
+- o `MenuInicial.Awake` forçava `timeScale = 1` e pré-carregava outra `SampleScene` por trás.
+
+O estado já existia no começo da sessão de 2026-09-27. Aquela sessão viu os avisos e só anotou aqui, sem avisar o usuário. Conferido que nada foi gravado errado:
+- a `SampleScene` salva só mudou os campos do `FluxoDeJogo` e o marco de 55%;
+- o Build Settings continua com o `MenuInicial` no índice 0;
+- o `SomBuilder` e o `MenuInicialBuilder` fecham direito as cenas que abrem.
+
+**Correção no Editor (escolha do usuário):** ficou aberta **só a `MenuInicial`**. O Play começa na tela "FOCO ZERO", igual ao jogo final. Foi feito com `OpenScene(..., Single)` depois de conferir que nenhuma cena tinha mudança não salva.
+
+**Arquivo novo — `Assets/Editor/GuardaDeCenas.cs`:**
+- `[InitializeOnLoad]` + `playModeStateChanged`, age no `ExitingEditMode`.
+- Se as duas cenas (`MenuInicial.NomeCena` / `NomeCenaJogo`) estiverem carregadas, fica só a cena **ativa**:
+  - a outra, sem mudanças: é fechada com `CloseScene(extra, true)` e um aviso `[Cenas]` sai no Console;
+  - a outra, com mudanças não salvas: o **Play é cancelado** (`EditorApplication.isPlaying = false`) com um aviso explicando o que fazer. Nada é descartado.
+  - se o `CloseScene` falhar, também cancela o Play.
+- Sem diálogo, para não travar o CLI.
+
+**Verificado:**
+- Compilação OK.
+- Cena limpa: `SampleScene` aberta como aditiva com a `MenuInicial` ativa, depois Play.
+  - Aviso "fechei SampleScene para o Play rodar só MenuInicial".
+  - Nenhum "2 event systems".
+  - Em Play, só a `MenuInicial`, mais a pré-carga normal da `SampleScene` (`loaded=False`).
+  - Ao sair do Play, só a `MenuInicial` aberta.
+- Cena marcada como suja (só `MarkSceneDirty`, sem mudança real): Play cancelado, aviso no Console e as duas cenas continuaram abertas. Depois a `SampleScene` de teste foi fechada.
+- Os arquivos das duas cenas não mudaram (mesmo oid do LFS).
+
+**NÃO verificado:** o usuário apertando Play de verdade no menu e seguindo pelo "Jogar".
+
+**Observações para futuras sessões de IA:**
+- Ao terminar uma sessão, deixe aberta **só a `MenuInicial`**. Para testar a partida direto, abra a `SampleScene` como cena única (`OpenSceneMode.Single`), nunca aditiva junto do menu.
+- Se abrir a `SampleScene` como aditiva para algum builder, a proteção fecha a que não for ativa no Play. Se ela tiver mudanças, o Play é recusado.
+
+### 2026-09-28 — Abertura obriga a abrir o celular (tecla T)
+
+**Objetivo (pedido do usuário):** no começo do jogo, na tela preta das cartelas, o jogador precisa apertar **T** para abrir o celular antes de jogar. Antes, a última frase só sugeria "Acompanhe pelo celular [T]" e dava para passar direto.
+
+**Comportamento:**
+- A **última cartela da abertura** ("Tudo o que você fizer, alguém vai comentar. / Acompanhe pelo celular [T].") não sai sozinha. Clique, Espaço e Enter não avançam.
+- **Esc** pula as frases anteriores e cai nessa última, que continua travada.
+- A dica do rodapé troca de "clique para continuar · Esc pula" para **"aperte T para abrir o celular"**, em ciano `#40FFCC`, pulsando entre alpha 0,5 e 1 (1,4 pulso/s).
+- Ao apertar **T**:
+  - a tela preta clareia e o jogo despausa;
+  - um frame depois o celular abre sozinho;
+  - os posts iniciais da rede social saem na hora. Antes, eles esperavam o `atrasoInicial` de 1,2 s depois de o jogo andar, e o feed abriria vazio.
+- O celular abre **antes** de publicar. Com ele aberto, os posts não viram não lidos e não geram banner nem som de notificação.
+- O reinício com R continua pulando a abertura, e nesse caso não há obrigação. O "Reiniciar do zero" do pause toca a abertura de novo, com a obrigação.
+- O epílogo não muda: continua avançando com clique, e o Esc pula tudo.
+
+**Arquivos alterados:**
+- `Assets/Scripts/CartelasNarrativas.cs`
+  - `Tocar(..., Key? teclaParaSair = null)`: com a tecla, a última linha não vazia fica travada até ela.
+  - Novo `EsperarTecla`: troca o texto e a cor da dica e pulsa; depois restaura os dois, porque o epílogo usa a mesma dica.
+  - Campos novos: `textoDicaTecla`, `corDicaTecla`, `velocidadePulsoDica`.
+  - O `foreach` virou `for` com índice.
+- `Assets/Scripts/HistoriaDoJogo.cs`
+  - `exigirCelularNaAbertura` (padrão `true`) e referência `rede`, achada no `Awake`.
+  - `FimAbertura` chama a corrotina `AbrirCelularNoProximoFrame`, que faz `celular.Abrir()` e depois `rede.PublicarAberturaAgora()`.
+- `Assets/Scripts/CelularController.cs`: `public Key TeclaAbrir`.
+- `Assets/Scripts/RedeSocial.cs`: `PublicarAberturaAgora()` (só publica uma vez), usado também pelo `Update`.
+- **Cena não alterada.** Os campos novos usam o valor padrão do código, e o texto da última cartela continua o serializado.
+
+**Preview (skill preview-design):** antes × depois da última cartela capturados na Game view em Play Mode e mostrados ao usuário.
+
+**Verificado (Play Mode, `SampleScene`, com `runInBackground` ligado só no teste):**
+- Compilação OK. Nenhum erro no Console; os 53 avisos são os de API obsoleta que já existiam.
+- Esc na 2ª cartela → pulou para a última, com a dica trocada. Clique e mais Esc, depois 12 s → continuou travada, `timeScale = 0`, celular desligado.
+- T → `Tocando = false`, `timeScale = 1`, celular aberto, `aberturaPublicada = true`, `NaoLidos = 0`, interactor bloqueado (celular aberto), `ControleAtivo = true`. A dica voltou ao texto original. Screenshot: celular aberto no quarto do hospital com os posts da Dona Neusa, SOSO, João Silva e Ana Paula.
+- Epílogo (chamado por reflection): dica normal, e o Esc pulou tudo.
+- Limpeza: `PlayerSettings.runInBackground = false` (conferido `runInBackground: 0` no disco).
+
+**NÃO verificado:**
+- As teclas de verdade (T, Esc, clique), pelo mesmo motivo de sempre: com o Editor sem foco o Input System descarta o teclado sintético. As flags `pedirPularTudo`/`pedirProxima`/`pedirTecla` foram setadas por reflection.
+- A leitura do T usa o mesmo padrão do `CelularController` (`teclado[tecla].wasPressedThisFrame`). O celular fica desligado até a tela clarear, então o mesmo T não abre e fecha na hora.
+
+**Observações para futuras sessões de IA:**
+- Para desligar a obrigação: `HistoriaDoJogo.exigirCelularNaAbertura = false` no Inspector.
+- A tecla vem do `CelularController.teclaAbrir`. Se ela mudar, a trava segue a nova tecla, mas o texto `textoDicaTecla` (e a última cartela) precisam ser trocados à mão.
+
+
+### 2026-09-29 — Nome do jogo na build
+
+**Objetivo:** a build sair com o nome do jogo em vez de "My project (1)".
+
+**Arquivo alterado:** `ProjectSettings/ProjectSettings.asset` — `productName: My project (1)` → `productName: Foco Zero`.
+
+**Efeito:** o executável do Windows (`Foco Zero.exe`), a pasta `Foco Zero_Data` e o título da janela passam a usar o nome.
+
+**Observações:**
+- `companyName` também trocado: `DefaultCompany` → `Eduardo Richter`. Os `applicationIdentifier` continuam os do template URP (só importam para Android/iOS).
+- PlayerPrefs ficam no registro em `HKCU\Software\<companyName>\<productName>`, então as configurações salvas antes (`ConfiguracoesJogo`) voltam ao padrão uma vez.
+- Se o Editor estava aberto durante a edição, conferir em Project Settings > Player se o nome ficou; se não, digitar lá.
+
+
+### 2026-09-29 — Ícone do jogo
+
+**Objetivo:** a build ter ícone próprio. O usuário escolheu entre 3 prévias (mira, proibido, texto) e ficou com a **B — proibido**.
+
+**Arte:** mosquito branco (vista de cima, asas translúcidas) atrás de um sinal de proibido vermelho `#E04848`, sobre um quadrado arredondado escuro (degradê `#1B2229` → `#0A0D10`), igual à paleta do menu. 1024×1024 RGBA, gerado por SVG.
+
+**Arquivos:**
+- `Assets/Meus/Assets Gerados/Icone/IconeFocoZero.png` (novo).
+- `Assets/Editor/IconeDoJogo.cs` (novo): `[InitializeOnLoad]` + menu **Dengue > Aplicar Icone do Jogo**. Configura o import (sem compressão, sem mipmaps, alpha transparente) e põe a textura no **Default Icon** com `PlayerSettings.SetIcons(NamedBuildTarget.Unknown, ..., IconKind.Any)`. Só mexe se o ícone ainda não for esse.
+
+**Observações:**
+- Foi feito por script em vez de editar o `ProjectSettings.asset` à mão porque o Editor estava aberto (daria conflito com a cópia em memória).
+- Para trocar o ícone: substituir o PNG no mesmo caminho, ou apagar o script e escolher no Inspector.

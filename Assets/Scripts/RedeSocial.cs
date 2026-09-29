@@ -20,8 +20,18 @@ using UnityEngine;
  *  entre as que já existem (sem repetir a última), então nunca fica mudo,
  *  mesmo com os 20 focos do GameDoc.
  *
- *  Os posts saem em FILA, com um intervalo entre eles, para não
- *  despejarem todos de uma vez na tela.
+ *  AVISOS (popup + som) — pedidos do usuário: "muito popup ao mesmo tempo
+ *  fica uma poluição" e "as mensagens estão com delay":
+ *   - Postar(post, prioridade) publica NA HORA ou recusa. Dentro de
+ *     janelaConflito depois de um aviso, só passa prioridade MAIOR que a
+ *     dele. O recusado não fica guardado aqui: quem chamou não gasta a
+ *     mensagem e só tenta de novo quando o gatilho dela acontecer outra
+ *     vez (consulte Aceitaria antes de gastar).
+ *   - PostarGrupo: posts do mesmo momento (abertura, saída do hospital,
+ *     finais, derrota) — o 1º vira aviso, o resto entra só no feed, junto.
+ *   - PostarNoFeed: só no feed, sem aviso.
+ *  OnPostPublicado = todo post que entra no feed; OnAviso = só os que
+ *  viram popup e som (NotificacaoCelular / CelularController).
  *
  *  Marcadores que dá pra usar dentro do texto (o feed troca na hora
  *  em que o post é publicado):
@@ -36,6 +46,15 @@ public enum HumorPost
     Negativo,   // bairro reclamando
     Neutro,     // notou o trabalho / dica educativa
     Positivo    // resultado aparecendo
+}
+
+/* Quem vence quando dois gatilhos disparam dentro da janela de conflito. */
+public enum PrioridadePost
+{
+    Baixa,      // comportamento: parado, pulos, demora sem foco
+    Normal,     // abertura, chegar perto, largar pela metade, foco sem dono
+    Alta,       // fala do dono ao eliminar, sequência rápida, marcos de ocupação, saída do hospital
+    Maxima      // derrota e finais
 }
 
 [System.Serializable]
@@ -79,21 +98,26 @@ public class RedeSocial : MonoBehaviour
     [Header("Publicações — final (todos os focos limpos)")]
     [SerializeField] private List<PostRedeSocial> postsFinais = new List<PostRedeSocial>();
 
-    [Header("Ritmo")]
-    [Tooltip("Espera antes da primeira publicação (segundos).")]
+    [Header("Avisos (popup + som)")]
+    [Tooltip("Espera antes dos posts de abertura (segundos de jogo, depois das cartelas).")]
     [SerializeField] private float atrasoInicial = 1.2f;
 
-    [Tooltip("Intervalo entre publicações que saem em sequência (segundos).")]
-    [SerializeField] private float intervaloEntrePosts = 1.4f;
+    [Tooltip("Intervalo curto (s): logo depois de um aviso, só um de prioridade MAIOR passa. O recusado não é gasto e volta no próximo gatilho dele.")]
+    [SerializeField] private float janelaConflito = 4f;
+
+    [Tooltip("Vazio = procura na cena. Post que chega com o celular aberto já conta como lido.")]
+    [SerializeField] private CelularController celular;
 
     /* Disparado a cada publicação nova (o feed escuta para criar o card). */
     public event System.Action<PostRedeSocial> OnPostPublicado;
+
+    /* Só os posts que viram aviso (popup + som). */
+    public event System.Action<PostRedeSocial> OnAviso;
 
     /* Disparado quando o número de não lidos muda (o badge escuta). */
     public event System.Action OnNaoLidosMudou;
 
     private readonly List<Interactable> focos = new List<Interactable>();
-    private readonly Queue<PostRedeSocial> fila = new Queue<PostRedeSocial>();
     private readonly List<PostRedeSocial> publicados = new List<PostRedeSocial>();
 
     private int eliminados;
@@ -101,7 +125,9 @@ public class RedeSocial : MonoBehaviour
     private int ultimoSorteado = -1;  // evita repetir o mesmo post duas vezes seguidas
     private int focosAteProximoPost;
     private bool finaisEnfileirados;
-    private float timer;
+    private bool aberturaPublicada;
+    private float ultimoAviso = float.NegativeInfinity;
+    private PrioridadePost prioridadeUltimoAviso;
     private int naoLidos;
 
     public int NaoLidos => naoLidos;
@@ -110,8 +136,12 @@ public class RedeSocial : MonoBehaviour
     public IReadOnlyList<PostRedeSocial> Publicados => publicados;
     public IReadOnlyList<PostRedeSocial> PostsFinais => postsFinais;
 
-    /* Quantas publicações ainda esperam a vez na fila. */
-    public int NaFila => fila.Count;
+    /* Um aviso com esta prioridade seria aceito AGORA? Consulte antes de
+     * gastar a mensagem (índice de lista, fala do dono, "já avisado"). */
+    public bool Aceitaria(PrioridadePost prioridade)
+    {
+        return Time.time - ultimoAviso >= janelaConflito || prioridade > prioridadeUltimoAviso;
+    }
 
     /* Quando true, a RedeSocial só publica a ABERTURA sozinha: incentivos
      * e finais passam a ser decididos por um narrador externo
@@ -134,6 +164,7 @@ public class RedeSocial : MonoBehaviour
         if (postsIniciais == null || postsIniciais.Count == 0) postsIniciais = AberturaPadrao();
         if (postsDeIncentivo == null || postsDeIncentivo.Count == 0) postsDeIncentivo = IncentivosPadrao();
         if (postsFinais == null || postsFinais.Count == 0) postsFinais = FinaisPadrao();
+        if (celular == null) celular = FindAnyObjectByType<CelularController>();
     }
 
     void Start()
@@ -148,11 +179,7 @@ public class RedeSocial : MonoBehaviour
                 foco.OnCompleted += HandleFocoEliminado;
         }
 
-        timer = atrasoInicial;
         focosAteProximoPost = incentivoNoPrimeiroFoco ? 1 : SortearIntervalo();
-
-        foreach (PostRedeSocial p in postsIniciais)
-            Enfileirar(p);
     }
 
     void OnDestroy()
@@ -164,15 +191,19 @@ public class RedeSocial : MonoBehaviour
 
     void Update()
     {
-        if (fila.Count == 0)
-            return;
+        // Abertura: sai quando o jogo anda (as cartelas pausam o tempo).
+        if (Time.time >= atrasoInicial)
+            PublicarAberturaAgora();
+    }
 
-        timer -= Time.deltaTime;
-        if (timer > 0f)
+    /* Posts iniciais na hora, sem esperar o atrasoInicial (o HistoriaDoJogo
+     * chama ao abrir o celular no fim da abertura). Só publica uma vez. */
+    public void PublicarAberturaAgora()
+    {
+        if (aberturaPublicada)
             return;
-
-        Publicar(fila.Dequeue());
-        timer = intervaloEntrePosts;
+        aberturaPublicada = true;
+        PostarGrupo(postsIniciais, PrioridadePost.Normal);
     }
 
     /* Marca tudo como lido (chamado quando o jogador abre o celular). */
@@ -198,8 +229,7 @@ public class RedeSocial : MonoBehaviour
         if (!finaisEnfileirados && focos.Count > 0 && eliminados >= focos.Count)
         {
             finaisEnfileirados = true;
-            foreach (PostRedeSocial p in postsFinais)
-                Enfileirar(p);
+            PostarGrupo(postsFinais, PrioridadePost.Maxima);
             return;
         }
 
@@ -207,7 +237,7 @@ public class RedeSocial : MonoBehaviour
         if (focosAteProximoPost > 0)
             return;
 
-        Enfileirar(ProximoIncentivo());
+        Postar(ProximoIncentivo(), PrioridadePost.Normal);
         focosAteProximoPost = SortearIntervalo();
     }
 
@@ -243,18 +273,61 @@ public class RedeSocial : MonoBehaviour
         return postsDeIncentivo[i];
     }
 
-    /* Coloca uma publicação na fila (sai no ritmo de intervaloEntrePosts). */
-    public void Enfileirar(PostRedeSocial post)
+    /* Publica NA HORA como aviso (feed + popup + som) se Aceitaria; senão não
+     * publica nada e devolve false — quem chamou guarda a mensagem para o
+     * próximo gatilho dela. */
+    public bool Postar(PostRedeSocial post, PrioridadePost prioridade = PrioridadePost.Normal)
     {
-        if (post != null && !string.IsNullOrWhiteSpace(post.texto))
-            fila.Enqueue(post);
+        if (!Valido(post) || !Aceitaria(prioridade))
+            return false;
+        ultimoAviso = Time.time;
+        prioridadeUltimoAviso = prioridade;
+        Publicar(post, true);
+        return true;
     }
 
-    private void Publicar(PostRedeSocial post)
+    /* Só no feed, sem popup nem som. */
+    public void PostarNoFeed(PostRedeSocial post)
+    {
+        if (Valido(post))
+            Publicar(post, false);
+    }
+
+    /* Posts do mesmo momento: o 1º vira aviso (se aceito) e o resto entra só
+     * no feed, junto — um popup só, sem ninguém esperando a vez. */
+    public void PostarGrupo(IReadOnlyList<PostRedeSocial> posts, PrioridadePost prioridade)
+    {
+        if (posts == null)
+            return;
+        bool primeiro = true;
+        foreach (PostRedeSocial p in posts)
+        {
+            if (!Valido(p))
+                continue;
+            if (primeiro)
+            {
+                primeiro = false;
+                if (Postar(p, prioridade))
+                    continue;
+            }
+            PostarNoFeed(p);
+        }
+    }
+
+    private static bool Valido(PostRedeSocial post)
+    {
+        return post != null && !string.IsNullOrWhiteSpace(post.texto);
+    }
+
+    private void Publicar(PostRedeSocial post, bool aviso)
     {
         publicados.Add(post);
-        naoLidos++;
+        if (celular == null || !celular.Aberto)
+            naoLidos++;   // com o celular aberto o jogador já está vendo o post
+
         OnPostPublicado?.Invoke(post);
+        if (aviso)
+            OnAviso?.Invoke(post);
         OnNaoLidosMudou?.Invoke();
     }
 

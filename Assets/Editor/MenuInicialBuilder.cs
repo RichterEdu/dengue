@@ -152,6 +152,7 @@ public static class MenuInicialBuilder
             MontarLuz(skybox);
             CanvasGroup fadeTomada = MontarUI(log);
             MontarCamera(fadeTomada);
+            SomBuilder.MontarSomDoMenu(menu);   // música + clique dos botões
 
             if (!EditorSceneManager.SaveScene(menu, CaminhoCena))
                 Debug.LogError("[Menu Inicial] Não foi possível salvar " + CaminhoCena);

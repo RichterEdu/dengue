@@ -15,6 +15,9 @@ using UnityEngine.InputSystem;
  *  - Cada frase entra com fade, fica o tempo proporcional ao tamanho do
  *    texto e sai com fade.
  *  - Clique / Espaço / Enter avança; Esc pula o resto.
+ *  - Com teclaParaSair (a abertura passa o T do celular), a ÚLTIMA frase
+ *    fica travada até essa tecla: clique/Espaço/Enter não avançam, o Esc
+ *    pula só até ela e a dica do rodapé troca para textoDicaTecla.
  *  - Roda em tempo REAL (unscaledDeltaTime): funciona com o jogo pausado
  *    (Time.timeScale = 0), que é como a abertura segura o resto do jogo.
  *
@@ -42,10 +45,18 @@ public class CartelasNarrativas : MonoBehaviour
     [Tooltip("Alpha da dica \"clique para continuar\".")]
     [SerializeField] private float alphaDica = 0.5f;
 
+    [Header("Última frase travada (teclaParaSair)")]
+    [SerializeField] private string textoDicaTecla = "aperte  <b>T</b>  para abrir o celular";
+    [SerializeField] private Color corDicaTecla = new Color(0.25f, 1f, 0.8f, 1f);
+    [Tooltip("Pulsos por segundo da dica enquanto espera a tecla.")]
+    [SerializeField] private float velocidadePulsoDica = 1.4f;
+
     private static readonly Regex Tags = new Regex("<.*?>");
 
     private bool pedirProxima;
     private bool pedirPularTudo;
+    private Key? teclaEsperada;
+    private bool pedirTecla;
     private Coroutine rotina;
 
     public bool Tocando { get; private set; }
@@ -69,12 +80,13 @@ public class CartelasNarrativas : MonoBehaviour
     /* Toca as frases em sequência. antesDeClarear é chamado quando a última
      * frase some, logo antes da tela preta começar a clarear (o epílogo usa
      * isso para a tela de estatísticas já vir surgindo por baixo);
-     * aoTerminar, quando tudo acabou. */
-    public void Tocar(IList<string> linhas, Action aoTerminar, Action antesDeClarear = null)
+     * aoTerminar, quando tudo acabou. teclaParaSair: a última frase só sai
+     * com essa tecla. */
+    public void Tocar(IList<string> linhas, Action aoTerminar, Action antesDeClarear = null, Key? teclaParaSair = null)
     {
         if (rotina != null)
             StopCoroutine(rotina);
-        rotina = StartCoroutine(Rotina(linhas, aoTerminar, antesDeClarear));
+        rotina = StartCoroutine(Rotina(linhas, aoTerminar, antesDeClarear, teclaParaSair));
     }
 
     void Update()
@@ -93,13 +105,18 @@ public class CartelasNarrativas : MonoBehaviour
 
         if (teclado != null && teclado.escapeKey.wasPressedThisFrame)
             pedirPularTudo = true;
+
+        if (teclado != null && teclaEsperada.HasValue && teclado[teclaEsperada.Value].wasPressedThisFrame)
+            pedirTecla = true;
     }
 
-    private IEnumerator Rotina(IList<string> linhas, Action aoTerminar, Action antesDeClarear)
+    private IEnumerator Rotina(IList<string> linhas, Action aoTerminar, Action antesDeClarear, Key? teclaParaSair)
     {
         Tocando = true;
         pedirProxima = false;
         pedirPularTudo = false;
+        teclaEsperada = null;
+        pedirTecla = false;
         if (textoGrupo != null) textoGrupo.alpha = 0f;
 
         yield return Fade(grupo, 1f, fadeFundo, false);
@@ -107,25 +124,45 @@ public class CartelasNarrativas : MonoBehaviour
 
         if (linhas != null)
         {
-            foreach (string linha in linhas)
+            int ultima = linhas.Count - 1;
+            while (ultima >= 0 && string.IsNullOrWhiteSpace(linhas[ultima]))
+                ultima--;
+            bool travarUltima = teclaParaSair.HasValue && ultima >= 0;
+
+            for (int i = 0; i <= ultima; i++)
             {
-                if (pedirPularTudo)
+                bool travada = travarUltima && i == ultima;
+                if (pedirPularTudo && !travada)
+                {
+                    // Com frase travada, o Esc só pula até ela.
+                    if (travarUltima) continue;
                     break;
+                }
+
+                string linha = linhas[i];
                 if (string.IsNullOrWhiteSpace(linha))
                     continue;
 
                 if (texto != null) texto.text = linha;
                 pedirProxima = false;
+                pedirPularTudo = false;
 
-                yield return Fade(textoGrupo, 1f, fadeTexto, true);
+                yield return Fade(textoGrupo, 1f, fadeTexto, !travada);
                 pedirProxima = false; // clique durante a entrada só completa o fade; o próximo avança
 
-                float segurar = Mathf.Min(tempoMaximo, tempoBase + Tags.Replace(linha, "").Length * tempoPorLetra);
-                for (float t = 0f; t < segurar && !pedirProxima && !pedirPularTudo; t += Time.unscaledDeltaTime)
-                    yield return null;
+                if (travada)
+                {
+                    yield return EsperarTecla(teclaParaSair.Value);
+                }
+                else
+                {
+                    float segurar = Mathf.Min(tempoMaximo, tempoBase + Tags.Replace(linha, "").Length * tempoPorLetra);
+                    for (float t = 0f; t < segurar && !pedirProxima && !pedirPularTudo; t += Time.unscaledDeltaTime)
+                        yield return null;
+                }
 
                 pedirProxima = false;
-                yield return Fade(textoGrupo, 0f, fadeTexto * 0.7f, true);
+                yield return Fade(textoGrupo, 0f, fadeTexto * 0.7f, !travada);
             }
         }
 
@@ -138,6 +175,43 @@ public class CartelasNarrativas : MonoBehaviour
         Tocando = false;
         rotina = null;
         aoTerminar?.Invoke();
+    }
+
+    /* Segura a frase até a tecla, com a dica do rodapé trocada e pulsando;
+     * depois devolve a dica original (o epílogo usa a mesma). */
+    private IEnumerator EsperarTecla(Key tecla)
+    {
+        TextMeshProUGUI dica = dicaGrupo != null ? dicaGrupo.GetComponent<TextMeshProUGUI>() : null;
+        string textoOriginal = dica != null ? dica.text : null;
+        Color corOriginal = dica != null ? dica.color : Color.white;
+        if (dica != null)
+        {
+            dica.text = textoDicaTecla;
+            dica.color = corDicaTecla;
+        }
+
+        teclaEsperada = tecla;
+        pedirTecla = false;
+        float inicio = Time.unscaledTime;
+        while (!pedirTecla)
+        {
+            if (dicaGrupo != null)
+            {
+                float onda = 0.5f - 0.5f * Mathf.Cos((Time.unscaledTime - inicio) * velocidadePulsoDica * 2f * Mathf.PI);
+                dicaGrupo.alpha = Mathf.Lerp(0.5f, 1f, onda);
+            }
+            yield return null;
+        }
+        teclaEsperada = null;
+        pedirTecla = false;
+        pedirPularTudo = false;
+
+        if (dicaGrupo != null) dicaGrupo.alpha = 0f;
+        if (dica != null)
+        {
+            dica.text = textoOriginal;
+            dica.color = corOriginal;
+        }
     }
 
     /* Fade em tempo real. interrompivel = um clique completa na hora. */

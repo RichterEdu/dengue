@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,16 +5,18 @@ using UnityEngine.UI;
 /* ============================================================
  *  NotificacaoCelular.cs
  *  ---------------------------------------------------------------------
- *  Notificação "push" da rede social: com o celular FECHADO, cada post
- *  novo aparece num banner acima do ícone do celular (avatar, autor, @ e
+ *  Notificação "push" da rede social: com o celular FECHADO, cada AVISO
+ *  da RedeSocial (OnAviso: um de cada vez, com prioridade — os outros
+ *  posts entram só no feed) aparece num banner acima do ícone do celular (avatar, autor, @ e
  *  o começo do texto), entra deslizando, fica uns segundos e sai. É o que
  *  deixa a história correr na tela sem o jogador precisar apertar T o
  *  tempo todo — quem quiser ler tudo abre o celular.
  *
- *  - Posts que chegam juntos entram em fila; com fila, cada banner fica
- *    pelo menos duracaoMinima (dá pra ler) e depois cede a vez.
- *  - Celular aberto = banner some e a fila é descartada (o jogador já
- *    está vendo tudo no feed).
+ *  - Sem fila (pedido do usuário: "as mensagens estão com delay"): o aviso
+ *    aparece NA HORA. Se já houver um banner (só acontece quando chega algo
+ *    de prioridade maior logo depois), o conteúdo é trocado e ele reentra
+ *    do meio da animação.
+ *  - Celular aberto = banner some (o jogador já está vendo tudo no feed).
  *  - O texto passa pelos mesmos marcadores do feed ({eliminados}...),
  *    então banner e card mostram exatamente a mesma coisa.
  *
@@ -37,10 +38,8 @@ public class NotificacaoCelular : MonoBehaviour
     [SerializeField] private TextMeshProUGUI texto;
 
     [Header("Tempo (segundos)")]
-    [Tooltip("Quanto um banner fica na tela quando não há outro esperando.")]
+    [Tooltip("Quanto um banner fica na tela.")]
     [SerializeField] private float duracao = 4.5f;
-    [Tooltip("Mínimo na tela quando já tem outro post esperando a vez.")]
-    [SerializeField] private float duracaoMinima = 2.6f;
     [SerializeField] private float tempoEntrada = 0.28f;
     [Tooltip("De quantos pixels à direita o banner entra deslizando.")]
     [SerializeField] private float deslocamento = 80f;
@@ -52,7 +51,6 @@ public class NotificacaoCelular : MonoBehaviour
         public string texto;
     }
 
-    private readonly Queue<Aviso> fila = new Queue<Aviso>();
     private bool mostrando;
     private bool saindo;
     private float tempoNaTela;
@@ -78,13 +76,13 @@ public class NotificacaoCelular : MonoBehaviour
     void OnEnable()
     {
         if (rede != null)
-            rede.OnPostPublicado += HandlePost;
+            rede.OnAviso += HandlePost;
     }
 
     void OnDisable()
     {
         if (rede != null)
-            rede.OnPostPublicado -= HandlePost;
+            rede.OnAviso -= HandlePost;
     }
 
     private void HandlePost(PostRedeSocial post)
@@ -95,7 +93,10 @@ public class NotificacaoCelular : MonoBehaviour
         // Marcadores trocados AGORA, com os números do momento da publicação
         // (igual ao card do feed, que também é criado neste instante).
         string corpo = feed != null ? feed.Marcadores(post.texto) : post.texto;
-        fila.Enqueue(new Aviso { autor = post.autor, usuario = post.usuario, texto = corpo });
+        bool trocando = mostrando;
+        Mostrar(new Aviso { autor = post.autor, usuario = post.usuario, texto = corpo });
+        if (trocando)
+            anim = Mathf.Min(anim, 0.5f);   // reentra do meio: dá pra ver que mudou
     }
 
     private bool CelularAberto => celular != null && celular.Aberto;
@@ -104,16 +105,13 @@ public class NotificacaoCelular : MonoBehaviour
     {
         float dt = Time.unscaledDeltaTime;
 
-        if (CelularAberto)
-        {
-            fila.Clear();
-            if (mostrando) saindo = true;
-        }
+        if (CelularAberto && mostrando)
+            saindo = true;
 
         if (mostrando && !saindo)
         {
             tempoNaTela += dt;
-            if (tempoNaTela >= duracao || (fila.Count > 0 && tempoNaTela >= duracaoMinima))
+            if (tempoNaTela >= duracao)
                 saindo = true;
         }
 
@@ -125,9 +123,6 @@ public class NotificacaoCelular : MonoBehaviour
             mostrando = false;
             saindo = false;
         }
-
-        if (!mostrando && fila.Count > 0 && !CelularAberto)
-            Mostrar(fila.Dequeue());
 
         Aplicar();
     }

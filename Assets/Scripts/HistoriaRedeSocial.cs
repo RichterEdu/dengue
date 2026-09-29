@@ -20,12 +20,18 @@ using UnityEngine;
  *  derrota. No fim, LinhasEpilogo() monta o "uma semana depois" com a
  *  fala de cada personagem, que muda conforme o que o jogador limpou.
  *
- *  Quem publica de fato é a RedeSocial.cs (fila, não lidos). Ao nascer,
+ *  Quem publica de fato é a RedeSocial.cs (avisos, não lidos). Ao nascer,
  *  este componente liga RedeSocial.NarradorExterno: a RedeSocial passa a
  *  soltar sozinha só a abertura, e o resto sai daqui.
  *
+ *  Cada mensagem sai NA HORA do gatilho ou é recusada (outro aviso tão ou
+ *  mais importante acabou de sair — RedeSocial.Aceitaria). Recusada, ela
+ *  não é gasta e só volta quando o gatilho dela acontecer DE NOVO. Um foco
+ *  eliminado gera UMA mensagem: finais > último do tipo > sequência rápida
+ *  > fala do dono.
+ *
  *  Marcadores que dá pra usar nos textos daqui (trocados na hora de
- *  enfileirar): {restantesTipo} {eliminadosTipo} {totalTipo} {ocupacao}.
+ *  postar): {restantesTipo} {eliminadosTipo} {totalTipo} {ocupacao}.
  *  Os marcadores do feed ({eliminados} {total} {restantes}) continuam
  *  valendo e são trocados na hora da publicação, como sempre.
  *
@@ -144,9 +150,6 @@ public class HistoriaRedeSocial : MonoBehaviour
     [SerializeField] private int pulosParaPost = 4;
     [SerializeField] private float janelaPulos = 6f;
 
-    [Tooltip("Posts de comportamento (parado, pulos, combo...) só entram se a fila tiver no máximo isto — evita spam.")]
-    [SerializeField] private int maxFilaParaExtras = 2;
-
     private readonly List<Interactable> focos = new List<Interactable>();
     private readonly Dictionary<Interactable, TipoFoco> tipoDe = new Dictionary<Interactable, TipoFoco>();
     private readonly Dictionary<TipoFoco, int> totalPorTipo = new Dictionary<TipoFoco, int>();
@@ -155,6 +158,8 @@ public class HistoriaRedeSocial : MonoBehaviour
     private readonly Dictionary<TipoFoco, int> ultimaFalaSorteada = new Dictionary<TipoFoco, int>();
     private readonly HashSet<TipoFoco> jaChegouPerto = new HashSet<TipoFoco>();
     private readonly HashSet<Interactable> largadoAvisado = new HashSet<Interactable>();
+    private readonly HashSet<Interactable> dentroDoRaio = new HashSet<Interactable>();     // p/ "chegar perto" (gatilho = ENTRAR)
+    private readonly HashSet<Interactable> pertoDoComecado = new HashSet<Interactable>();  // p/ "largar" (gatilho = SAIR)
     private readonly Queue<float> pulos = new Queue<float>();
 
     private Transform player;
@@ -168,7 +173,10 @@ public class HistoriaRedeSocial : MonoBehaviour
     private float ultimoFocoTempo = float.NegativeInfinity;
     private float proximaVarredura;
 
-    private bool FilaLivre => rede == null || rede.NaFila <= maxFilaParaExtras;
+    // Regra das mensagens (pedido do usuário): sai NA HORA ou é recusada pela
+    // RedeSocial (outro aviso tão ou mais importante acabou de sair). Recusada
+    // = a mensagem não é gasta e só volta quando o gatilho dela acontecer DE
+    // NOVO — nunca sai sozinha depois.
     private bool EmJogo => fluxo != null && fluxo.PartidaIniciada && !fluxo.PartidaEncerrada;
 
     void Reset()
@@ -266,8 +274,11 @@ public class HistoriaRedeSocial : MonoBehaviour
         // Muito tempo sem eliminar foco: alguém do bairro cobra.
         if (!lendoCelular)
             timerSemFoco += dt;
-        if (timerSemFoco >= tempoSemFoco && PostarDaLista(aoDemorarSemFoco, ref idxDemora, extra: true))
-            timerSemFoco = 0f;
+        if (timerSemFoco >= tempoSemFoco)
+        {
+            PostarDaLista(aoDemorarSemFoco, ref idxDemora, PrioridadePost.Baixa);
+            timerSemFoco = 0f;   // saiu ou foi recusada: o gatilho foi gasto, só volta daqui a tempoSemFoco
+        }
 
         // Parado: alguém estranha.
         if (velocidade < 0.15f && !lendoCelular)
@@ -275,8 +286,11 @@ public class HistoriaRedeSocial : MonoBehaviour
         else
             timerParado = 0f;
 
-        if (timerParado >= tempoParado && PostarDaLista(aoFicarParado, ref idxParado, extra: true))
+        if (timerParado >= tempoParado)
+        {
+            PostarDaLista(aoFicarParado, ref idxParado, PrioridadePost.Baixa);
             timerParado = 0f;
+        }
     }
 
     /* ---------------- API ---------------- */
@@ -318,16 +332,18 @@ public class HistoriaRedeSocial : MonoBehaviour
     private void HandlePartidaIniciada()
     {
         timerSemFoco = 0f;
-        foreach (PostRedeSocial p in aoSairDoHospital)
-            Enfileirar(p.autor, p.usuario, p.texto, p.humor, TipoFoco.Nenhum, p.curtidas);
+        if (rede != null)
+            rede.PostarGrupo(Formatados(aoSairDoHospital), PrioridadePost.Alta);
     }
 
     private void HandleDerrota()
     {
-        foreach (PostRedeSocial p in postsDerrota)
-            Enfileirar(p.autor, p.usuario, p.texto, p.humor, TipoFoco.Nenhum, p.curtidas);
+        if (rede != null)
+            rede.PostarGrupo(Formatados(postsDerrota), PrioridadePost.Maxima);
     }
 
+    /* UMA mensagem por foco eliminado — a mais importante. As outras não são
+     * gastas: ficam para a próxima vez que o gatilho delas acontecer. */
     private void HandleFocoEliminado(Interactable foco)
     {
         foco.OnCompleted -= HandleFocoEliminado;
@@ -338,25 +354,41 @@ public class HistoriaRedeSocial : MonoBehaviour
         jaChegouPerto.Add(tipo);   // não faz sentido "estou vendo o agente chegando" depois de limpo
         timerSemFoco = 0f;
 
-        // 1. O dono do tipo comenta ESTE foco.
-        PersonagemDoBairro dono = Personagem(tipo);
-        string fala = dono != null ? FalaAoEliminar(dono, tipo) : null;
-        if (!string.IsNullOrWhiteSpace(fala))
-            Enfileirar(dono.autor, dono.usuario, fala, HumorPost.Positivo, tipo, -1);
-        else
-            PostarDaLista(aoEliminarFocoSemDono, ref idxSemDono, extra: false, emCiclo: true);
-
-        bool acabouOMapa = eliminadosTotal >= focos.Count;
-
-        // 2. Sequência rápida (não no último — ali quem fala são os finais).
-        if (!acabouOMapa && Time.time - ultimoFocoTempo <= janelaCombo)
-            PostarDaLista(aoFazerCombo, ref idxCombo, extra: true);
+        bool sequencia = Time.time - ultimoFocoTempo <= janelaCombo;
         ultimoFocoTempo = Time.time;
 
-        // 3. Bairro limpo: publicações finais da RedeSocial.
-        if (acabouOMapa && rede != null)
-            foreach (PostRedeSocial p in rede.PostsFinais)
-                rede.Enfileirar(p);
+        // 1. Bairro limpo: publicações finais da RedeSocial.
+        if (eliminadosTotal >= focos.Count)
+        {
+            if (rede != null)
+                rede.PostarGrupo(rede.PostsFinais, PrioridadePost.Maxima);
+            return;
+        }
+
+        PersonagemDoBairro dono = Personagem(tipo);
+        int total = Contar(totalPorTipo, tipo);
+        bool ultimoDoTipo = Contar(eliminadosPorTipo, tipo) >= total;
+
+        // 2. Último foco daquele tipo: o dono fecha a história dele.
+        if (dono != null && ultimoDoTipo && total > 1 && !string.IsNullOrWhiteSpace(dono.aoEliminarUltimo))
+        {
+            Postar(dono.autor, dono.usuario, dono.aoEliminarUltimo, HumorPost.Positivo, tipo, -1, PrioridadePost.Alta);
+            return;
+        }
+
+        // 3. Sequência rápida (a fala do dono fica guardada para o próximo foco do tipo).
+        if (sequencia && PostarDaLista(aoFazerCombo, ref idxCombo, PrioridadePost.Alta))
+            return;
+
+        // 4. O dono do tipo comenta ESTE foco — a fala só é gasta se sair.
+        if (dono != null && TemFalaAoEliminar(dono))
+        {
+            if (rede != null && rede.Aceitaria(PrioridadePost.Alta))
+                Postar(dono.autor, dono.usuario, FalaAoEliminar(dono, tipo), HumorPost.Positivo, tipo, -1, PrioridadePost.Alta);
+            return;
+        }
+
+        PostarDaLista(aoEliminarFocoSemDono, ref idxSemDono, PrioridadePost.Normal, emCiclo: true);
     }
 
     private void HandlePulou()
@@ -368,60 +400,76 @@ public class HistoriaRedeSocial : MonoBehaviour
         while (pulos.Count > 0 && Time.time - pulos.Peek() > janelaPulos)
             pulos.Dequeue();
 
-        if (pulos.Count >= pulosParaPost && PostarDaLista(aoPularMuito, ref idxPulos, extra: true))
-            pulos.Clear();
+        if (pulos.Count >= pulosParaPost)
+        {
+            PostarDaLista(aoPularMuito, ref idxPulos, PrioridadePost.Baixa);
+            pulos.Clear();   // saiu ou foi recusada: precisa de outra série de pulos
+        }
     }
 
     /* ---------------- Verificações periódicas ---------------- */
 
+    /* Gatilho = ENTRAR no raio de um foco (não "estar perto"). Recusada, só
+     * tenta de novo quando o jogador sair e entrar outra vez. */
     private void VerificarChegadas()
     {
-        if (player == null || !FilaLivre)
+        if (player == null)
             return;
 
         foreach (Interactable foco in focos)
         {
-            if (foco == null || !foco.CanInteract || !foco.gameObject.activeInHierarchy)
+            if (foco == null)
                 continue;
+
+            bool dentro = foco.CanInteract && foco.gameObject.activeInHierarchy
+                          && Vector3.Distance(player.position, foco.transform.position) <= raioChegada;
+            if (!dentro)
+            {
+                dentroDoRaio.Remove(foco);
+                continue;
+            }
+            if (!dentroDoRaio.Add(foco))
+                continue;   // já estava dentro: não é um gatilho novo
 
             TipoFoco tipo = tipoDe[foco];
             if (tipo == TipoFoco.Nenhum || jaChegouPerto.Contains(tipo))
                 continue;
 
-            if (Vector3.Distance(player.position, foco.transform.position) > raioChegada)
-                continue;
-
-            jaChegouPerto.Add(tipo);
             PersonagemDoBairro dono = Personagem(tipo);
-            if (dono != null && !string.IsNullOrWhiteSpace(dono.aoChegarPerto))
-            {
-                Enfileirar(dono.autor, dono.usuario, dono.aoChegarPerto, HumorPost.Neutro, tipo, -1);
-                return; // um por varredura
-            }
+            if (dono != null && !string.IsNullOrWhiteSpace(dono.aoChegarPerto)
+                && Postar(dono.autor, dono.usuario, dono.aoChegarPerto, HumorPost.Neutro, tipo, -1, PrioridadePost.Normal))
+                jaChegouPerto.Add(tipo);
         }
     }
 
+    /* Gatilho = SAIR de perto de um foco começado. Recusada, só tenta de
+     * novo quando o jogador voltar para perto e sair outra vez. */
     private void VerificarLargados()
     {
-        if (player == null || !FilaLivre)
+        if (player == null)
             return;
 
         foreach (Interactable foco in focos)
         {
             if (foco == null || foco.CurrentClicks == 0 || foco.IsComplete || largadoAvisado.Contains(foco))
+            {
+                if (foco != null) pertoDoComecado.Remove(foco);
                 continue;
+            }
 
             if (Vector3.Distance(player.position, foco.transform.position) < raioLargado)
+            {
+                pertoDoComecado.Add(foco);
                 continue;
+            }
+            if (!pertoDoComecado.Remove(foco))
+                continue;   // já estava longe: não é uma saída nova
 
-            largadoAvisado.Add(foco);
             TipoFoco tipo = tipoDe[foco];
             PersonagemDoBairro dono = Personagem(tipo);
-            if (dono != null && !string.IsNullOrWhiteSpace(dono.aoLargarPelaMetade))
-            {
-                Enfileirar(dono.autor, dono.usuario, dono.aoLargarPelaMetade, HumorPost.Negativo, tipo, -1);
-                return;
-            }
+            if (dono != null && !string.IsNullOrWhiteSpace(dono.aoLargarPelaMetade)
+                && Postar(dono.autor, dono.usuario, dono.aoLargarPelaMetade, HumorPost.Negativo, tipo, -1, PrioridadePost.Normal))
+                largadoAvisado.Add(foco);
         }
     }
 
@@ -456,12 +504,20 @@ public class HistoriaRedeSocial : MonoBehaviour
 
     private void Disparar(int i, MarcoDeOcupacao m)
     {
-        marcoDisparado[i] = true;
-        Enfileirar(m.post.autor, m.post.usuario, m.post.texto, m.post.humor, TipoFoco.Nenhum, m.post.curtidas);
+        if (Postar(m.post.autor, m.post.usuario, m.post.texto, m.post.humor, TipoFoco.Nenhum, m.post.curtidas, PrioridadePost.Alta))
+            marcoDisparado[i] = true;
+        else
+            marcoArmado[i] = false;   // recusado: precisa voltar pro outro lado do limite e cruzar de novo
     }
 
     /* ---------------- Utilidades ---------------- */
 
+    private static bool TemFalaAoEliminar(PersonagemDoBairro p)
+    {
+        return (p.aoEliminar != null && p.aoEliminar.Count > 0) || !string.IsNullOrWhiteSpace(p.aoEliminarUltimo);
+    }
+
+    /* ATENÇÃO: gasta a fala (avança o índice). Só chame quando ela vai sair. */
     private string FalaAoEliminar(PersonagemDoBairro p, TipoFoco tipo)
     {
         int total = Contar(totalPorTipo, tipo);
@@ -493,10 +549,10 @@ public class HistoriaRedeSocial : MonoBehaviour
         return p.aoEliminar[sorteio];
     }
 
-    /* Publica o próximo post de uma lista. extra = post de comportamento,
-     * que só entra se a fila estiver folgada. emCiclo = volta ao começo
-     * quando a lista acaba (senão, acabou, não posta mais). */
-    private bool PostarDaLista(List<PostRedeSocial> lista, ref int indice, bool extra, bool emCiclo = false)
+    /* Posta o próximo post da lista SE ele sair — só então o índice anda
+     * (recusado = fica guardado para o próximo gatilho). emCiclo = volta ao
+     * começo quando a lista acaba (senão, acabou, não posta mais). */
+    private bool PostarDaLista(List<PostRedeSocial> lista, ref int indice, PrioridadePost prioridade, bool emCiclo = false)
     {
         if (lista == null || lista.Count == 0)
             return false;
@@ -506,20 +562,46 @@ public class HistoriaRedeSocial : MonoBehaviour
                 return false;
             indice = 0;
         }
-        if (extra && !FilaLivre)
-            return false;
 
-        PostRedeSocial p = lista[indice++];
-        return p != null && Enfileirar(p.autor, p.usuario, p.texto, p.humor, TipoFoco.Nenhum, p.curtidas);
+        PostRedeSocial p = lista[indice];
+        if (p == null)
+        {
+            indice++;
+            return false;
+        }
+        if (!Postar(p.autor, p.usuario, p.texto, p.humor, TipoFoco.Nenhum, p.curtidas, prioridade))
+            return false;
+        indice++;
+        return true;
+    }
+
+    /* Publica NA HORA (se a RedeSocial aceitar). Devolve se saiu. */
+    private bool Postar(string autor, string usuario, string texto, HumorPost humor, TipoFoco tipo, int curtidas, PrioridadePost prioridade)
+    {
+        PostRedeSocial post = Formatar(autor, usuario, texto, humor, tipo, curtidas);
+        return post != null && rede != null && rede.Postar(post, prioridade);
+    }
+
+    private List<PostRedeSocial> Formatados(List<PostRedeSocial> lista)
+    {
+        List<PostRedeSocial> saida = new List<PostRedeSocial>();
+        if (lista != null)
+            foreach (PostRedeSocial p in lista)
+            {
+                PostRedeSocial f = p != null ? Formatar(p.autor, p.usuario, p.texto, p.humor, TipoFoco.Nenhum, p.curtidas) : null;
+                if (f != null)
+                    saida.Add(f);
+            }
+        return saida;
     }
 
     /* Cria uma cópia do post com os marcadores daqui já trocados — o
      * original (do Inspector) nunca é alterado. curtidas < 0 = sorteia,
      * crescendo com o progresso (o bairro engaja mais conforme melhora). */
-    private bool Enfileirar(string autor, string usuario, string texto, HumorPost humor, TipoFoco tipo, int curtidas)
+    private PostRedeSocial Formatar(string autor, string usuario, string texto, HumorPost humor, TipoFoco tipo, int curtidas)
     {
-        if (rede == null || string.IsNullOrWhiteSpace(texto))
-            return false;
+        if (string.IsNullOrWhiteSpace(texto))
+            return null;
 
         int total = Contar(totalPorTipo, tipo);
         int eliminados = Contar(eliminadosPorTipo, tipo);
@@ -537,15 +619,14 @@ public class HistoriaRedeSocial : MonoBehaviour
             curtidas = Random.Range(18, 60) + Mathf.RoundToInt(progresso * 150f);
         }
 
-        rede.Enfileirar(new PostRedeSocial
+        return new PostRedeSocial
         {
             autor = autor,
             usuario = usuario,
             texto = texto,
             humor = humor,
             curtidas = curtidas
-        });
-        return true;
+        };
     }
 
     /* Velocidade horizontal medida pelo deslocamento real do player —
@@ -573,7 +654,7 @@ public class HistoriaRedeSocial : MonoBehaviour
     }
 
     /* Mesma classificação por tipo C# do FocoListaHUD.Categoria(). */
-    private static TipoFoco TipoDoFoco(Interactable foco)
+    internal static TipoFoco TipoDoFoco(Interactable foco)
     {
         if (foco is PneuInteractable) return TipoFoco.Pneu;
         if (foco is VasoInteractable) return TipoFoco.Vaso;
@@ -832,7 +913,7 @@ public class HistoriaRedeSocial : MonoBehaviour
                 "ALERTA: ocupação em {ocupacao}. Suspendemos as consultas de rotina para atender os casos de dengue.", 143, HumorPost.Negativo) },
             new MarcoDeOcupacao { limite = 0.95f, subindo = true, post = Novo(EnfRita, EnfRitaUsuario,
                 "Não tem mais maca. Agente, é agora ou nunca.", 188, HumorPost.Negativo) },
-            new MarcoDeOcupacao { limite = 0.40f, subindo = false, post = Novo(Upa, UpaUsuario,
+            new MarcoDeOcupacao { limite = 0.55f, subindo = false, post = Novo(Upa, UpaUsuario,
                 "A ocupação caiu para {ocupacao}! Primeira vez no mês que sobra leito. O trabalho no bairro está funcionando.", 167, HumorPost.Positivo) },
         };
     }

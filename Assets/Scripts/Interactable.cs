@@ -24,6 +24,9 @@ public class Interactable : MonoBehaviour
     /* Disparado quando o foco é concluído (referência do próprio objeto). */
     public event System.Action<Interactable> OnCompleted;
 
+    /* Disparado a cada clique aceito, inclusive o último (sons dos focos). */
+    public event System.Action<Interactable> OnClicado;
+
     [Header("Interação")]
     [Tooltip("Quantos cliques o jogador precisa dar para eliminar este foco.")]
     [SerializeField] protected int requiredClicks = 5;
@@ -97,6 +100,7 @@ public class Interactable : MonoBehaviour
         }
 
         OnInteract();
+        OnClicado?.Invoke(this);
 
         if (IsComplete)
         {

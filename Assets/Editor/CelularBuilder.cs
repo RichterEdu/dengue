@@ -316,6 +316,7 @@ public static class CelularBuilder
         if (hudJogo != null)
             so.FindProperty("hudDoJogo").objectReferenceValue = hudJogo.GetComponent<Canvas>();
         so.ApplyModifiedPropertiesWithoutUndo();
+        SomBuilder.LigarSonsDoCelular(controller);   // clipes + CanalDeAudio (senão recriar perde os sons)
 
         painel.anchoredPosition = new Vector2(-Margem, -(PainelH + 60f));
 

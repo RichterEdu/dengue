@@ -73,6 +73,10 @@ public class CameraJogador : MonoBehaviour
 
     /* Desligado = sem head bob nem inclinação ao andar (Configurações). */
     public bool BalancoAtivo { get; set; } = true;
+
+    /* Fase do ciclo de passos (rad): cada π é um passo, e o pé bate no chão
+     * em π/2 + kπ (câmera no ponto mais baixo). Avança mesmo sem balanço. */
+    public float FasePasso => fasePasso;
     private float fasePasso;
     private float pesoBalanco;
     private float afundada;

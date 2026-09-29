@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /* ============================================================
  *  HistoriaDoJogo.cs
@@ -12,6 +13,9 @@ using UnityEngine;
  *  fica PAUSADO (Time.timeScale = 0): o jogador não anda nem olha, a fila
  *  da rede social e o briefing esperam. Ao reiniciar com R a abertura é
  *  pulada (o jogador já viu).
+ *  Com exigirCelularNaAbertura, a última cartela só sai com a tecla do
+ *  celular (T): a tela clareia e o celular abre sozinho, já com os posts
+ *  iniciais da rede social.
  *
  *  EPÍLOGO — na vitória ou na derrota, antes da tela de estatísticas:
  *  "Uma semana depois..." + a fala de cada personagem do bairro, que muda
@@ -32,9 +36,12 @@ public class HistoriaDoJogo : MonoBehaviour
     [SerializeField] private Interactor interactor;
     [SerializeField] private CelularController celular;
     [SerializeField] private ControladorJogador jogador;
+    [SerializeField] private RedeSocial rede;
 
     [Header("Abertura")]
     [SerializeField] private bool tocarAbertura = true;
+    [Tooltip("A última cartela só sai com a tecla do celular (T), e o celular abre em seguida.")]
+    [SerializeField] private bool exigirCelularNaAbertura = true;
     [Tooltip("Ao reiniciar a partida (tecla R), pula a abertura.")]
     [SerializeField] private bool pularAberturaAoReiniciar = true;
     [TextArea(2, 4)]
@@ -91,6 +98,7 @@ public class HistoriaDoJogo : MonoBehaviour
         if (interactor == null) interactor = FindFirstObjectByType<Interactor>();
         if (celular == null) celular = FindFirstObjectByType<CelularController>();
         if (jogador == null) jogador = FindFirstObjectByType<ControladorJogador>();
+        if (rede == null) rede = FindFirstObjectByType<RedeSocial>();
 
         vaiTocarAbertura = tocarAbertura && cartelas != null && abertura.Count > 0 &&
                            !(pularAberturaAoReiniciar && aberturaJaTocada);
@@ -136,14 +144,32 @@ public class HistoriaDoJogo : MonoBehaviour
         pausouJogo = true;
         Time.timeScale = 0f;
         Travar(true);
-        cartelas.Tocar(abertura, FimAbertura);
+
+        Key? tecla = ExigeCelular ? celular.TeclaAbrir : (Key?)null;
+        cartelas.Tocar(abertura, FimAbertura, null, tecla);
     }
+
+    private bool ExigeCelular => exigirCelularNaAbertura && celular != null;
 
     private void FimAbertura()
     {
         Time.timeScale = 1f;
         pausouJogo = false;
         Travar(false);
+
+        if (ExigeCelular)
+            StartCoroutine(AbrirCelularNoProximoFrame());
+    }
+
+    /* Um frame depois: o celular foi desligado no Start e o Start dele pode
+     * ainda não ter rodado. Abre ANTES de publicar: com ele aberto os posts
+     * iniciais não viram "não lidos", banner nem som de notificação. */
+    private IEnumerator AbrirCelularNoProximoFrame()
+    {
+        yield return null;
+        celular.Abrir();
+        if (rede != null)
+            rede.PublicarAberturaAgora();
     }
 
     /* Durante as cartelas: sem olhar/andar/pular, sem mirar em foco e sem

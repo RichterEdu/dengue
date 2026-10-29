@@ -12,13 +12,23 @@ using UnityEngine;
  *    - o jogador chega perto de um foco desse tipo pela primeira vez;
  *    - um foco desse tipo é eliminado (fala do primeiro, das seguintes e
  *      uma comemoração quando é o último do tipo);
- *    - o jogador começa a limpar um foco e vai embora deixando pela metade.
+ *    - o jogador começa a limpar um foco e vai embora deixando pela metade
+ *      (o pneu já esvaziado, largado para levar depois, e as garrafas
+ *      com o saco cheio, a caminho de esvaziar numa caçamba, não contam);
+ *    - o jogador tenta um foco desse tipo com a ferramenta errada (uma
+ *      vez por tipo — Interactor.OnRecusado).
  *
  *  Além disso, outros momentos da partida viram post: sair do hospital,
  *  demorar sem eliminar foco, ficar parado, limpar dois focos seguidos,
  *  pular à toa, a ocupação do hospital passar de certos limites e a
  *  derrota. No fim, LinhasEpilogo() monta o "uma semana depois" com a
  *  fala de cada personagem, que muda conforme o que o jogador limpou.
+ *
+ *  Kit do agente (Parte A): o primeiro reabastecimento na picape da UPA
+ *  (o monte de areia não conta), o agente carregando pneu e o primeiro
+ *  saco de garrafas na caçamba também viram post (KitDoAgente.
+ *  OnReabasteceu / OnPneuPego / OnSacoEsvaziado). Sem KitDoAgente ou sem
+ *  Interactor na cena, esses posts só não saem.
  *
  *  Quem publica de fato é a RedeSocial.cs (avisos, não lidos). Ao nascer,
  *  este componente liga RedeSocial.NarradorExterno: a RedeSocial passa a
@@ -76,6 +86,9 @@ public class PersonagemDoBairro
     [Tooltip("O jogador começou a limpar um foco deste tipo e foi embora deixando pela metade.")]
     [TextArea(2, 4)] public string aoLargarPelaMetade = "";
 
+    [Tooltip("Primeira vez que o jogador tenta um foco deste tipo com a ferramenta errada. Vazio = o texto padrão do tipo.")]
+    [TextArea(2, 4)] public string aoUsarFerramentaErrada = "";
+
     [Tooltip("Epílogo (\"uma semana depois\") se TODOS os focos deste tipo foram eliminados.")]
     [TextArea(2, 4)] public string epilogoLimpo = "";
 
@@ -101,6 +114,12 @@ public class HistoriaRedeSocial : MonoBehaviour
     [SerializeField] private FluxoDeJogo fluxo;
     [SerializeField] private CelularController celular;
     [SerializeField] private ControladorJogador jogador;
+
+    [Tooltip("Interactor do jogador: avisa quando um foco recusa a ferramenta selecionada.")]
+    [SerializeField] private Interactor interactor;
+
+    [Tooltip("Kit do agente: avisa o reabastecimento, o pneu pego e o saco esvaziado na caçamba.")]
+    [SerializeField] private KitDoAgente kit;
 
     [Header("Personagens (um por tipo de foco)")]
     [SerializeField] private List<PersonagemDoBairro> personagens = new List<PersonagemDoBairro>();
@@ -130,6 +149,15 @@ public class HistoriaRedeSocial : MonoBehaviour
     [Tooltip("Saem na derrota (ocupação em 100%).")]
     [SerializeField] private List<PostRedeSocial> postsDerrota = new List<PostRedeSocial>();
 
+    [Tooltip("Sai no primeiro reabastecimento do kit na picape da UPA (o monte de areia não conta). Com mais de um post: um por reabastecimento na picape, em ordem, até acabar.")]
+    [SerializeField] private List<PostRedeSocial> aoReabastecerPrimeiraVez = new List<PostRedeSocial>();
+
+    [Tooltip("Sai quando o agente pega um pneu pela primeira vez. Com mais de um post: um por pneu pego, em ordem, até acabar.")]
+    [SerializeField] private List<PostRedeSocial> aoCarregarPneu = new List<PostRedeSocial>();
+
+    [Tooltip("Sai quando o primeiro saco de garrafas é esvaziado na caçamba. Com mais de um post: um por saco, em ordem, até acabar.")]
+    [SerializeField] private List<PostRedeSocial> aoEsvaziarSacoPrimeiraVez = new List<PostRedeSocial>();
+
     [Header("Gatilhos")]
     [Tooltip("Distância (m) que conta como \"chegou perto\" de um foco.")]
     [SerializeField] private float raioChegada = 8f;
@@ -157,6 +185,7 @@ public class HistoriaRedeSocial : MonoBehaviour
     private readonly Dictionary<TipoFoco, int> proximaFala = new Dictionary<TipoFoco, int>();
     private readonly Dictionary<TipoFoco, int> ultimaFalaSorteada = new Dictionary<TipoFoco, int>();
     private readonly HashSet<TipoFoco> jaChegouPerto = new HashSet<TipoFoco>();
+    private readonly HashSet<TipoFoco> ferramentaErradaAvisada = new HashSet<TipoFoco>();
     private readonly HashSet<Interactable> largadoAvisado = new HashSet<Interactable>();
     private readonly HashSet<Interactable> dentroDoRaio = new HashSet<Interactable>();     // p/ "chegar perto" (gatilho = ENTRAR)
     private readonly HashSet<Interactable> pertoDoComecado = new HashSet<Interactable>();  // p/ "largar" (gatilho = SAIR)
@@ -166,6 +195,7 @@ public class HistoriaRedeSocial : MonoBehaviour
     private Vector3 ultimaPosicaoPlayer;
     private int eliminadosTotal;
     private int idxDemora, idxParado, idxCombo, idxPulos, idxSemDono;
+    private int idxReabastecer, idxCarregarPneu, idxEsvaziarSaco;
     private bool[] marcoArmado;
     private bool[] marcoDisparado;
     private float timerSemFoco;
@@ -192,6 +222,12 @@ public class HistoriaRedeSocial : MonoBehaviour
         if (fluxo == null) fluxo = FindFirstObjectByType<FluxoDeJogo>();
         if (celular == null) celular = FindFirstObjectByType<CelularController>();
         if (jogador == null) jogador = FindFirstObjectByType<ControladorJogador>();
+
+        // FindAnyObjectByType: o FindFirstObjectByType está obsoleto nesta
+        // versão do Unity (aviso CS0618) e só existe um de cada. Sem eles na
+        // cena (kit ainda não montado), os posts do kit só não saem.
+        if (interactor == null) interactor = FindAnyObjectByType<Interactor>();
+        if (kit == null) kit = FindAnyObjectByType<KitDoAgente>();
 
         // Awake roda antes de qualquer Start: a RedeSocial já nasce sabendo
         // que incentivos e finais são decididos aqui.
@@ -233,6 +269,14 @@ public class HistoriaRedeSocial : MonoBehaviour
         }
         if (jogador != null)
             jogador.OnPulou += HandlePulou;
+        if (interactor != null)
+            interactor.OnRecusado += HandleRecusado;
+        if (kit != null)
+        {
+            kit.OnReabasteceu += HandleReabasteceu;
+            kit.OnPneuPego += HandlePneuPego;
+            kit.OnSacoEsvaziado += HandleSacoEsvaziado;
+        }
     }
 
     void OnDestroy()
@@ -248,6 +292,14 @@ public class HistoriaRedeSocial : MonoBehaviour
         }
         if (jogador != null)
             jogador.OnPulou -= HandlePulou;
+        if (interactor != null)
+            interactor.OnRecusado -= HandleRecusado;
+        if (kit != null)
+        {
+            kit.OnReabasteceu -= HandleReabasteceu;
+            kit.OnPneuPego -= HandlePneuPego;
+            kit.OnSacoEsvaziado -= HandleSacoEsvaziado;
+        }
     }
 
     void Update()
@@ -407,6 +459,48 @@ public class HistoriaRedeSocial : MonoBehaviour
         }
     }
 
+    /* Ferramenta errada num foco: o dono do tipo comenta, uma vez por tipo.
+     * Recusada pela RedeSocial, o tipo não é marcado e volta na próxima
+     * tentativa errada. As outras recusas (sem carga, saco cheio, mãos
+     * ocupadas) a HUD já explica e não viram post. */
+    private void HandleRecusado(Interactable foco, ResultadoDoPasso resultado)
+    {
+        if (!EmJogo || foco == null || resultado != ResultadoDoPasso.FerramentaErrada)
+            return;
+
+        TipoFoco tipo = TipoDoFoco(foco);
+        if (ferramentaErradaAvisada.Contains(tipo))
+            return;
+
+        PersonagemDoBairro dono = Personagem(tipo);   // tipo sem dono (Nenhum) = não posta
+        if (dono != null && !string.IsNullOrWhiteSpace(dono.aoUsarFerramentaErrada)
+            && Postar(dono.autor, dono.usuario, dono.aoUsarFerramentaErrada, HumorPost.Neutro, tipo, -1, PrioridadePost.Normal))
+            ferramentaErradaAvisada.Add(tipo);
+    }
+
+    /* Os três abaixo saem um por gatilho, da lista do Inspector: o índice
+     * só anda se o post sair (recusado = volta no próximo gatilho). Com o
+     * padrão de um post por lista, cada um sai uma vez na partida. O de
+     * reabastecer fala da picape da UPA: só a picape é gatilho (o monte de
+     * areia do terreno baldio não). */
+    private void HandleReabasteceu(PontoDeReabastecimento origem)
+    {
+        if (EmJogo && origem != null && origem.EhPicapeDaUpa)
+            PostarDaLista(aoReabastecerPrimeiraVez, ref idxReabastecer, PrioridadePost.Normal);
+    }
+
+    private void HandlePneuPego(PneuInteractable pneu)
+    {
+        if (EmJogo)
+            PostarDaLista(aoCarregarPneu, ref idxCarregarPneu, PrioridadePost.Normal);
+    }
+
+    private void HandleSacoEsvaziado()
+    {
+        if (EmJogo)
+            PostarDaLista(aoEsvaziarSacoPrimeiraVez, ref idxEsvaziarSaco, PrioridadePost.Normal);
+    }
+
     /* ---------------- Verificações periódicas ---------------- */
 
     /* Gatilho = ENTRAR no raio de um foco (não "estar perto"). Recusada, só
@@ -443,7 +537,8 @@ public class HistoriaRedeSocial : MonoBehaviour
     }
 
     /* Gatilho = SAIR de perto de um foco começado. Recusada, só tenta de
-     * novo quando o jogador voltar para perto e sair outra vez. */
+     * novo quando o jogador voltar para perto e sair outra vez. Sair por
+     * ordem do próprio jogo não conta (SaidaObrigatoria). */
     private void VerificarLargados()
     {
         if (player == null)
@@ -451,7 +546,8 @@ public class HistoriaRedeSocial : MonoBehaviour
 
         foreach (Interactable foco in focos)
         {
-            if (foco == null || foco.CurrentClicks == 0 || foco.IsComplete || largadoAvisado.Contains(foco))
+            if (foco == null || foco.CurrentClicks == 0 || foco.IsComplete || largadoAvisado.Contains(foco)
+                || SaidaObrigatoria(foco))
             {
                 if (foco != null) pertoDoComecado.Remove(foco);
                 continue;
@@ -471,6 +567,23 @@ public class HistoriaRedeSocial : MonoBehaviour
                 && Postar(dono.autor, dono.usuario, dono.aoLargarPelaMetade, HumorPost.Negativo, tipo, -1, PrioridadePost.Normal))
                 largadoAvisado.Add(foco);
         }
+    }
+
+    /* Sair de perto deste foco começado agora é o que o jogo manda, e não
+     * abandono:
+     *   - o pneu já esvaziado: largado (ou nos braços) a caminho da caçamba
+     *     não está "pela metade" — a água já saiu;
+     *   - as garrafas com o saco cheio: o aviso manda esvaziar numa caçamba.
+     *     Enquanto o saco está cheio o grupo sai do pertoDoComecado; ao
+     *     voltar com espaço e sair de novo deixando garrafas, aí é
+     *     abandono, e o post sai. */
+    private bool SaidaObrigatoria(Interactable foco)
+    {
+        if (foco is PneuInteractable pneu)
+            return pneu.Esvaziado;
+        if (foco is GarrafaInteractable)
+            return kit != null && kit.Estoque.SacoCheio;
+        return false;
     }
 
     /* Um marco só dispara depois de "armado": a ocupação precisa ter estado
@@ -687,11 +800,17 @@ public class HistoriaRedeSocial : MonoBehaviour
         if (tudo || aoEliminarFocoSemDono == null || aoEliminarFocoSemDono.Count == 0) aoEliminarFocoSemDono = SemDonoPadrao();
         if (tudo || marcosDeOcupacao == null || marcosDeOcupacao.Count == 0) marcosDeOcupacao = MarcosPadrao();
         if (tudo || postsDerrota == null || postsDerrota.Count == 0) postsDerrota = DerrotaPadrao();
+        if (tudo || aoReabastecerPrimeiraVez == null || aoReabastecerPrimeiraVez.Count == 0) aoReabastecerPrimeiraVez = ReabastecerPadrao();
+        if (tudo || aoCarregarPneu == null || aoCarregarPneu.Count == 0) aoCarregarPneu = CarregarPneuPadrao();
+        if (tudo || aoEsvaziarSacoPrimeiraVez == null || aoEsvaziarSacoPrimeiraVez.Count == 0) aoEsvaziarSacoPrimeiraVez = EsvaziarSacoPadrao();
     }
 
     /* Acrescenta o personagem padrão de cada tipo de foco que ainda não tem
-     * dono na lista (tipos novos numa cena já configurada). Não mexe nos
-     * personagens existentes. Devolve quantos foram acrescentados. */
+     * dono na lista (tipos novos numa cena já configurada). Dos personagens
+     * existentes, só preenche o aoUsarFerramentaErrada vazio com o texto
+     * padrão do mesmo tipo (campo novo da Parte A: os personagens já salvos
+     * na cena chegam sem ele); o resto não é mexido. Devolve quantos
+     * personagens foram acrescentados. */
     public int CompletarPersonagens()
     {
         if (personagens == null)
@@ -700,13 +819,27 @@ public class HistoriaRedeSocial : MonoBehaviour
         int novos = 0;
         foreach (PersonagemDoBairro padrao in PersonagensPadrao())
         {
-            if (personagens.Exists(p => p != null && p.tipo == padrao.tipo))
+            // O primeiro do tipo, o mesmo que o Personagem(tipo) usa para postar.
+            PersonagemDoBairro existente = personagens.Find(p => p != null && p.tipo == padrao.tipo);
+            if (existente == null)
+            {
+                personagens.Add(padrao);
+                novos++;
                 continue;
-            personagens.Add(padrao);
-            novos++;
+            }
+
+            if (string.IsNullOrWhiteSpace(existente.aoUsarFerramentaErrada))
+                existente.aoUsarFerramentaErrada = padrao.aoUsarFerramentaErrada;
         }
         return novos;
     }
+
+    /* 1ª fala da Lúcia ao eliminar uma bromélia: a bromélia é tratada com
+     * água sanitária diluída (Parte A). Pública porque o KitDoAgenteBuilder
+     * grava a mesma fala no personagem já salvo na cena (o padrão daqui só
+     * vale numa lista vazia). */
+    public const string FalaLuciaPrimeiraBromelia =
+        "Ufa! O agente não arrancou nada: só pôs água sanitária diluída no copinho, e a bromélia ficou inteirinha.";
 
     private const string EnfRita = "Enf. Rita";
     private const string EnfRitaUsuario = "@enf.rita.upa";
@@ -729,6 +862,7 @@ public class HistoriaRedeSocial : MonoBehaviour
                 },
                 aoEliminarUltimo = "ACABOU! Nenhum pneu com água no bairro. Eu reclamei por meses e o agente resolveu numa tarde.",
                 aoLargarPelaMetade = "Ué, o agente mexeu num pneu e foi embora com ele ainda cheio d'água? Volta aqui, moço!",
+                aoUsarFerramentaErrada = "Pneu não adianta só esvaziar: tem que levar embora. Pega com as mãos e leva pra caçamba!",
                 epilogoLimpo = "Juntei a vizinhança e o terreno baldio virou horta comunitária. Pneu agora só furado, de vaso de couve.",
                 epilogoPendente = "Os pneus continuam lá, cheios d'água. Todo fim de tarde é aquela nuvem de mosquito.",
             },
@@ -743,6 +877,7 @@ public class HistoriaRedeSocial : MonoBehaviour
                 },
                 aoEliminarUltimo = "Todos os pratinhos com areia! Minhas samambaias continuam lindas e sem mosquito.",
                 aoLargarPelaMetade = "O agente começou a mexer no meu vaso e parou no meio. O pratinho ainda tá com água!",
+                aoUsarFerramentaErrada = "Pratinho de vaso é com areia, viu? Até a borda. O agente tá aprendendo!",
                 epilogoLimpo = "Agora eu mesma passo de casa em casa conferindo os pratinhos. Virei fiscal de vaso, com orgulho.",
                 epilogoPendente = "Ainda tem pratinho com água parada aqui na rua. Eu vejo as larvas quando rego as plantas.",
             },
@@ -757,6 +892,7 @@ public class HistoriaRedeSocial : MonoBehaviour
                 },
                 aoEliminarUltimo = "Todas as caixas d'água tampadas. Liguei pro hospital: meu filho já está sem febre.",
                 aoLargarPelaMetade = "Viram? O agente começou a tampar a caixa d'água e largou aberta. Meu filho tá no soro, gente.",
+                aoUsarFerramentaErrada = "Caixa d'água se resolve com a tampa, e a tampa tá ali do lado! É só encaixar.",
                 epilogoLimpo = "Meu filho teve alta na sexta-feira. Chegou em casa e a primeira coisa que fez foi conferir a tampa da caixa d'água.",
                 epilogoPendente = "Meu filho continua internado. E a caixa d'água aberta continua do mesmo jeito.",
             },
@@ -770,6 +906,7 @@ public class HistoriaRedeSocial : MonoBehaviour
                 },
                 aoEliminarUltimo = "Piscina virada, seca e guardada. Meu filho agora diz que quer ser agente de saúde.",
                 aoLargarPelaMetade = "O agente começou a esvaziar a piscininha e deixou pela metade. Ainda tem água lá dentro!",
+                aoUsarFerramentaErrada = "A piscininha é só esvaziar e virar de boca pra baixo. Com as mãos mesmo!",
                 epilogoLimpo = "Meu filho montou a \"patrulha do mosquito\" com os amigos da rua. Eles conferem os quintais todo sábado.",
                 epilogoPendente = "A piscininha continua cheia no quintal. Hoje meu filho acordou com febre.",
             },
@@ -785,6 +922,7 @@ public class HistoriaRedeSocial : MonoBehaviour
                 },
                 aoEliminarUltimo = "Nenhuma garrafa largada no bairro! Agora é com a gente manter assim.",
                 aoLargarPelaMetade = "O agente começou a recolher as garrafas e deixou metade pra trás. Cada uma que sobra é um criadouro.",
+                aoUsarFerramentaErrada = "Garrafa vai pro saco de lixo e depois pra caçamba. Nada de deixar pelo chão!",
                 epilogoLimpo = "A rua ganhou um ponto de coleta de recicláveis. Garrafa agora vai pro lugar certo, não pro quintal.",
                 epilogoPendente = "O lixo acumulado continua juntando água a cada chuva. Já tem gente doente no fim da rua.",
             },
@@ -799,6 +937,7 @@ public class HistoriaRedeSocial : MonoBehaviour
                 },
                 aoEliminarUltimo = "Todos os ralos da rua fechados e com tela. O balcão do bar nunca teve tão pouco mosquito.",
                 aoLargarPelaMetade = "O agente mexeu no ralo e largou a grelha fora do lugar. A água continua lá embaixo!",
+                aoUsarFerramentaErrada = "Vi o agente querendo resolver o ralo com outra coisa. Ralo é com tela, moço!",
                 epilogoLimpo = "Coloquei tela em todos os ralos do bar e agora ensino os clientes. Ralo aberto aqui não passa mais.",
                 epilogoPendente = "Os ralos continuam abertos, cheios d'água. À noite o bar vira festa de mosquito.",
             },
@@ -808,11 +947,12 @@ public class HistoriaRedeSocial : MonoBehaviour
                 aoChegarPerto = "O agente parou na frente das minhas bromélias. Não vai arrancar não, né?",
                 aoEliminar = new List<string>
                 {
-                    "Ufa! O agente só esvaziou a água das folhas, a bromélia ficou inteirinha.",
+                    FalaLuciaPrimeiraBromelia,
                     "Mais uma bromélia sem água parada. Dá pra ter planta bonita sem criar mosquito.",
                 },
                 aoEliminarUltimo = "Todas as bromélias da praça secas e vivas. Agora é jato de mangueira toda semana.",
                 aoLargarPelaMetade = "O agente começou a esvaziar a bromélia e parou. Ainda tem água no meio das folhas!",
+                aoUsarFerramentaErrada = "Calma, agente! Bromélia não precisa arrancar nem tampar: água sanitária diluída no copinho e pronto.",
                 epilogoLimpo = "As bromélias continuam na praça. Toda semana a criançada me ajuda a esvaziar as folhas com a mangueira.",
                 epilogoPendente = "Os vizinhos querem arrancar minhas bromélias por causa do mosquito. Bastava esvaziar a água.",
             },
@@ -928,6 +1068,37 @@ public class HistoriaRedeSocial : MonoBehaviour
             Novo("João Silva", "@joaosilva",
                 "Não deu tempo. Os focos venceram dessa vez.",
                 98, HumorPost.Negativo),
+        };
+    }
+
+    /* Kit do agente (Parte A). Curtidas -1 = sorteia, crescendo com o progresso. */
+    private static List<PostRedeSocial> ReabastecerPadrao()
+    {
+        return new List<PostRedeSocial>
+        {
+            Novo(Upa, UpaUsuario,
+                "Nosso agente passou na picape da UPA pra pegar material. Areia, tela e água sanitária a caminho dos quintais!",
+                -1, HumorPost.Positivo),
+        };
+    }
+
+    private static List<PostRedeSocial> CarregarPneuPadrao()
+    {
+        return new List<PostRedeSocial>
+        {
+            Novo("Carlos Mendes", "@carlinhos.m",
+                "Olha o agente carregando pneu pela rua! Finalmente alguém tirando esse entulho do terreno.",
+                -1, HumorPost.Positivo),
+        };
+    }
+
+    private static List<PostRedeSocial> EsvaziarSacoPadrao()
+    {
+        return new List<PostRedeSocial>
+        {
+            Novo("Bruna Lima", "@bru.lima",
+                "Primeiro saco de garrafas na caçamba! Lixo no lugar certo não junta água.",
+                -1, HumorPost.Positivo),
         };
     }
 

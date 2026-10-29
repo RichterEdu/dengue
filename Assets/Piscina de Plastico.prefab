@@ -251,6 +251,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PiscinaInteractable
   requiredClicks: 4
   interactionRange: 3
+  ferramentaNecessaria: 0
+  segundosParaConcluir: 2.5
   punchScale: 0.04
   punchDuration: 0.14
   scaleReductionPerClick: 0
@@ -282,10 +284,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FocoHUDInfo
   nome: "a piscina de pl\xE1stico"
-  textoAoMirar: Clique para virar {nome}
+  textoAoMirar: "Piscina de pl\xE1stico com \xE1gua da chuva"
   dica: "N\xE3o basta esvaziar: guarde de boca para baixo, sen\xE3o a pr\xF3xima
     chuva enche de novo."
   textoAoEliminar: "<b>Piscina virada!</b>  De boca para baixo n\xE3o junta \xE1gua."
+  textoFerramentaErrada: "Esvazie e vire de boca para baixo. Use as <b>m\xE3os</b>."
   usarCorPropria: 0
   corDaBarra: {r: 0.25, g: 1, b: 0.8, a: 1}
   esconderProgresso: 0

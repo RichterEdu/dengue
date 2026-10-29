@@ -149,7 +149,7 @@ public class SomDosFocos : MonoBehaviour
         perto.Clear();
         foreach (Zumbido z in zumbidos)
         {
-            if (z.sumindo || z.canal == null || z.foco == null || !z.foco.gameObject.activeInHierarchy)
+            if (z.sumindo || z.canal == null || z.foco == null || !z.foco.gameObject.activeInHierarchy || !z.foco.Zumbe)
                 continue;
             z.distancia = Vector3.Distance(z.canal.transform.position, pos);
             if (z.distancia < distanciaMaxima)

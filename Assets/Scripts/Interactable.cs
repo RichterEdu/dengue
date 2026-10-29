@@ -8,15 +8,34 @@ using UnityEngine;
  *  Classe BASE genérica para objetos interativos do jogo (focos de
  *  criadouro do Aedes aegypti: pneus, caixas d'água, vasos, etc).
  *
- *  - O player clica via Interactor.cs (raycast do centro da tela).
- *  - Cada clique dispara OnInteract() (virtual, reutilizável) e um
- *    "punch" de escala (squash & stretch) como feedback imediato.
- *  - Ao atingir requiredClicks, dispara OnCompleted/OnComplete().
+ *  - O player mira via Interactor.cs (raycast do centro da tela).
+ *  - Cada clique (passo) dispara OnInteract() (virtual, reutilizável) e
+ *    um "punch" de escala (squash & stretch) como feedback imediato.
+ *  - Ao atingir requiredClicks, conclui: dispara OnCompleted/OnComplete().
  *  - Conclusão padrão: POP (expande), FLASH branco de emissão,
  *    estouro de partículas, e encolhe com easing + giro + pulinho.
  *
+ *  Kit do agente (Parte A): no "segurar para agir", cada passo vale
+ *  SegundosPorPasso (segundosParaConcluir dividido entre os cliques) e é
+ *  um AvancarCom(kit):
+ *  - Verificar(kit) confere SEM avançar nem gastar nada, nesta ordem:
+ *    foco que não aceita mais passos (Bloqueado), pneu nas mãos
+ *    (MaosOcupadas), ferramenta errada, sem carga e a regra extra de
+ *    cada foco (VerificarExtra). Ferramenta errada vem antes de sem
+ *    carga porque é a mensagem que ensina.
+ *  - Se deu Avancou, o passo é igual a um clique antigo; a carga da
+ *    ferramentaNecessaria só é gasta quando o foco conclui.
+ *  - IsComplete é uma FLAG, setada só na conclusão real (Concluir), e
+ *    não mais "cliques >= total". Com ConcluiSozinho = false o último
+ *    passo só termina a ação (AoTerminarAcao) e a própria classe conclui
+ *    depois: o pneu vai para os braços do agente e só conta como
+ *    eliminado quando é entregue na caçamba. Esse foco não encolhe por
+ *    clique (scaleReductionPerClick): é carregado do tamanho dele.
+ *  - Interact() continua sendo o caminho antigo: um passo sem kit.
+ *
  *  Para focos com comportamento próprio, herde esta classe e sobrescreva
- *  OnInteract()/OnComplete() (ver PneuInteractable.cs como exemplo).
+ *  OnInteract()/OnComplete() (ver PneuInteractable.cs como exemplo) e,
+ *  com o kit, AceitaFerramenta/VerificarExtra/AoAvancar.
  * ============================================================ */
 
 public class Interactable : MonoBehaviour
@@ -34,6 +53,13 @@ public class Interactable : MonoBehaviour
     [Tooltip("Distância máxima (em unidades) para o jogador interagir.")]
     [SerializeField] protected float interactionRange = 3f;
 
+    [Header("Kit do agente")]
+    [Tooltip("Ferramenta do kit que elimina este foco. Com outra selecionada, o passo é recusado.")]
+    [SerializeField] protected Ferramenta ferramentaNecessaria = Ferramenta.Maos;
+
+    [Tooltip("Segundos segurando o botão para eliminar o foco, divididos igualmente entre os cliques.")]
+    [SerializeField] protected float segundosParaConcluir = 2f;
+
     [Header("Feedback por clique")]
     [Tooltip("Fração da escala usada no 'punch' a cada clique (0 = sem punch).")]
     [SerializeField] protected float punchScale = 0.1f;
@@ -42,7 +68,7 @@ public class Interactable : MonoBehaviour
     [SerializeField] protected float punchDuration = 0.14f;
 
     [Header("Feedback de conclusão")]
-    [Tooltip("Fração da escala inicial removida POR CLIQUE (0 = não encolhe a cada clique).")]
+    [Tooltip("Fração da escala inicial removida POR CLIQUE (0 = não encolhe a cada clique). Não vale para foco carregado até a caçamba (pneu).")]
     [SerializeField] protected float scaleReductionPerClick = 0f;
 
     [Tooltip("Duração da animação de encolher até sumir (em segundos).")]
@@ -69,13 +95,28 @@ public class Interactable : MonoBehaviour
     private Vector3 initialScale;
     protected int currentClicks;
 
+    // Setada só pelo Concluir(). Não serializada: todo foco nasce não concluído.
+    private bool concluido;
+
     private Coroutine punchRoutine;
 
     /* --- Propriedades públicas (para feedback externo) --- */
     public int RequiredClicks => requiredClicks;
     public int CurrentClicks => currentClicks;
-    public bool CanInteract => currentClicks < requiredClicks;
-    public bool IsComplete => currentClicks >= requiredClicks;
+    public Ferramenta FerramentaNecessaria => ferramentaNecessaria;
+
+    /* Tempo segurando que vale um passo (= um clique antigo). */
+    public virtual float SegundosPorPasso => segundosParaConcluir / Mathf.Max(1, requiredClicks);
+
+    /* Ainda aceita passos (o Interactor só mira focos assim). */
+    public virtual bool CanInteract => !concluido && currentClicks < requiredClicks;
+
+    /* Eliminado de verdade: é a flag do Concluir(), não a conta de cliques
+     * (o pneu termina a ação e só conclui ao ser entregue na caçamba). */
+    public bool IsComplete => concluido;
+
+    /* Se o foco faz o zumbido do mosquito (SomDosFocos). */
+    public virtual bool Zumbe => CanInteract;
 
     void Start()
     {
@@ -84,38 +125,114 @@ public class Interactable : MonoBehaviour
         OnStart();
     }
 
-    /* Chamado pelo Interactor quando o jogador clica neste objeto. */
+    /* Caminho antigo (clique sem kit): um passo, sem conferir ferramenta nem carga. */
     public void Interact()
     {
         if (!CanInteract)
             return;
 
+        DarPasso(null);
+    }
+
+    /* A ferramenta serve para este foco? Por padrão, só a ferramentaNecessaria. */
+    public virtual bool AceitaFerramenta(Ferramenta f)
+    {
+        return f == ferramentaNecessaria;
+    }
+
+    /* Confere se um passo com este kit contaria, sem avançar nem gastar nada.
+     * Sem kit, só diz se o foco ainda aceita passos (Avancou ou Bloqueado). */
+    public virtual ResultadoDoPasso Verificar(KitDoAgente kit)
+    {
+        if (!CanInteract)
+            return ResultadoDoPasso.Bloqueado;
+        if (kit == null)
+            return ResultadoDoPasso.Avancou;
+
+        if (kit.PneuCarregado != null)
+            return ResultadoDoPasso.MaosOcupadas;
+        // Antes do sem carga: com a ferramenta errada E vazia, o aviso de
+        // ferramenta errada é o que ensina.
+        if (!AceitaFerramenta(kit.Selecionada))
+            return ResultadoDoPasso.FerramentaErrada;
+        if (!kit.Estoque.TemCarga(kit.Selecionada))
+            return ResultadoDoPasso.SemCarga;
+
+        return VerificarExtra(kit);
+    }
+
+    /* Regra a mais de cada foco (ex.: garrafas com o saco cheio). Só é
+     * chamada com kit, depois de ferramenta e carga aprovadas. */
+    protected virtual ResultadoDoPasso VerificarExtra(KitDoAgente kit)
+    {
+        return ResultadoDoPasso.Avancou;
+    }
+
+    /* Um passo de "segurar para agir" com o kit. Recusado, nada muda. A
+     * carga só é gasta quando o foco conclui (no meio da ação, nada). */
+    public virtual ResultadoDoPasso AvancarCom(KitDoAgente kit)
+    {
+        ResultadoDoPasso resultado = Verificar(kit);
+        if (resultado != ResultadoDoPasso.Avancou)
+            return resultado;
+
+        DarPasso(kit);
+
+        if (!IsComplete)
+            return ResultadoDoPasso.Avancou;
+
+        if (kit != null)
+            kit.Consumir(FerramentaNecessaria);
+        return ResultadoDoPasso.Concluiu;
+    }
+
+    /* Um passo (= um clique antigo). kit é null no caminho Interact(). */
+    private void DarPasso(KitDoAgente kit)
+    {
         currentClicks++;
 
-        // Redução de escala a cada clique (optativo)
-        if (scaleReductionPerClick > 0f && !IsComplete)
+        // Último passo pela conta de cliques (o IsComplete agora é a flag
+        // do Concluir, que ainda não foi setada aqui).
+        bool ultimo = currentClicks >= requiredClicks;
+
+        // Redução de escala a cada clique (optativo). Foco que não conclui
+        // sozinho vai ser carregado (o pneu) e não encolhe: chega aos braços,
+        // ao chão e à caçamba com o tamanho dele.
+        if (scaleReductionPerClick > 0f && !ultimo && ConcluiSozinho)
         {
             float factor = Mathf.Max(0f, 1f - scaleReductionPerClick * currentClicks);
             transform.localScale = initialScale * factor;
         }
 
         OnInteract();
+        AoAvancar(kit);
         OnClicado?.Invoke(this);
 
-        if (IsComplete)
-        {
-            if (punchRoutine != null)
-            {
-                StopCoroutine(punchRoutine);
-                punchRoutine = null;
-            }
-            OnCompleted?.Invoke(this);
-            OnComplete();
-        }
+        if (!ultimo)
+            PlayPunch();
+        else if (ConcluiSozinho)
+            Concluir();
         else
         {
-            PlayPunch();
+            // Para o punch antes: o fim dele reescreveria a escala do foco,
+            // que pode já estar preso a outro pai (o pneu nos braços).
+            PararPunch();
+            AoTerminarAcao(kit);
         }
+    }
+
+    /* Elimina o foco de verdade. Só age uma vez: seta a flag, para o punch e
+     * dispara OnCompleted (HUD, contagem, rede social) e depois OnComplete(). */
+    protected void Concluir()
+    {
+        if (concluido)
+            return;
+
+        concluido = true;
+
+        PararPunch();
+        OnCompleted?.Invoke(this);
+        OnComplete();
     }
 
     /* Feedback rápido por clique: expande e volta com leve overshoot. */
@@ -127,6 +244,16 @@ public class Interactable : MonoBehaviour
         if (punchRoutine != null)
             StopCoroutine(punchRoutine);
         punchRoutine = StartCoroutine(PunchRoutine());
+    }
+
+    /* Interrompe o punch em andamento, se houver. */
+    private void PararPunch()
+    {
+        if (punchRoutine == null)
+            return;
+
+        StopCoroutine(punchRoutine);
+        punchRoutine = null;
     }
 
     private IEnumerator PunchRoutine()
@@ -159,7 +286,17 @@ public class Interactable : MonoBehaviour
     /* Hook chamado após cada clique. Sobrescreva em classes derivadas. */
     protected virtual void OnInteract() { }
 
-    /* Hook chamado quando requiredClicks é atingido. */
+    /* Hook de cada passo, logo depois do OnInteract(), com o kit (null no Interact()). */
+    protected virtual void AoAvancar(KitDoAgente kit) { }
+
+    /* false = o último passo só termina a ação (AoTerminarAcao) e a própria
+     * classe chama Concluir() depois (ex.: pneu entregue na caçamba). */
+    protected virtual bool ConcluiSozinho => true;
+
+    /* Chamado no último passo quando ConcluiSozinho é false (kit pode ser null). */
+    protected virtual void AoTerminarAcao(KitDoAgente kit) { }
+
+    /* Hook chamado na conclusão (Concluir), logo depois do OnCompleted. */
     protected virtual void OnComplete()
     {
         if (shrinkDuration <= 0f)

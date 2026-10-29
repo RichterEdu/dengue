@@ -435,6 +435,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CaixaDaguaInteractable
   requiredClicks: 4
   interactionRange: 3
+  ferramentaNecessaria: 0
+  segundosParaConcluir: 3
   punchScale: 0.03
   punchDuration: 0.14
   scaleReductionPerClick: 0
@@ -467,9 +469,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FocoHUDInfo
   nome: "a caixa d'\xE1gua"
-  textoAoMirar: Clique para tampar {nome}
+  textoAoMirar: "Caixa d'\xE1gua destampada"
   dica: "Caixa d'\xE1gua destampada \xE9 criadouro certo. Tampe e vede bem as bordas."
   textoAoEliminar: <b>Caixa tampada!</b>  Sem entrada, sem ovos.
+  textoFerramentaErrada: "Caixa d'\xE1gua se protege com a tampa. Use as <b>m\xE3os</b>
+    para encaixar."
   usarCorPropria: 0
   corDaBarra: {r: 0.25, g: 1, b: 0.8, a: 1}
   esconderProgresso: 0

@@ -1929,3 +1929,473 @@ O estado já existia no começo da sessão de 2026-09-27. Aquela sessão viu os 
 **Observações:**
 - Foi feito por script em vez de editar o `ProjectSettings.asset` à mão porque o Editor estava aberto (daria conflito com a cópia em memória).
 - Para trocar o ícone: substituir o PNG no mesmo caminho, ou apagar o script e escolher no Inspector.
+
+
+### 2026-10-25 — Roteiro "jogo interessante" (Partes A → B → C) + spec da Parte A (kit do agente)
+
+**Objetivo (pedido do usuário):** "deixar o jogo mais interessante, transformar ele num jogo interessante mesmo", analisando tudo o que falta e fazendo por partes. É trabalho da faculdade, mas precisa prender quem joga por vontade própria e ter um pouco de rejogabilidade. Prazo: 2 a 4 semanas.
+
+**Diagnóstico:** a casca (menu, abertura, hospital, celular, epílogo, sons, pausa, balanceamento) está pronta. O loop central é raso:
+- todo foco se resolve mirando e clicando de 3 a 5 vezes;
+- a busca não tem desafio (lista aberta, brilho por proximidade, zumbido);
+- o mundo é parado (focos não evoluem, sem chuva);
+- o bairro é vazio (moradores só no celular);
+- não há recursos nem escolhas;
+- não há rejogabilidade.
+
+**Roteiro escolhido pelo usuário:** **A → B → C**.
+- **A — Kit do agente + ação certa para cada foco** (spec pronta).
+- **B — Focos vivos + chuva**: ovo → larva → mosquito, e a chuva reenche o que só foi esvaziado.
+- **C — Rejogabilidade**: focos sorteados, pontuação/estrelas, recorde, muletas mais leves.
+- Ficou para depois: D — moradores no mapa.
+
+**Decisões da Parte A (escolhas do usuário):**
+- abordagem "kit + ferramenta certa": segurar para agir, cada foco pede a ação correta, ferramenta errada ensina o porquê, pneu carregado até a caçamba, garrafas no saco;
+- estoque **apertado**: areia 1, tela 1, água sanitária 2 doses, saco de 6 garrafas, tudo ajustável no Inspector;
+- reabastecimento na picape da UPA, caçamba no terreno baldio e monte de areia como atalho.
+
+**Arquivo novo:** `docs/superpowers/specs/2026-10-25-parte-a-kit-do-agente-design.md`, com a spec completa: jogabilidade, arquitetura, arquivos novos e alterados, montagem da cena e verificação.
+
+**Nenhum script, cena ou asset foi alterado nesta entrada.** O próximo passo é o plano de implementação da Parte A.
+
+**Observações para futuras sessões de IA:**
+- A pasta `F:\Unity\Projetos\My project (1)` está vazia; o projeto é este (`Foco Zero`).
+- Na Parte A, `PontoDeUso` (picape, caçamba, monte de areia) **não pode herdar `Interactable`**. `FluxoDeJogo`, `DengueHUD`, `FocoListaHUD` e `RedeSocial` varrem `Interactable` como foco.
+- O projeto tem o Unity Test Framework 1.7, mas nenhum teste até aqui. A spec prevê testes EditMode em `Assets/Editor/Testes/`.
+
+
+### 2026-10-25 — Reposicionamento da Barra de Ocupação Hospitalar na HUD (Topo Central)
+
+**Objetivo (pedido do usuário):** Resolver conflito visual de sobreposição entre a barra de lotação do hospital e a barra de ferramentas do agente (Hotbar/KitHUD), movendo a barra de ocupação para a parte superior da tela.
+
+**Arquivos alterados:**
+- `Assets/Editor/FluxoDeJogoHUDBuilder.cs` — Atualizado `PainelSobrio("OcupacaoPanel", ...)` para ancorar no centro superior (`anchorMin = (0.5, 1)`, `anchorMax = (0.5, 1)`, `anchoredPosition = (0, -32)`).
+- `Assets/Editor/DengueHUDBuilder.cs` e `Assets/Editor/DengueHUDReparo.cs` — Ajustada a posição de nascimento do painel de aviso temporário `ToastPanel` de `y = -60` para `y = -126`, garantindo que mensagens de eliminação de foco e dicas educativas apareçam logo abaixo da barra de ocupação sem colisão.
+- `Assets/Editor/HUDLayoutAjustador.cs` (novo) — Ferramenta utilitária acessível via menu `Dengue > Ajustar Layout da HUD (Ocupação no Topo)` que atualiza as âncoras e posições dos GameObjects existentes na cena aberta sem recriar objetos ou perder bindings.
+- `docs/superpowers/specs/2026-10-25-hud-ocupacao-superior-design.md` — Especificação do layout da HUD.
+- `docs/superpowers/plans/2026-10-25-hud-ocupacao-superior.md` — Plano de implementação.
+
+**Configurações aplicadas:**
+- `OcupacaoPanel`: Anchors `(0.5, 1.0)`, Pivot `(0.5, 1.0)`, AnchoredPosition `(0, -32)`.
+- `ToastPanel`: Anchors `(0.5, 1.0)`, Pivot `(0.5, 1.0)`, AnchoredPosition `(0, -126)`.
+- Hotbar (`KitHUD`): Permanece no centro inferior (`y = 40`), agora totalmente desimpedida.
+
+**Observações técnicas:**
+- No Editor do Unity, basta rodar o menu `Dengue > Ajustar Layout da HUD (Ocupação no Topo)` para aplicar instantaneamente na cena aberta e salvar (Ctrl+S).
+
+
+### 2026-10-25 — Parte A implementada: kit do agente e ação certa por foco
+
+**Objetivo:** implementar a Parte A do roteiro "jogo interessante". O registro anterior desta mesma data ("Roteiro 'jogo interessante' (Partes A → B → C) + spec da Parte A (kit do agente)") já existia e trazia só a spec. Agora o "clicar N vezes" virou **"segurar com a ferramenta certa"**, com um kit de estoque apertado:
+- cada foco pede a sua ferramenta, e a errada ensina o porquê;
+- o pneu é carregado até uma caçamba;
+- as garrafas vão para um saco que enche;
+- as cargas se reabastecem na picape da UPA (e a areia também no monte de areia).
+
+Spec: `docs/superpowers/specs/2026-10-25-parte-a-kit-do-agente-design.md`. Plano (14 tarefas): `docs/superpowers/plans/2026-10-25-parte-a-kit-do-agente.md`. Trabalho na branch `parte-a/kit-do-agente`, **sem commit**: tudo ficou no índice do git (staged), para o usuário commitar ou desfazer.
+
+**Como jogar agora:**
+- **Barra de ferramentas** (KitHUD), no centro de baixo da tela, com 5 espaços: 1 Mãos, 2 Areia, 3 Tela, 4 Água sanitária, 5 Saco de lixo. Cada espaço mostra a carga ("1/1", "0/6"); a carga zerada fica vermelha.
+  - Troca pelas teclas **1–5** (ou numpad 1–5), pela **roda do mouse** ou por **LB/RB** no controle.
+  - Carregando pneu, não troca.
+- **Segurar** o clique esquerdo (no controle, o botão de ataque, Oeste) no foco mirado.
+  - A barra da mira enche de forma contínua.
+  - Ao soltar, os passos já dados ficam guardados; só a fração do passo em andamento se perde.
+  - A carga só é gasta quando o foco conclui.
+- **A mira mostra o problema**, por exemplo "Ralo destampado com água parada", com a linha "segure o clique" embaixo.
+  - Ferramenta errada: nada acontece, e um aviso ensina a certa (`FocoHUDInfo.textoFerramentaErrada`).
+  - Sem carga: "Acabou: **Areia**. Reabasteça na picape da UPA."
+  - Saco cheio: "Saco cheio. Esvazie na **caçamba** do terreno baldio."
+- **Pneu:** com as Mãos, segurar esvazia a água, e o pneu vai para os braços, no canto inferior direito da tela.
+  - Carregando: velocidade × 0,7, sem correr, sem pular e sem trocar ferramenta. Só pontos de uso viram alvo, e a linha "Carregando pneu: leve à caçamba · [botão direito] larga" aparece acima da barra.
+  - **Botão direito, G ou botão Norte** do controle larga o pneu na frente do agente. Largado, ele pega de novo na hora com as Mãos, e a mira mostra "Pneu vazio: leve à caçamba".
+  - O pneu só conta como eliminado quando é entregue numa **caçamba** (segurar 1 s nela).
+  - O pneu já esvaziado não zumbe mais.
+- **Garrafas:** com o Saco, uma garrafa por passo (0,4 s cada). Com o saco cheio, é preciso esvaziar numa caçamba (segurar 1 s).
+- **Pontos de uso:** um uso por aperto (para usar de novo, solte e aperte outra vez).
+  - **Picape da UPA**, perto da saída do hospital no bairro: segurar 1 s enche areia, tela e água sanitária.
+  - **Monte de areia** do terreno baldio: segurar 1,5 s enche só a areia.
+  - Recusas: "Seu kit já está cheio.", "Largue o pneu antes." e "Nada para jogar na caçamba.".
+- A **Enf. Rita** agora fala do kit e da picape: "Agente, o hospital não aguenta mais! Seu kit está pronto [1-5] e a picape da UPA tem mais material. [...]".
+- A dica "Teclas **1–5** trocam a ferramenta" aparece no começo da partida e some na primeira troca.
+
+**Valores finais por foco** (tabela `Focos` do `KitDoAgenteBuilder`, gravada nos prefabs e nas instâncias):
+
+| Foco | Ferramenta | Segurando | Na cena |
+|---|---|---|---|
+| Pneu | Mãos | 1,5 s (5 passos de 0,3 s) + entrega na caçamba | 6 |
+| Vaso (pratinho) | Areia | 2,0 s (10 × 0,2 s) | 3 |
+| Caixa d'água | Mãos | 3,0 s (10 × 0,3 s) | 2 |
+| Piscina de plástico | Mãos | 2,5 s | 0 (a cena não tem piscina; os 2 prefabs ficaram configurados) |
+| Garrafas | Saco de lixo | 0,4 s por garrafa | 3 grupos (5, 5 e 12 garrafas) |
+| Ralo | Tela | 2,0 s (3 × 0,667 s) | 4 |
+| Bromélia | Água sanitária | 2,0 s (5 × 0,4 s) | 4 |
+
+Total: **22 focos** (o plano falava em 23 contando uma piscina que a cena não tem).
+
+**Outros valores:**
+- **Estoque** (`KitDoAgente` no Player, ajustável no Inspector): areia 1, tela 1, água sanitária 2 doses, saco de 6 garrafas. Carregando pneu, `multiplicadorCarregando` = 0,7.
+- **Picape da UPA** (`--- BAIRRO ---/Objetos de Rua/Picape da UPA`, prefab do pacote Palmov):
+  - em (−2,23; 0,11; −19,19), girada −90°, estacionada rente ao meio-fio norte;
+  - recarrega Areia, Tela e Água sanitária; 1 s.
+- **Monte de areia** (`Monte de Areia 001`, o único da cena):
+  - em (−25,32; 0,22; 58,94); recarrega só a Areia; 1,5 s;
+  - fica a ~38 m do centro dos vasos.
+- **3 caçambas** (5 cubos com `Cacamba.mat`, `BoxCollider` sólido na raiz e pivô no chão), 1 s cada. O pneu entregue é solto 1,2 m acima do pivô.
+
+  | Caçamba | Posição | Onde | Pneus mais perto |
+  |---|---|---|---|
+  | `Cacamba` | (−23,90; 0,26; 56,40) | entrada do terreno baldio, ao lado do monte de areia | pneu, pneu (1), pneu (2) |
+  | `Cacamba (2)` | (−45,30; 0,29; −2,70) | grama a oeste da delegacia | pneu (3), pneu (4) |
+  | `Cacamba (3)` | (43,90; 0,29; 28,10) | fundo do beco da oficina | pneu (5) |
+
+  O pneu mais longe da caçamba mais perto fica a 20,1 m. Com uma caçamba só, eram 60,8 m.
+- **PontoDeCarga** (filho da Main Camera, onde fica o pneu carregado): posição (0,80; −1,00; 1,10) e giro (0; 10; −10).
+- **SomDoKit** (no Player):
+  - volume 0,5 em cada som curto e 0,25 no loop de segurar;
+  - `volumeErro` = 0,25 na cena, porque o `kit_erro` é ~12 dB mais "cheio" que os outros.
+- **FluxoDeJogo** (cena): `taxaComTodosOsFocos` 0,003 → **0,00277**. `duracaoInicioCalmo` continua **15**.
+- **Layout da HUD**, o mesmo da entrada anterior, agora também gravado pelo builder:
+  - `OcupacaoPanel` no centro de cima, em (0; −32), 560×84;
+  - a `OcupacaoPanelSombra` vai junto, em (0; −27), 570×94;
+  - `ToastPanel` em (0; −126).
+- `DengueHUD.textoAoMirar` da cena = `"{nome}"`.
+
+**Simulador (Dengue > Simular Balanceamento), cena final:**
+```
+[Balanceamento] 22 focos · ocupação inicial 70% · mínima 30% · alívio por foco 2,5%
+Taxa depois da rampa: +0,18%/s com todos os focos · a ocupação começa a descer com 7 focos restantes
+Ritmo + custo do kit (s/foco; os últimos levam até 1,6x; custo do kit 5,5 s/foco):
+  15 s + 5,5 s → vence em 9:40 · pico 71% · final 30%
+  20 s + 5,5 s → vence em 12:01 · pico 76% · final 33%
+  25 s + 5,5 s → vence em 14:22 · pico 82% · final 38%
+  30 s + 5,5 s → vence em 16:44 · pico 88% · final 43%
+  35 s + 5,5 s → vence em 19:05 · pico 95% · final 48%
+  40 s + 5,5 s → PERDE aos 7:30 com 8/22 focos
+  45 s + 5,5 s → PERDE aos 6:08 com 6/22 focos
+  50 s + 5,5 s → PERDE aos 5:33 com 5/22 focos
+  parado → PERDE aos 3:25 com 0/22 focos
+Rota mínima (vizinho mais próximo, correndo a 5,8 m/s, em linha reta): 389 m + cliques ≈ 1:40 = 4,6 s/foco.
+Rota com kit (com pneu a 1,96 m/s, sem correr): 676 m correndo + 86 m com pneu + 45 s segurando + 15 s nos pontos
+  ≈ 3:40 = 10,0 s/foco (5 reabastecimentos, 3 idas e voltas para esvaziar o saco).
+  Custo do kit: (220 s − 100 s) / 22 = 5,5 s/foco.
+```
+
+Como a taxa foi escolhida:
+- Critérios: ritmo 30 + custo vence com pico ≤ 90%; 35 + custo vence; 40 + custo perde; parado perde entre 2:30 e 3:30. Os quatro passam.
+- Com 1 caçamba, o custo do kit era 9,7 s/foco e já se perdia com 30 + custo.
+- Com 3 caçambas e a taxa antiga (0,003), 30 + custo dava pico de 95% e 35 + custo perdia.
+- A taxa 0,00277 com calmo 15 foi a de maior folga (~1,3 s/foco de custo) numa varredura de taxa × calmo.
+
+**Arquivos novos:**
+- Scripts (`Assets/Scripts/`):
+  - `Ferramenta.cs`: enums `Ferramenta` e `ResultadoDoPasso`, e os nomes;
+  - `EstoqueDoKit.cs`: C# puro, cargas e saco;
+  - `SessaoDeSegurar.cs`: C# puro, tempo segurado → passos;
+  - `KitDoAgente.cs`: no Player; estoque, ferramenta, pneu e eventos;
+  - `PontoDeUso.cs` (base abstrata), `PontoDeReabastecimento.cs` e `Cacamba.cs`;
+  - `KitHUD.cs`: barra 1–5, linha do pneu e dica; monta o próprio Canvas;
+  - `SomDoKit.cs`: sons do kit, em 2D.
+- Editor: `Assets/Editor/KitDoAgenteBuilder.cs`, o menu **Dengue > Configurar Kit do Agente**.
+- Testes EditMode (`Assets/Editor/Testes/`, todos com `[Category("ParteA")]`), 51 no total:
+
+  | Classe | Testes |
+  |---|---|
+  | `EstoqueDoKitTestes` | 8 |
+  | `SessaoDeSegurarTestes` | 7 |
+  | `KitDoAgenteTestes` | 7 |
+  | `InteractableKitTestes` | 9 |
+  | `PneuCarregarTestes` | 8 |
+  | `GarrafaSacoTestes` | 3 |
+  | `PontosDeUsoTestes` | 7 |
+  | `KitHUDTestes` | 1 |
+  | `HistoriaKitTestes` | 1 |
+
+  O helper é o `TesteUtil.cs`.
+- Sons (`Assets/Meus/Assets Gerados/Sons/`, gerados por `Ferramentas/Audio/gerar_sons.py --so ...`): `kit_trocar`, `kit_erro`, `kit_reabastecer`, `cacamba_despejar`, `pneu_pegar`, `pneu_largar` e `kit_segurar_loop` (loop de 2 s, Vorbis).
+- Material: `Assets/Meus/Assets Gerados/Cacamba/Cacamba.mat` (URP Lit, #E8A21F, com emissão para o destaque da mira).
+
+**Arquivos alterados:**
+- `Interactable.cs`:
+  - campos `ferramentaNecessaria` e `segundosParaConcluir`;
+  - `Verificar(kit)` e `AvancarCom(kit)`, mais os hooks `VerificarExtra`, `AoAvancar`, `ConcluiSozinho` e `AoTerminarAcao`;
+  - `SegundosPorPasso`, `Zumbe` e `Concluir()`;
+  - `IsComplete` virou uma flag;
+  - o `Interact()` continua como caminho antigo, sem kit.
+- `PneuInteractable.cs`:
+  - `Esvaziado` e `Carregado`;
+  - o último passo põe o pneu nos braços, e quem conclui é o `Entregar` na caçamba;
+  - `PrenderEm`, `Largar` (com raycast no peito para não atravessar muro) e `Entregar`.
+- `GarrafaInteractable.cs`: `segundosPorGarrafa`, `SacoCheio` no `VerificarExtra`, cada passo guarda uma garrafa no saco, e `ContarGarrafas()`.
+- `Interactor.cs`, reescrito:
+  - segurar em vez de clicar;
+  - conferência no aperto, com os eventos `OnRecusado` e `OnPontoRecusado`;
+  - `PontoAlvo`, `ProgressoContinuo` e `Avancando`;
+  - troca de ferramenta e largar;
+  - o raio atravessa foco concluído.
+- `EntradaJogador.cs`: `InteragirSegurado`, `LargarPressionado`, `FerramentaPedida` (teclas 1–5) e `TrocaDeFerramenta` (roda, Next e Previous).
+- `ControladorJogador.cs`: `MultiplicadorVelocidade` e `PodeCorrerEPular` (o pulo que ficou no buffer é descartado enquanto não pode pular).
+- `DengueHUD.cs`:
+  - mira com `{nome}` + "segure o clique";
+  - barra contínua;
+  - toasts de recusa;
+  - painel do ponto de uso e o "Pneu vazio: leve à caçamba".
+- `FocoHUDInfo.cs`: `textoFerramentaErrada`.
+- `HistoriaRedeSocial.cs`:
+  - `aoUsarFerramentaErrada` por personagem;
+  - 3 listas novas: `aoReabastecerPrimeiraVez`, `aoCarregarPneu` e `aoEsvaziarSacoPrimeiraVez`;
+  - o "largou pela metade" ignora o pneu esvaziado.
+- `SomDosFocos.cs`: só zumbe foco com `Zumbe`.
+- `Assets/InputSystem_Actions.inputactions`, mapa Player:
+  - `<Keyboard>/1` e `/2` saíram de Previous e Next;
+  - LB/RB entraram em Previous e Next;
+  - ação nova `Largar`: botão direito, G e botão Norte.
+- Editor:
+  - `SomBuilder.cs`: `LigarKit`;
+  - `PersonagensHospitalBuilder.cs`: `FalaEnfermeira` virou `public const`, com a fala nova;
+  - `BalanceamentoSimulador.cs`: rota com kit, custo do kit e pneu → caçamba mais perto.
+- `Ferramentas/Audio/gerar_sons.py`: 7 receitas novas. Nenhum som antigo mudou.
+- Prefabs de foco (ferramenta, tempo e textos): `Assets/Meus/Vaso de Flor/Vaso de Flor.prefab`, `Assets/Meus/Caixa d'Agua.prefab`, `Assets/Meus/Assets Gerados/Focos/Ralo.prefab`, `Assets/Meus/Assets Gerados/Focos/Bromelia.prefab`, `Assets/Meus/Assets Gerados/Piscina de Plastico/Piscina de Plastico.prefab` e `Assets/Piscina de Plastico.prefab`.
+- `Assets/Scenes/SampleScene.unity`, salva pelo builder:
+  - Player com `KitDoAgente`, `SomDoKit` e `Main Camera/PontoDeCarga`;
+  - `--- UI ---/KitHUD`;
+  - os 22 focos com ferramenta, tempo e `FocoHUDInfo` (os pneus ganharam o deles);
+  - Picape da UPA, as 3 caçambas e o monte de areia;
+  - a fala da Rita, o layout da HUD e a taxa do `FluxoDeJogo`.
+- `ProjectSettings/Packages/com.unity.probuilder/Settings.json`: ruído, chaves padrão que o próprio ProBuilder grava. Ficou no índice.
+- Os arquivos da entrada anterior (layout da HUD: `FluxoDeJogoHUDBuilder.cs`, `HUDLayoutAjustador.cs`, `DengueHUDBuilder.cs`, `DengueHUDReparo.cs` e os docs `hud-ocupacao-superior`) são de **outra sessão** e não foram alterados aqui. Também entraram no índice.
+
+**Decisões tomadas durante a execução (e por quê):**
+- **Sem worktree e sem commit.** Tudo foi feito no próprio checkout, numa branch nova, porque o Editor está ligado a esta pasta e só aqui dá para compilar e testar. O índice do git serviu de base de cada tarefa, e o plano proíbe commit sem pedido do usuário.
+- **Testes não dependem de corrotina.** Os testes do `Interactable` zeram `punchScale` e `shrinkDuration`, porque no EditMode as corrotinas não rodam. O teste com lista (personagens) monta o campo por `SerializedObject`, porque o `TesteUtil.Setar` não aceita listas.
+- **`Interactor` robusto a "null falso" e à pausa.** Um alvo destruído vira `null` de verdade antes da `SessaoDeSegurar`, que compara por referência. Com `deltaTime <= 0` (pausa), nenhum passo é dado e nenhum aviso sai.
+- **Menos redesenho e pulo travado com o pneu.** O `OnMudou` só dispara em mudança real, para a HUD não redesenhar à toa. O pulo que fica no buffer é descartado enquanto carrega pneu, porque a spec diz "não pula". A animação e os passos continuam lendo a velocidade base, e com 0,7× soam como "andar devagar", coerente com carregar peso.
+- **Conferência e consumo.** O `Verificar` confere a carga da ferramenta **selecionada**, e o `AvancarCom` gasta a `FerramentaNecessaria`; hoje são sempre a mesma. A carga é gasta depois do `OnCompleted`, porque ninguém lê o estoque nele e a HUD escuta o `OnMudou`.
+- **Pneu.** Ao largar, um raycast na altura do peito evita que o pneu atravesse o muro; sem isso, um pneu largado podia ficar inalcançável e a partida, impossível. No caminho antigo `Interact()` (sem kit), o pneu conclui como antes. Uma segunda entrega não dispara outro `OnCompleted`.
+- **Pneu esvaziado e largado.** A HUD mostra "Pneu vazio: leve à caçamba", sem barra nem "5/5", e o post "largou pela metade" não sai: a água já saiu.
+- **Pontos de uso.**
+  - Motivo vazio = recusa sem aviso.
+  - O raio do `Interactor` atravessa foco concluído, porque o pneu entregue encolhe em cima da caçamba.
+  - Um uso por aperto, para não repetir o reabastecer e logo depois mostrar "kit já está cheio".
+  - Precisam de collider sólido (o raio ignora triggers) e de `_EmissionColor` para o destaque.
+- **`MaosOcupadas` ficou inalcançável pelo `Interactor`.** Com o pneu nas mãos os focos são atravessados. A linha "Carregando pneu" da KitHUD já orienta, e o mapeamento do texto ficou, inofensivo.
+- **"Sai uma vez" pelo índice.** Os posts de reabastecer, pneu e saco usam o índice do `PostarDaLista` (anda só quando o post sai). Com 1 post por lista, é o mesmo que um bool. O de ferramenta errada é marcado por **tipo**, e só quando o post sai.
+- **`volumeErro` 0,25 na cena**, porque o `kit_erro` soava ~12 dB acima dos outros curtos.
+- **Layout da HUD.** O builder grava o MESMO layout que o usuário pediu na outra sessão e leva junto a `OcupacaoPanelSombra`, que o `HUDLayoutAjustador` esquecia. O builder não chama o ajustador, porque ele abre um diálogo modal que trava o menu rodado pela linha de comando.
+- **3 caçambas em vez de 1.** Os 6 pneus estão espalhados pelas duas quadras, até 91 m um do outro. Com uma caçamba só, a viagem mais longa carregando era de ~61 m, contra a intenção da spec ("caçamba perto dos pneus"). Critério: nenhum pneu a mais de 30 m da caçamba mais perto.
+- **Simulador pessimista de propósito.** O custo do kit entra antes do `FatorUltimos` (os últimos focos levam até 1,6×), então o simulador fica do lado seguro.
+- **Pose do pneu nos braços** decidida pelo critério do plano (canto inferior direito, sem cobrir a mira), conferida em captura. O pneu deitado na frente da câmera tapava metade da tela.
+
+**Verificado:**
+- 51/51 testes EditMode `ParteA` passando (`Failed: 0`). Comando: `unity command run_tests --mode EditMode --filter_type category --filter ParteA`.
+- Play Mode na `SampleScene`, com `eval_file`:
+  - preparação: abertura pulada (cartelas paradas, `pausouJogo = false`), `timeScale = 1`, `Interactor.Bloqueado = false`, `ControleAtivo = false`, `fluxo.IniciarPartida()` e `runInBackground` ligado só no teste;
+  - logs `[T14]` nos eventos do kit, do `Interactor`, da `RedeSocial` e do `FluxoDeJogo`.
+- **Cada tipo de foco** (vaso, ralo, bromélia, caixa d'água, garrafas e pneu), com `AvancarCom` pelo kit da cena:
+  - com uma ferramenta errada: `FerramentaErrada`, e `CurrentClicks` não mudou;
+  - com a da tabela: concluiu (o pneu deu `Pegou`).
+- **Recusa pelo `Interactor`:** agente teleportado e mirando a bromélia e o ralo, com as Mãos; a conferência do aperto (`Interactor.Conferir`, por reflexão):
+  - `OnRecusado(FerramentaErrada)`;
+  - toast com o `textoFerramentaErrada` do foco;
+  - `CurrentClicks` 0 → 0.
+- **Estoque:**
+  - depois de 1 vaso, Areia 0, e o 2º vaso dá `SemCarga`;
+  - o monte de areia volta a Areia para 1 e, de novo, recusa com "Seu kit já está cheio.";
+  - a picape encheu areia, tela e água (0/0/1 → 1/1/2) e depois recusou com "Seu kit já está cheio.".
+- **Pneu:**
+  - pegar não mexe em `FocosEliminados` (5 → 5);
+  - nos braços: `Zumbe == false`, multiplicador 0,7, sem correr e pular, `Selecionar` recusado e a linha do pneu da KitHUD ativa;
+  - largar devolve o movimento, e pegar de novo é instantâneo;
+  - a caçamba entrega e conta (5 → 6).
+- **Saco:**
+  - 'Garrafa ' (5) concluiu com o saco em 5/6;
+  - a 'Lata 001' avançou 1 e deu `SacoCheio`;
+  - a `Cacamba (3)` esvaziou e, vazia, recusou com "Nada para jogar na caçamba.";
+  - a lata parou de novo no saco cheio, a `Cacamba (2)` esvaziou, e a lata concluiu.
+- **Rede social:** os 4 posts novos saíram, **uma vez cada**:
+  - ferramenta errada: uma vez **por tipo**. A Lúcia saiu na bromélia; a 2ª recusa na bromélia, 4 s depois, não repetiu; o Seu Osvaldo saiu no ralo;
+  - reabastecer (UPA): saiu no 1º reabastecimento, no monte; a picape, depois, não repetiu;
+  - carregando pneu (Carlos): saiu no 1º pego; pegar de novo não repetiu;
+  - 1º saco na caçamba (Bruna): saiu no 1º esvaziamento; o 2º não repetiu.
+
+  Antes de cada gatilho foi conferido `RedeSocial.Aceitaria(Normal)`, esperando o intervalo de 4 s quando preciso.
+- **Fim:**
+  - os 22 focos eliminados pelo kit (3 idas à picape e 6 à caçamba no resto) → `OnVitoria` (`FocosEliminados` 22/22, ocupação final 37%);
+  - a tela final ficou segurada enquanto o epílogo tocava nas cartelas;
+  - pulando o epílogo (o flag do Esc), a tela "MISSÃO CUMPRIDA! · Focos eliminados: 22/22" apareceu (alpha 1).
+- **Console do Play:** só os 12 erros antigos de `Default-Particle.psd` (2 por pneu concluído com a animação padrão). Nenhum aviso.
+- **Limpeza:**
+  - `editor_stop` e `PlayerSettings.runInBackground = false` (`runInBackground: 0` no disco);
+  - a `SampleScene` não ficou suja (o Play reverte; nada foi salvo depois);
+  - **só a `MenuInicial` aberta** no Editor.
+
+**NÃO verificado:**
+- **Partida real com teclado, mouse e controle.** O Editor sem foco descarta a entrada, então nada disso foi testado na mão: segurar de verdade, teclas 1–5, roda, LB/RB, botão direito/G/Norte para largar.
+- O **"apertado" do estoque** e o ritmo de ir e voltar à picape e às caçambas: só simulados.
+- A **margem do balanceamento é estreita**. A folga é de ~1,3 s/foco de custo do kit, e o parado perde aos 3:25 para um limite de 3:30. Falta o usuário jogar e dizer se ficou moderado.
+- Os sons novos não foram ouvidos (a emenda do loop depois da compressão Vorbis, inclusive). A ligação deles foi conferida em Play nas tarefas anteriores.
+
+**Pendências encontradas na verificação (não corrigidas):**
+- **Post de reabastecer com texto da picape.** (corrigido na revisão final) Ele sai no 1º reabastecimento, onde quer que seja. Se for no **monte de areia**, que fica perto dos vasos e é um caminho provável, o texto da UPA diz "passou na picape da UPA pra pegar material. Areia, tela e água sanitária...", o que não bate com o monte. Opções: ligar o post só à picape (por exemplo, um campo no `PontoDeReabastecimento`) ou trocar o texto.
+- **'Lata 001' deixa uma garrafa visível** (corrigido na revisão final), um problema da cena anterior à Parte A. A instância tem `cliquesIgualAoNumeroDeGarrafas = false` e `requiredClicks` 11 para 12 garrafas:
+  - ela conclui com 11 passos (11 garrafas no saco), e 1 garrafa fica na cena (`GarrafasRestantes = 1`);
+  - correção provável: ligar `cliquesIgualAoNumeroDeGarrafas` nessa instância (12 passos).
+- **Aviso de saco cheio desatualizado.** (corrigido na revisão final) Ele ainda diz "Esvazie na caçamba do terreno baldio" (`DengueHUD.RecusaSacoCheio`, `const`), mas agora são 3 caçambas e só uma fica no terreno baldio. Basta trocar por "numa caçamba".
+- **Pequenas, conhecidas, deixadas para depois:**
+  - com o clique esquerdo apertado, largar o pneu faz pegá-lo de novo na hora, e depois do pego a caçamba na mira entrega sem soltar o botão (exigir soltar depois de `Concluiu`/`Pegou`);
+  - trocar de ferramenta ainda no hospital marca a dica "1–5" como vista antes de ela aparecer (corrigido na revisão final);
+  - a roda contínua (touchpad) troca várias ferramentas por gesto;
+  - o pneu carregado (~2 m) atravessa paredes visualmente e é maior que a caçamba na entrega;
+  - o `Cacamba.mat` é regravado com ruído de float a cada execução do builder.
+
+**Observações para futuras sessões de IA:**
+- **`PontoDeUso` não herda `Interactable`, e não pode herdar.** `FluxoDeJogo`, `DengueHUD`, `FocoListaHUD`, `RedeSocial` e `HistoriaRedeSocial` varrem `Interactable` como foco, e a picape e a caçamba virariam focos.
+- **A ordem dos enums `Ferramenta` e `ResultadoDoPasso` é fixa.** Enum serializado é salvo como número (cena e prefabs: Mãos 0, Areia 1, Tela 2, AguaSanitaria 3, SacoDeLixo 4), então valor novo só entra no FIM, como no `TipoFoco`. A barra 1–5 segue a ordem do enum.
+- **O builder `Dengue > Configurar Kit do Agente` pode rodar de novo.** Ele acha pelo nome o que já criou, atualiza campos, textos e poses sem duplicar, regrava prefab só se algo mudou e salva a cena.
+  - Para ajustar ferramenta, tempo e textos de um tipo, mude a tabela `Focos`.
+  - Caçambas: tabela `Cacambas`. Pose do pneu: `PosicaoDaCarga` e `RotacaoDaCarga`.
+  - Depois rode o menu e `Dengue > Simular Balanceamento`.
+- **O layout da HUD também é gravado pelo builder**, com os MESMOS valores do `HUDLayoutAjustador`: ocupação em y −32, sombra em −27 e toast em −126. Se mudar um, mude o outro. O builder leva a sombra junto; o ajustador não leva.
+- **A cena não tem piscina** (22 focos). Os prefabs de piscina já estão configurados (Mãos, 2,5 s) para quando ela voltar.
+- **Testes EditMode** em `Assets/Editor/Testes/`, todos com `[Category("ParteA")]`.
+  - Para rodar: Window > General > Test Runner > EditMode, ou `unity command run_tests --mode EditMode --filter_type category --filter ParteA`. Esperado: 51, `Failed: 0`.
+  - No EditMode, `Awake`/`Start` não rodam: o `KitDoAgente` cria o estoque e acha o `ControladorJogador` no primeiro acesso, e os testes mudam campos serializados com `TesteUtil.Setar`, que usa `SerializedObject`.
+  - Objetos de teste nascem `HideAndDontSave` e são destruídos no `[TearDown]` (`TesteUtil.LimparTudo()`), para não sujar a cena aberta.
+- **Para testar em Play sem input:**
+  - pule a abertura, como na preparação acima;
+  - chame `AvancarCom(kit)` nos focos e `PodeUsar`/`Usar(kit)` nos pontos;
+  - para a recusa com toast, mire de verdade (`Teleportar` + `DefinirOlhar`, um frame) e chame `Interactor.Conferir` por reflexão.
+  - Posts novos precisam de `RedeSocial.Aceitaria(...)` verdadeiro na hora: espere ~4 s depois de outro aviso.
+- `SegundosPorPasso` da garrafa é por garrafa: o `segundosParaConcluir` não vale nela. O simulador usa `SegundosPorPasso × passos`.
+
+**Correções da revisão final** (2026-10-29, mesma branch, sem commit)
+
+**Objetivo:** aplicar a rodada única de correções da revisão final da branch (lista `.superpowers/sdd/2026-10-25-parte-a-kit-do-agente/final-fixes.md`, itens A–O): três defeitos importantes confirmados (A, B, C), as pendências P1–P3 desta entrada (D, E, F), o que a triagem mandou corrigir antes do merge (G, H, I) e menores baratos nos mesmos arquivos (J–O).
+
+**O que mudou, por item:**
+- **A — "largou pela metade" com o saco cheio** (`HistoriaRedeSocial.cs`). O `VerificarLargados` agora ignora, além do pneu esvaziado, o grupo de garrafas enquanto `kit.Estoque.SacoCheio` (método novo `SaidaObrigatoria`) e o tira do `pertoDoComecado`. Sair para esvaziar o saco numa caçamba não dá mais o post da Bruna. Voltar com espaço no saco e abandonar o grupo continua dando.
+- **B — o pneu chegava aos braços com 20% do tamanho** (`Interactable.cs`). Os 6 pneus da cena têm `scaleReductionPerClick` 0,2 e 5 cliques, e cada passo encolhia o pneu. Agora o encolher por clique não vale para foco que não conclui sozinho (`ConcluiSozinho = false`, o pneu). O pneu é pego, carregado, largado e entregue com a escala dele (100 na cena), e o `alturaDoPivo` do `PrenderEm` é medido com ela.
+- **C — o pneu largado nascia dentro do agente** (`PneuInteractable.cs`, `KitDoAgente.cs`). O `Largar(pes, frente)` virou `OndeCai(pes, frente, raioDoAgente, out posicao, out giro, out cacamba)`, que calcula sem mexer no pneu, mais `Largar(posicao, giro)`.
+  - **Giro:** o pneu cai de pé, com o giro de quando estava no chão virado só em torno do vertical, para o eixo da roda apontar para a frente do agente. O giro é sempre o menor (até 90°), e um pneu deitado fica como estava. O eixo é o `EixoDaRoda` = X local do `rubber tries.fbx`, conferido no asset: banda de 0,58 m no X e disco de 2,02 m no plano YZ, com o pivô no centro.
+  - **Avanço pelo tamanho real:** `raioDoAgente` (raio do CharacterController × escala + pele: 0,3 + 0,03 m no Player) + `FolgaDoAgente` 0,15 m + a meia profundidade do pneu, medida nos cantos das caixas locais dos Renderers ligados. No pneu da cena, o pivô cai a ~0,77 m dos pés, e a borda de cá a ~0,48 m.
+  - **Muro:** a proteção continua. O raio no peito vai até a borda de lá do pneu + `FolgaDoMuro`, que agora vale 0,1 m da borda de lá até o muro (antes, 0,35 m do centro). A constante `DistanciaAFrente` (0,8 m fixo) saiu.
+- **D — o post da picape saía no monte de areia** (`KitDoAgente.cs`, `PontoDeReabastecimento.cs`, `HistoriaRedeSocial.cs`, `SomDoKit.cs`).
+  - `KitDoAgente.OnReabasteceu` virou `Action<PontoDeReabastecimento>`, e `Reabastecer(ferramentas, origem = null)` recebe o ponto. O `PontoDeReabastecimento` passa a si mesmo.
+  - Campo novo `ehPicapeDaUpa` (`EhPicapeDaUpa`), que o builder grava: `true` na picape e `false` no monte.
+  - O `HandleReabasteceu` só posta quando a origem é a picape. O `SomDoKit` toca em qualquer ponto, como antes.
+- **E — a 'Lata 001' terminava com 1 garrafa na cena** (`KitDoAgenteBuilder.cs`). O `AplicarFoco` grava `cliquesIgualAoNumeroDeGarrafas = true` em todo `GarrafaInteractable`. Na cena, só a Lata 001 mudou (0 → 1). No Play ela tem 12 passos, um por garrafa.
+- **F — aviso de saco cheio** (`DengueHUD.cs`): agora diz "Saco cheio. Esvazie numa <b>caçamba</b>.", porque são 3 caçambas.
+- **G — a dica 1–5 era apagada no hospital** (`KitHUD.cs`). A troca de ferramenta só marca a dica como vista com a barra à mostra (`BarraAMostra`: partida iniciada, sem pausa e com o controle ligado), a mesma condição que mostra a barra. Quem aperta 1–5 ouvindo a Rita ainda vê a dica no bairro.
+- **H — builder com cenas aditivas** (`KitDoAgenteBuilder.cs`). A cena configurada é a do `FluxoDeJogo` achado (`cenaDoJogo`), e não a cena ativa. Essa cena vale para:
+  - as buscas (`DaCena<T>`, `PrimeiroDaCena<T>` e `AcharNaCena`);
+  - as criações (`NovoNaCena` e `InstantiatePrefab(prefab, cena)`);
+  - o `SaveScene`.
+  A `Camera.main` só vale se for dessa cena.
+- **I — testes do Largar com chão:** os testes novos de B, C e M têm chão de teste em `SemChao`.
+- **J — sem areia** (`DengueHUD.cs`): agora diz "Acabou: <b>Areia</b>. Reabasteça na picape da UPA ou no monte de areia do terreno baldio." As outras ferramentas continuam mandando só para a picape.
+- **K — dica de correr carregando pneu** (`DicaCorrer.cs`): a dica não aparece, e o tempo não conta, enquanto `ControladorJogador.PodeCorrerEPular` é falso.
+- **L — bromélia é tratada com água sanitária** (`KitDoAgenteBuilder.cs`, `HistoriaRedeSocial.cs`, prefab da bromélia, cena):
+  - **Dica:** vem da coluna nova `dica` da tabela `Focos`: "Bromélia guarda água entre as folhas. Regue o copinho com água sanitária diluída (1 colher de sopa por litro) duas vezes por semana." Fica no `Bromelia.prefab`, e as 4 instâncias herdam.
+  - **1ª fala da Lúcia ao eliminar:** a constante `HistoriaRedeSocial.FalaLuciaPrimeiraBromelia` diz "Ufa! O agente não arrancou nada: só pôs água sanitária diluída no copinho, e a bromélia ficou inteirinha." Ela vale no padrão do código e é gravada no personagem salvo na cena pelo passo 8 novo do builder (`ConfigurarLucia`, via `SerializedObject`).
+- **M — largar em cima da caçamba** (`KitDoAgente.cs`, `PneuInteractable.cs`, `Cacamba.cs`). Se o raio do chão acerta uma `Cacamba` (ou o do peito, com o agente encostado nela), o `LargarPneu` entrega: chama `EntregarPneu(cacamba.PontoDeDescarte)`, e o foco conclui. `Cacamba.PontoDeDescarte` (pivô + `alturaDescarte`) também é usado pelo `Usar`.
+- **N — escala da KitHUD** (`KitHUD.cs`): `CanvasScaler.matchWidthOrHeight = 0.5`, como os outros Canvas do jogo. Pela conta das escalas (não conferido em captura), a dica 1–5 continua sem encostar na DicaCorrer, que usa 0: sobram ~17 px em 21:9 e ~21 px em 4:3.
+- **O — ralo com 8 passos** (`KitDoAgenteBuilder.cs`, coluna nova `passos`; `Ralo.prefab`): `requiredClicks` passou de 3 para 8, e o tempo total continua 2,0 s (8 × 0,25 s). Ao soltar, a barra volta no máximo 1/8. As 4 instâncias herdam do prefab.
+
+**Arquivos alterados:**
+- Scripts: `Interactable.cs`, `PneuInteractable.cs`, `KitDoAgente.cs`, `Cacamba.cs`, `PontoDeReabastecimento.cs`, `SomDoKit.cs`, `HistoriaRedeSocial.cs`, `DengueHUD.cs`, `KitHUD.cs` e `DicaCorrer.cs`.
+- Editor: `KitDoAgenteBuilder.cs`.
+- Testes:
+  - `PneuCarregarTestes.cs`: 4 casos novos e os helpers `CriarChao`, `RodarStart`, `CorpoComoNaCena`, `DarFormaDePneu`, `DistanciaNoChao` e `AssertEscala`; o teste do muro passou a usar o `CriarChao`;
+  - `PontosDeUsoTestes.cs`: 1 teste novo;
+  - `KitDoAgenteTestes.cs` e `PontosDeUsoTestes.cs`: os assinantes do `OnReabasteceu` com o parâmetro novo.
+- Assets, pelo builder:
+  - `Assets/Meus/Assets Gerados/Focos/Ralo.prefab`: `requiredClicks` 8;
+  - `Assets/Meus/Assets Gerados/Focos/Bromelia.prefab`: a dica;
+  - `Assets/Scenes/SampleScene.unity`: 4 linhas, conferidas contra o índice — `ehPicapeDaUpa` 1 na picape e 0 no monte, `cliquesIgualAoNumeroDeGarrafas` 1 na Lata 001 e a fala da Lúcia.
+- `Cacamba.mat`: só o ruído de float de sempre (R13-6, adiado).
+- Não mexidos (outra sessão): `FluxoDeJogoHUDBuilder.cs`, `HUDLayoutAjustador.cs`, `DengueHUDBuilder.cs`, `DengueHUDReparo.cs` e os docs `hud-ocupacao-superior`.
+
+**Testes:** 56/56 ParteA (`Failed: 0`), os 51 de antes mais 5 novos:
+
+| Teste | Item |
+|---|---|
+| `PneuCarregarTestes.PegarELargar_ComEncolherPorClique_MantemOTamanho` | B, com chão |
+| `PneuCarregarTestes.Largar_PneuGrande_NaoNasceDentroDoAgente` | C, com chão |
+| `PneuCarregarTestes.Largar_NaCacamba_Entrega(0,8)` e `(1,2)` | M: o raio do chão acerta o topo / o do peito acerta a parede |
+| `PontosDeUsoTestes.Reabastecer_AvisaOPontoDeOrigem` | D |
+
+Os testes de B, C e M foram escritos antes das correções e falharam (RED, 55 testes e 4 falhas):
+- B: "nos braços: escala (0.26, 0.26, 0.26), esperada (1.30, 1.30, 1.30)";
+- C: a cápsula do agente cruzava o pneu largado;
+- M: "largado na caçamba, conta como entregue: esperado True, veio False", nos 2 casos.
+
+O teste de B chama o `Start` por reflexão, para o pneu guardar a escala inicial como no Play.
+
+**Builder e simulador:**
+- `Dengue > Configurar Kit do Agente` rodou 3 vezes: 2 com a SampleScene sozinha e 1 com a MenuInicial ativa e a SampleScene aditiva.
+  - O resumo `[Kit]` saiu igual nas 3 vezes, e não há duplicata (KitHUD 1, Cacamba 3, PontoDeReabastecimento 2, FocoHUDInfo 22).
+  - Na rodada aditiva, a MenuInicial continuou limpa: 686 objetos, nada do builder e não suja.
+- `Dengue > Simular Balanceamento`, com a taxa mantida em 0,00277:
+```
+[Balanceamento] 22 focos · ocupação inicial 70% · mínima 30% · alívio por foco 2,5%
+Taxa depois da rampa: +0,18%/s com todos os focos · a ocupação começa a descer com 7 focos restantes
+Ritmo + custo do kit (s/foco; os últimos levam até 1,6x; custo do kit 5,2 s/foco):
+  15 s + 5,2 s → vence em 9:34 · pico 71% · final 30%
+  20 s + 5,2 s → vence em 11:55 · pico 75% · final 33%
+  25 s + 5,2 s → vence em 14:16 · pico 81% · final 38%
+  30 s + 5,2 s → vence em 16:38 · pico 88% · final 43%
+  35 s + 5,2 s → vence em 19:00 · pico 95% · final 48%
+  40 s + 5,2 s → PERDE aos 7:31 com 8/22 focos
+  45 s + 5,2 s → PERDE aos 6:08 com 6/22 focos
+  50 s + 5,2 s → PERDE aos 5:33 com 5/22 focos
+  parado → PERDE aos 3:25 com 0/22 focos
+Rota mínima (vizinho mais próximo, correndo a 5,8 m/s, em linha reta): 389 m + cliques ≈ 1:45 = 4,8 s/foco.
+Rota com kit (com pneu a 1,96 m/s, sem correr): 676 m correndo + 86 m com pneu + 46 s segurando + 15 s nos pontos
+  ≈ 3:40 = 10,0 s/foco (5 reabastecimentos, 3 idas e voltas para esvaziar o saco).
+  Custo do kit: (221 s − 105 s) / 22 = 5,2 s/foco.
+```
+  - Os 4 critérios continuam passando: 30 + custo vence com pico de 88%; 35 + custo vence; 40 + custo perde aos 7:31; parado perde aos 3:25. A taxa não mudou.
+  - O custo do kit caiu de 5,5 para 5,2 s/foco quase só pela referência. A rota mínima (o jogo antigo, 0,25 s por clique) passou a contar 8 cliques por ralo (+5 s). A rota com kit ganhou só 1 s, a 12ª garrafa da Lata 001.
+
+**Verificado em Play** (SampleScene sozinha; `runInBackground` ligado só no teste; abertura pulada como na T14; partida iniciada por `fluxo.IniciarPartida()`):
+- **G:** ainda no hospital, `Selecionar(Areia)` não marcou a dica. Na partida, a troca marcou.
+- **N:** `matchWidthOrHeight` = 0,5 na KitHUD.
+- **E e O:** a Lata 001 tem 12 passos; o ralo tem 8 passos de 0,25 s.
+- **B e C:** testados no 'pneu' (de pé, sem giro) e no 'pneu (4)' (inclinado, giro (14, 89, 330)), com o agente no lugar do pneu e virado ao longo do disco (o pior caso de antes).
+  - A escala ficou 100 nos braços e no chão.
+  - O pneu caiu com +90° só em Y, a inclinação original mantida.
+  - A cápsula do CharacterController não tocou o MeshCollider. A borda de cá ficou a 0,48 m do agente no 'pneu' e a 0,56 m no 'pneu (4)'.
+  - 2 s depois, o agente não tinha saído do lugar (0,000 m).
+- **M:** o agente encostado na `Cacamba`, com o topo dela a 0,98 m dos pés: o raio do peito passa por cima, que é o caso do achado. Largar entregou: `FocosEliminados` foi de 0 a 1, com `OnPneuEntregue` e sem `OnPneuLargado`.
+- **D:** com a rede aceitando posts, o monte de areia reabasteceu sem post. A picape deu o post da UPA.
+- **A:** com a 'Garrafa  (1)' começada e o saco cheio, sair para 30 m não deu post. Com espaço no saco, voltar e sair deu o post da Bruna.
+- **K:** carregando pneu, o tempo da dica de correr ficou em 0 por 6 s e a dica sumiu. Sem o pneu, voltou a contar.
+- **Console do Play:** só os 2 erros antigos de `Default-Particle.psd` (um pneu concluído).
+- **Limpeza:**
+  - `editor_stop` e `PlayerSettings.runInBackground = false` (o `ProjectSettings.asset` não mudou);
+  - a SampleScene não ficou suja;
+  - **só a MenuInicial aberta** no Editor.
+
+**Fora desta rodada (adiados, continuam no registro):**
+- **codigo F3 / unity U-F2:** trocar de ferramenta com o botão ainda apertado não confere o alvo de novo; é preciso soltar e apertar.
+- **codigo F4:** uma recusa do kit apaga o aviso de foco eliminado, e a dica junto.
+- **spec F6:** a fala longa da Rita pode entrar no teto da sala vista de longe; falta conferir em captura.
+- **spec F7:** há um loop de "segurar" só, igual para todas as ferramentas.
+- **unity U-F4:** o destaque de mira liga `_EMISSION` em runtime, e a variante pode faltar na build. Além disso, a frase "com emissão para o destaque da mira" sobre o `Cacamba.mat`, mais acima nesta entrada, não confere com o asset.
+- **U8-2:** com o esquerdo apertado, largar faz pegar o pneu de novo, e depois do `Pegou` a caçamba na mira entrega sem soltar.
+- **Os demais "minor (deferred)" do ledger** (`.superpowers/sdd/2026-10-25-parte-a-kit-do-agente/progress.md`), entre eles:
+  - T5-3, o `PararPunch` não restaura a escala;
+  - U4, o `Entregar` religa os colliders;
+  - U2, o fallback "pes" religa os colliders sobre o CharacterController;
+  - U12-5, o pneu de ~2 m nos braços;
+  - R13-6, o ruído do `Cacamba.mat`;
+  - a margem estreita do balanceamento;
+  - as lacunas de cobertura de teste.
+
+**Observações para futuras sessões de IA:**
+- **O eixo da roda é o X local do `rubber tries.fbx`** (`PneuInteractable.EixoDaRoda`). Se o modelo do pneu mudar, confira o eixo; a folga do largar já sai do tamanho real dos Renderers.
+- **Largar o pneu em cima de uma caçamba é entrega.** Quem cuida disso é o `KitDoAgente.LargarPneu` (o `OndeCai` devolve a caçamba). A entrega pela mira continua igual.
+- **A dica da bromélia e a 1ª fala da Lúcia são gravadas pelo builder,** como a fala da Rita. Uma edição no Inspector volta ao texto do builder quando o menu roda de novo. Para mudar de vez, edite a tabela `Focos` ou a constante `FalaLuciaPrimeiraBromelia`.
+- **Outras falas da Lúcia ainda falam em "esvaziar" a bromélia:** `aoLargarPelaMetade`, `aoEliminarUltimo` ("jato de mangueira") e o epílogo. Ficaram de fora do item L, que pedia só a dica e a 1ª fala.
+- **O `OnReabasteceu` leva o ponto de origem.** Assinante novo usa `Action<PontoDeReabastecimento>`.
+- **A rota mínima do simulador conta cliques** (0,25 s cada). Mudar o número de passos de um foco mexe nessa referência, e por isso no "custo do kit", mesmo sem mudar a rota real.

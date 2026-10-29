@@ -548,6 +548,111 @@ def s_ui_clique(rng):
     return efeito(y)
 
 
+# ================================================================ KIT DO AGENTE (Parte A, 2D)
+# Cada batida é gerada no seu próprio buffer curto e somada no lugar: o
+# modos() apaga os últimos 30% do buffer, e uma batida tardia num buffer
+# longo sairia abafada.
+
+def batida_plastico(rng, forca=1.0, esc=1.0):
+    """Batida curta em plástico duro (caixa do kit, frasco): poucos modos + estalo."""
+    n = amostras(0.12, SR)
+    fs = [620 * esc, 1430 * esc, 2350 * esc, 3600 * esc]
+    y = modos(n, SR, rng, fs, [0.035, 0.022, 0.012, 0.006], [1, .6, .35, .15])
+    y += 0.4 * ruido_env(rng, n, SR, 1500, 7000, 0.0003, 0.003)
+    return forca * y
+
+
+def baque_borracha(rng, forca=1.0, grave=1.0):
+    """Borracha no chão: 'tump' grave que desce + corpo abafado, sem agudo."""
+    n = amostras(0.16, SR)
+    esc = grave * rng.uniform(0.95, 1.05)
+    tump = np.sin(fase(varredura(n, SR, 135 * esc, 70 * esc, 0.0, 0.025), n, SR)) * env_ad(n, SR, 0.003, 0.045)
+    corpo = modos(n, SR, rng, [230 * esc, 520 * esc, 840 * esc], [0.03, 0.018, 0.01], [0.55, 0.3, 0.12])
+    poeira = 0.3 * ruido_env(rng, n, SR, 200, 1200, 0.002, 0.03)
+    return forca * (tump + corpo + poeira)
+
+
+def s_kit_trocar(rng):
+    """Troca de ferramenta: clique de plástico (trava + encaixe), ~80 ms."""
+    y = np.zeros(amostras(0.08, SR))
+    for atraso, forca in ((0.0, 1.0), (0.022, 0.55)):
+        n = amostras(0.05, SR)
+        esc = rng.uniform(0.95, 1.05)
+        c = modos(n, SR, rng, [1250 * esc, 2700 * esc, 4300 * esc], [0.010, 0.006, 0.003], [1, 0.5, 0.25])
+        c += 0.35 * ruido_env(rng, n, SR, 2000, 8000, 0.0003, 0.002)
+        somar(y, forca * c, amostras(atraso, SR))
+    return efeito(y)
+
+
+def s_kit_erro(rng):
+    """Recusa (ferramenta errada, sem carga, saco cheio): dois bipes graves descendo, ~250 ms."""
+    y = np.zeros(amostras(0.25, SR))
+    for atraso, f, dur in ((0.0, 330.0, 0.08), (0.12, 247.0, 0.1)):   # E4 → B3
+        somar(y, bip(f, dur, SR), amostras(atraso, SR))
+    return efeito(filtrar(y, SR, hi=2500))
+
+
+def s_kit_reabastecer(rng):
+    """Kit cheio de novo: zíper da bolsa + 3 batidas de plástico (cargas entrando), ~600 ms."""
+    y = np.zeros(amostras(0.62, SR))
+    dur = 0.26
+    n = amostras(dur, SR)
+    t = tempo(n, SR)
+    dentes = (0.5 + 0.5 * np.sin(fase(110 + 70 * t / dur, n, SR))) ** 6   # dentes cada vez mais rápidos
+    chiado = filtrar(ruido(rng, n), SR, 1800, 7000)
+    somar(y, 0.8 * chiado * (0.25 + 0.75 * dentes) * env_trapezio(n, SR, 0.02, dur - 0.04, 0.04), 0)
+    for atraso, forca, esc in ((0.31, 1.0, 1.0), (0.41, 0.8, 1.08), (0.50, 0.9, 0.95)):
+        somar(y, batida_plastico(rng, forca, esc * rng.uniform(0.97, 1.03)), amostras(atraso, SR))
+    return efeito(y)
+
+
+def s_cacamba_despejar(rng):
+    """Saco de garrafas ou pneu na caçamba: baque grave + metal oco, ~700 ms."""
+    n = amostras(0.7, SR)
+    baque = np.sin(fase(varredura(n, SR, 95, 42, 0.0, 0.04), n, SR)) * env_ad(n, SR, 0.003, 0.09)
+    baque += 0.4 * ruido_env(rng, n, SR, None, 500, 0.002, 0.05)
+    b = rng.uniform(150, 175)
+    fs = [b, 2.31 * b, 3.87 * b, 5.62 * b, 8.1 * b]
+    oco = modos(n, SR, rng, fs, [0.22, 0.16, 0.11, 0.07, 0.04], [1, .7, .45, .3, .15], 0.008)
+    tranco = 0.35 * ruido_env(rng, n, SR, 800, 4000, 0.001, 0.02, 0.008)
+    return efeito(filtrar(0.9 * baque + 0.7 * oco + tranco, SR, lo=30, hi=6000))
+
+
+def s_pneu_pegar(rng):
+    """Pegar o pneu: borracha abafada, um 'tump' e o atrito das mãos, ~250 ms."""
+    n = amostras(0.25, SR)
+    tump = np.sin(fase(varredura(n, SR, 150, 95, 0.02, 0.03), n, SR)) * env_ad(n, SR, 0.004, 0.04, 0.02)
+    corpo = modos(n, SR, rng, [210, 470, 760], [0.03, 0.02, 0.012], [0.6, 0.35, 0.15], 0.02)
+    atrito = ruido_env(rng, n, SR, 250, 1400, 0.03, 0.05)
+    return efeito(filtrar(0.9 * tump + corpo + 0.5 * atrito, SR, lo=50, hi=2500))
+
+
+def s_pneu_largar(rng):
+    """Pneu largado no chão: baque de borracha + quiques cada vez menores, ~400 ms."""
+    y = np.zeros(amostras(0.42, SR))
+    for atraso, forca, grave in ((0.0, 1.0, 1.0), (0.17, 0.45, 1.08), (0.28, 0.18, 1.12)):
+        somar(y, baque_borracha(rng, forca, grave), amostras(atraso, SR))
+    return efeito(filtrar(y, SR, lo=40, hi=2200))
+
+
+def s_kit_segurar_loop(rng):
+    """Mãos trabalhando enquanto segura (qualquer ferramenta): farfalhar suave
+    de pano e plástico, sem tom. Loop circular de 2 s: ruído, grãos e tremor
+    filtrados por FFT; o gesto tem número inteiro de ciclos."""
+    L = 2.0
+    n = amostras(L, SR)
+    t = tempo(n, SR)
+    pano = filtrar(ruido(rng, n, "rosa"), SR, 350, 2500, circular=True)
+    pano /= np.std(pano) + 1e-12
+    graos = filtrar(granulos(rng, n, SR, 300, 0.0, L), SR, 1500, 6000, circular=True)
+    graos /= np.std(graos) + 1e-12
+    tremor = filtrar(ruido(rng, n), SR, hi=7, ordem=1, circular=True)
+    tremor = np.clip(0.75 + 0.25 * tremor / (np.std(tremor) + 1e-12), 0.3, 1.3)
+    gesto = 1 + 0.25 * np.sin(2 * np.pi * 2 * t / L + rng.uniform(0, 6.28))   # 2 movimentos por volta
+    y = (pano + 0.25 * graos) * tremor * gesto
+    return nivelar(filtrar(y, SR, lo=200, hi=5000, circular=True), pico_db=-3)
+
+
 # ================================================================ AMBIENTE (avulsos 3D)
 
 def silaba(f_ini, f_fim, dur, curva=1.0, vib=(0.0, 0.0)):
@@ -846,6 +951,13 @@ SONS = {
     "celular_abrir": (lambda r: s_celular(r, True), SR),
     "celular_fechar": (lambda r: s_celular(r, False), SR),
     "ui_clique": (s_ui_clique, SR),
+    "kit_trocar": (s_kit_trocar, SR),
+    "kit_erro": (s_kit_erro, SR),
+    "kit_reabastecer": (s_kit_reabastecer, SR),
+    "cacamba_despejar": (s_cacamba_despejar, SR),
+    "pneu_pegar": (s_pneu_pegar, SR),
+    "pneu_largar": (s_pneu_largar, SR),
+    "kit_segurar_loop": (s_kit_segurar_loop, SR),
     "ambiente_bairro_loop": (s_bairro, SR_LONGO),
     "ambiente_hospital_loop": (s_hospital, SR_LONGO),
     "trilha_base": (s_trilha_base, SR_LONGO),

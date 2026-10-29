@@ -7,10 +7,18 @@ using UnityEngine;
  *  ---------------------------------------------------------------------
  *  HUD em primeira pessoa do jogo (uGUI + TextMeshPro).
  *
- *  - MIRA: ponto no centro. Cresce e muda de cor ao mirar num foco.
- *  - PAINEL DO FOCO: texto ao mirar e barra de cliques (3/5).
+ *  - MIRA: ponto no centro. Cresce e muda de cor ao mirar num foco (ou
+ *    num ponto de uso: picape, monte de areia, caçamba).
+ *  - PAINEL DO FOCO: texto ao mirar, a linha "segure o clique" e a barra
+ *    contínua do segurar (Interactor.ProgressoContinuo) com os cliques
+ *    (3/5). No ponto de uso: o TextoAoMirar dele e a barra, sem o 3/5.
+ *    Pneu esvaziado no chão: "Pneu vazio: leve à caçamba", sem barra
+ *    (pegar de novo é na hora).
  *  - AVISO: ao eliminar um foco, mostra a mensagem de conclusão e, numa
  *    segunda linha, a DICA educativa do foco (fica mais tempo na tela).
+ *    Também explica as recusas do kit (Interactor.OnRecusado: ferramenta
+ *    errada, sem carga, saco cheio, mãos ocupadas) e dá o motivo da
+ *    recusa de um ponto de uso (OnPontoRecusado).
  *  - CONTADOR: canto superior esquerdo, "Focos eliminados 2/8".
  *  - MENSAGEM FINAL quando todos os focos são eliminados.
  *
@@ -24,9 +32,13 @@ using UnityEngine;
 public class DengueHUD : MonoBehaviour
 {
     [Header("Textos padrão")]
-    [Tooltip("Usado quando o foco não tem FocoHUDInfo. Marcadores: {nome} {cliques} {total} {faltam}")]
+    [Tooltip("Usado quando o foco não tem FocoHUDInfo (mostra o problema, não a solução). Marcadores: {nome} {cliques} {total} {faltam}")]
     [TextArea(1, 3)]
-    [SerializeField] private string textoAoMirar = "Clique para limpar {nome}";
+    [SerializeField] private string textoAoMirar = "{nome}";
+
+    [Tooltip("Linha menor acrescentada embaixo do texto ao mirar (foco ou ponto de uso): como agir. Vazio = sem a linha.")]
+    [TextArea(1, 3)]
+    [SerializeField] private string linhaSegurar = "<size=70%><color=#FFFFFFB4>segure o clique</color></size>";
 
     [Tooltip("Aviso quando um foco é eliminado. Marcadores: {nome} {eliminados} {total} {restantes}")]
     [TextArea(1, 3)]
@@ -86,7 +98,7 @@ public class DengueHUD : MonoBehaviour
     [Header("Painel do foco mirado")]
     [SerializeField] private CanvasGroup targetGroup;
     [SerializeField] private TextMeshProUGUI promptText;
-    [Tooltip("Linha com a barra + 3/5 (é escondida quando o foco pede).")]
+    [Tooltip("Linha com a barra + 3/5 (é escondida quando o foco pede e no pneu esvaziado no chão). Vazio = esconde a barra (pai do ProgressFill) e o 3/5, cada um.")]
     [SerializeField] private GameObject progressRow;
     [Tooltip("Preenchimento da barra (o anchorMax.x vai de 0 a 1).")]
     [SerializeField] private RectTransform progressFill;
@@ -114,10 +126,23 @@ public class DengueHUD : MonoBehaviour
     [Tooltip("Velocidade das transições (mira, fade, barra).")]
     [SerializeField] private float smoothSpeed = 14f;
 
+    // Kit do agente: o pneu esvaziado no chão e as recusas (aviso com dica).
+    // FerramentaErrada usa o FocoHUDInfo.textoFerramentaErrada e, vazio, o
+    // padrão com o nome da ferramenta certa; SemCarga, o nome da necessária
+    // (quando sai SemCarga, a selecionada já é a certa). A areia também
+    // enche no monte de areia do terreno baldio; as outras, só na picape.
+    // O saco esvazia em qualquer uma das caçambas do bairro.
+    private const string TextoPneuVazio = "Pneu vazio: leve à caçamba";
+    private const string RecusaFerramentaErrada = "Isso não resolve aqui. Tente: <b>{0}</b>.";
+    private const string RecusaSemCarga = "Acabou: <b>{0}</b>. Reabasteça na picape da UPA.";
+    private const string RecusaSemAreia = "Acabou: <b>{0}</b>. Reabasteça na picape da UPA ou no monte de areia do terreno baldio.";
+    private const string RecusaSacoCheio = "Saco cheio. Esvazie numa <b>caçamba</b>.";
+    private const string RecusaMaosOcupadas = "Mãos ocupadas: leve o pneu à caçamba ou largue [botão direito].";
+
     private readonly List<Interactable> focos = new List<Interactable>();
     private int eliminated;
     private float displayedFill;
-    private Interactable lastTarget;
+    private Component lastTarget;   // foco ou ponto de uso
     private float counterPunch;   // 0..1, decai com o tempo
     private float toastTimer;
     private float toastDuracao;
@@ -127,6 +152,13 @@ public class DengueHUD : MonoBehaviour
     {
         if (interactor == null)
             interactor = FindFirstObjectByType<Interactor>();
+
+        // Recusas do kit (ferramenta errada, sem carga...): o aviso explica.
+        if (interactor != null)
+        {
+            interactor.OnRecusado += HandleRecusado;
+            interactor.OnPontoRecusado += HandlePontoRecusado;
+        }
 
         // Registra todos os focos da cena (inclusive desativados).
         foreach (Interactable foco in FindObjectsByType<Interactable>(FindObjectsInactive.Include, FindObjectsSortMode.None))
@@ -192,15 +224,22 @@ public class DengueHUD : MonoBehaviour
         foreach (Interactable foco in focos)
             if (foco != null)
                 foco.OnCompleted -= HandleCompleted;
+
+        if (interactor != null)
+        {
+            interactor.OnRecusado -= HandleRecusado;
+            interactor.OnPontoRecusado -= HandlePontoRecusado;
+        }
     }
 
     void Update()
     {
         float k = 1f - Mathf.Exp(-smoothSpeed * Time.deltaTime);
         Interactable target = interactor != null ? interactor.CurrentTarget : null;
+        PontoDeUso ponto = interactor != null ? interactor.PontoAlvo : null;
 
-        UpdateCrosshair(target != null, k);
-        UpdateTargetPanel(target, k);
+        UpdateCrosshair(target != null || ponto != null, k);
+        UpdateTargetPanel(target, ponto, k);
         UpdateToast();
         UpdateCounterPunch();
 
@@ -239,25 +278,24 @@ public class DengueHUD : MonoBehaviour
 
     /* ---------------- Painel do foco ---------------- */
 
-    private void UpdateTargetPanel(Interactable target, float k)
+    /* Painel do alvo da mira: um foco OU um ponto de uso (nunca os dois). */
+    private void UpdateTargetPanel(Interactable target, PontoDeUso ponto, float k)
     {
+        bool temAlvo = target != null || ponto != null;
         if (targetGroup != null)
-            targetGroup.alpha = Mathf.Lerp(targetGroup.alpha, target != null ? 1f : 0f, k);
+            targetGroup.alpha = Mathf.Lerp(targetGroup.alpha, temAlvo ? 1f : 0f, k);
 
         // Sem alvo: mantém o último conteúdo enquanto some (fade-out suave).
-        if (target == null)
+        if (!temAlvo)
             return;
 
-        FocoHUDInfo info = target.GetComponent<FocoHUDInfo>();
+        Component alvo = target != null ? (Component)target : ponto;
+        FocoHUDInfo info = target != null ? target.GetComponent<FocoHUDInfo>() : null;
 
-        if (target != lastTarget)
+        if (alvo != lastTarget)
         {
-            lastTarget = target;
-            displayedFill = Progress(target);
-
-            bool hideProgress = info != null && info.esconderProgresso;
-            if (progressRow != null)
-                progressRow.SetActive(!hideProgress);
+            lastTarget = alvo;
+            displayedFill = Progress();
 
             if (progressFillImage != null && (controlarCorDaBarra || (info != null && info.usarCorPropria)))
                 progressFillImage.color = info != null && info.usarCorPropria ? info.corDaBarra : corPadraoDaBarra;
@@ -266,29 +304,80 @@ public class DengueHUD : MonoBehaviour
             {
                 // Por padrão a dica NÃO aparece aqui: ela é mostrada depois,
                 // no aviso de foco eliminado, onde o jogador tem tempo de ler.
-                string dica = mostrarDicaAoMirar ? DicaDoFoco(target, info) : "";
+                // Ponto de uso não é criadouro: nunca tem dica.
+                string dica = target != null && mostrarDicaAoMirar ? DicaDoFoco(target, info) : "";
                 hintText.gameObject.SetActive(!string.IsNullOrWhiteSpace(dica));
-                hintText.text = FormatFoco(dica, target, info);
+                hintText.text = target != null ? FormatFoco(dica, target, info) : "";
             }
         }
 
+        // Pneu esvaziado no chão: pegar de novo é na hora, a barra ficaria
+        // cheia o tempo todo. Conferido a cada quadro, e não só na troca de
+        // alvo: o mesmo pneu volta à mira depois de pego e largado.
+        bool pneuVazio = target is PneuInteractable pneu && pneu.Esvaziado && !pneu.Carregado;
+        MostrarProgresso(target == null || (!pneuVazio && !(info != null && info.esconderProgresso)));
+
         // Texto de mirar é refeito a cada frame porque pode usar {cliques}/{faltam}.
         if (promptText != null)
-        {
-            string template = info != null && !string.IsNullOrWhiteSpace(info.textoAoMirar) ? info.textoAoMirar : textoAoMirar;
-            promptText.text = FormatFoco(template, target, info);
-        }
+            promptText.text = ComLinhaSegurar(TextoDeMirar(target, ponto, info, pneuVazio));
 
-        displayedFill = Mathf.Lerp(displayedFill, Progress(target), k);
+        displayedFill = Mathf.Lerp(displayedFill, Progress(), k);
         if (progressFill != null)
             progressFill.anchorMax = new Vector2(displayedFill, 1f);
         if (progressText != null)
-            progressText.text = $"{target.CurrentClicks}/{target.RequiredClicks}";
+            progressText.text = target != null ? $"{target.CurrentClicks}/{target.RequiredClicks}" : "";
     }
 
-    private static float Progress(Interactable foco)
+    /* Mostra ou esconde a linha da barra + 3/5. A HUD da cena hoje não tem
+     * o ProgressRow (a barra e o 3/5 são filhos diretos do painel): sem
+     * ele, esconde a barra (o pai do ProgressFill) e o 3/5, cada um. */
+    private void MostrarProgresso(bool mostrar)
     {
-        return foco.RequiredClicks > 0 ? Mathf.Clamp01((float)foco.CurrentClicks / foco.RequiredClicks) : 1f;
+        if (progressRow != null)
+        {
+            Ativar(progressRow, mostrar);
+            return;
+        }
+
+        Transform barra = progressFill != null ? progressFill.parent : null;
+        if (barra != null && (targetGroup == null || barra != targetGroup.transform))
+            Ativar(barra.gameObject, mostrar);
+        if (progressText != null)
+            Ativar(progressText.gameObject, mostrar);
+    }
+
+    private static void Ativar(GameObject objeto, bool ativo)
+    {
+        if (objeto.activeSelf != ativo)
+            objeto.SetActive(ativo);
+    }
+
+    /* Barra contínua: cliques já dados + o passo em andamento (no ponto de
+     * uso, quanto do uso já foi segurado), calculada pelo Interactor. */
+    private float Progress()
+    {
+        return interactor != null ? interactor.ProgressoContinuo : 0f;
+    }
+
+    /* Texto ao mirar: no ponto de uso, o dele; no foco, FocoHUDInfo.textoAoMirar >
+     * padrão daqui (o pneu esvaziado no chão tem o próprio). */
+    private string TextoDeMirar(Interactable foco, PontoDeUso ponto, FocoHUDInfo info, bool pneuVazio)
+    {
+        if (foco == null)
+            return ponto.TextoAoMirar;
+        if (pneuVazio)
+            return TextoPneuVazio;
+
+        string template = info != null && !string.IsNullOrWhiteSpace(info.textoAoMirar) ? info.textoAoMirar : textoAoMirar;
+        return FormatFoco(template, foco, info);
+    }
+
+    /* Acrescenta a linha "segure o clique" embaixo do texto ao mirar. */
+    private string ComLinhaSegurar(string texto)
+    {
+        if (string.IsNullOrWhiteSpace(linhaSegurar))
+            return texto;
+        return string.IsNullOrWhiteSpace(texto) ? linhaSegurar : texto + "\n" + linhaSegurar;
     }
 
     /* Nome do foco: FocoHUDInfo.nome > padrão por tipo > nome do objeto. */
@@ -360,6 +449,49 @@ public class DengueHUD : MonoBehaviour
 
         float rise = toastTimer < 0.2f ? (1f - toastTimer / 0.2f) * 20f : 0f;
         ((RectTransform)toastGroup.transform).anchoredPosition = toastBasePos + new Vector2(0f, rise);
+    }
+
+    /* ---------------- Recusas do kit ---------------- */
+
+    /* Recusa num foco: o aviso (com o tempo da dica) explica o porquê. O
+     * Interactor avisa uma vez por aperto; a mesma recusa de novo com o
+     * aviso na tela só renova o tempo dele (ShowToast), sem empilhar. */
+    private void HandleRecusado(Interactable foco, ResultadoDoPasso resultado)
+    {
+        ShowToast(MensagemDeRecusa(foco, resultado), true);
+    }
+
+    /* Recusa num ponto de uso: o motivo vem pronto do próprio ponto. */
+    private void HandlePontoRecusado(PontoDeUso ponto, string motivo)
+    {
+        ShowToast(motivo, false);
+    }
+
+    private string MensagemDeRecusa(Interactable foco, ResultadoDoPasso resultado)
+    {
+        switch (resultado)
+        {
+            case ResultadoDoPasso.FerramentaErrada:
+                FocoHUDInfo info = foco.GetComponent<FocoHUDInfo>();
+                if (info != null && !string.IsNullOrWhiteSpace(info.textoFerramentaErrada))
+                    return FormatFoco(info.textoFerramentaErrada, foco, info);
+                return string.Format(RecusaFerramentaErrada, Ferramentas.Nome(foco.FerramentaNecessaria));
+
+            case ResultadoDoPasso.SemCarga:
+                string semCarga = foco.FerramentaNecessaria == Ferramenta.Areia ? RecusaSemAreia : RecusaSemCarga;
+                return string.Format(semCarga, Ferramentas.Nome(foco.FerramentaNecessaria));
+
+            case ResultadoDoPasso.SacoCheio:
+                return RecusaSacoCheio;
+
+            case ResultadoDoPasso.MaosOcupadas:
+                // Hoje não chega aqui (com o pneu, a mira atravessa os focos),
+                // mas fica pronta para quando chegar.
+                return RecusaMaosOcupadas;
+
+            default:
+                return "";
+        }
     }
 
     /* ---------------- Contador ---------------- */

@@ -24,6 +24,15 @@ using UnityEngine;
  *  Se alguma garrafa tiver água como objeto FILHO dela, a água some
  *  junto com a garrafa, sem precisar amarrar nada.
  *
+ *  Kit do agente (Parte A): as garrafas vão para o saco de lixo.
+ *  - Cada passo leva segundosPorGarrafa segurando (seja qual for o
+ *    tamanho do grupo) e guarda a garrafa recolhida no saco
+ *    (KitDoAgente.GuardarGarrafa).
+ *  - Com o saco cheio o passo é recusado (SacoCheio) e nada muda: é
+ *    preciso esvaziar o saco na caçamba para continuar o grupo.
+ *  - ContarGarrafas() diz quantas garrafas (= passos) o grupo tem,
+ *    também fora do Play (simulador de balanceamento).
+ *
  *  Para pendurar este componente num grupo já montado na cena, use o
  *  menu  Dengue > Transformar Selecao em Foco (Garrafas)
  *  (Assets/Editor/GarrafaFocoBuilder.cs), que também põe os colliders.
@@ -42,13 +51,17 @@ public class GarrafaInteractable : Interactable
     [Tooltip("As garrafas do grupo. Se ficar vazio, pega sozinho todos os MeshRenderer filhos (menos os que começam com \"agua\").")]
     [SerializeField] private List<Renderer> garrafas = new List<Renderer>();
 
-    [Tooltip("Ajusta os cliques necessários ao número de garrafas: uma some por clique e a última fecha o foco.")]
+    [Tooltip("Ajusta os cliques necessários ao número de garrafas: uma some por clique (passo) e a última fecha o foco.")]
     [SerializeField] private bool cliquesIgualAoNumeroDeGarrafas = true;
+
+    [Tooltip("Segundos segurando para recolher UMA garrafa para o saco. Substitui o segundosParaConcluir: o grupo leva isto vezes o número de garrafas.")]
+    [SerializeField] private float segundosPorGarrafa = 0.4f;
 
     [Tooltip("Qual garrafa some primeiro.")]
     [SerializeField] private OrdemDeSumico ordem = OrdemDeSumico.MaisPertoPrimeiro;
 
     [Header("Animação de sumiço")]
+    [Tooltip("Duração do pulinho + giro + encolher de cada garrafa (segundos).")]
     [SerializeField] private float duracaoSumico = 0.32f;
 
     [Tooltip("Altura do pulinho que a garrafa dá ao ser recolhida (unidades).")]
@@ -62,16 +75,22 @@ public class GarrafaInteractable : Interactable
     /* Quantas garrafas ainda estão na cena. */
     public int GarrafasRestantes => restantes.Count;
 
+    /* Um passo = uma garrafa, então o tempo é por garrafa e não um total
+     * dividido entre os cliques. */
+    public override float SegundosPorPasso => segundosPorGarrafa;
+
+    /* Quantas garrafas o grupo tem: as mesmas que o OnStart junta (a lista
+     * ou, vazia, as achadas nos filhos). Funciona fora do Play, sem o
+     * OnStart: o simulador de balanceamento conta assim os passos. */
+    public int ContarGarrafas()
+    {
+        return GarrafasDoGrupo().Count;
+    }
+
     protected override void OnStart()
     {
         restantes.Clear();
-
-        if (garrafas == null || garrafas.Count == 0)
-            garrafas = new List<Renderer>(BuscarGarrafas());
-
-        foreach (Renderer r in garrafas)
-            if (r != null)
-                restantes.Add(r);
+        restantes.AddRange(GarrafasDoGrupo());
 
         // Uma garrafa por clique: o último clique tira a última e conclui o foco.
         if (cliquesIgualAoNumeroDeGarrafas && restantes.Count > 0)
@@ -90,6 +109,23 @@ public class GarrafaInteractable : Interactable
         base.OnInteract();
     }
 
+    /* Saco cheio: a garrafa não tem para onde ir até esvaziar na caçamba. */
+    protected override ResultadoDoPasso VerificarExtra(KitDoAgente kit)
+    {
+        if (kit != null && kit.Estoque.SacoCheio)
+            return ResultadoDoPasso.SacoCheio;
+
+        return base.VerificarExtra(kit);
+    }
+
+    /* Cada passo com o kit põe a garrafa recolhida no saco. O VerificarExtra
+     * já garantiu o espaço. Sem kit (Interact() antigo), não há saco. */
+    protected override void AoAvancar(KitDoAgente kit)
+    {
+        if (kit != null)
+            kit.GuardarGarrafa();
+    }
+
     protected override void OnComplete()
     {
         // Não chama base: as garrafas já sumiram uma a uma, não sobrou
@@ -98,6 +134,20 @@ public class GarrafaInteractable : Interactable
     }
 
     /* ---------------- Interno ---------------- */
+
+    /* As garrafas da lista ou, com ela vazia, as achadas nos filhos; sem as nulas. */
+    private List<Renderer> GarrafasDoGrupo()
+    {
+        IEnumerable<Renderer> fonte = garrafas != null && garrafas.Count > 0
+            ? garrafas
+            : (IEnumerable<Renderer>)BuscarGarrafas();
+
+        List<Renderer> doGrupo = new List<Renderer>();
+        foreach (Renderer r in fonte)
+            if (r != null)
+                doGrupo.Add(r);
+        return doGrupo;
+    }
 
     private Renderer[] BuscarGarrafas()
     {

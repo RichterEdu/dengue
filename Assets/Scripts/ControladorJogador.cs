@@ -79,6 +79,12 @@ public class ControladorJogador : MonoBehaviour
     public bool Correndo { get; private set; }
     public float TempoNoAr => NoChao ? 0f : Time.time - ultimoTempoNoChao;
 
+    /* Limites do KitDoAgente enquanto carrega pneu (Parte A): multiplica a
+       velocidade máxima, e com PodeCorrerEPular = false o Shift não corre e
+       o pulo é ignorado. Olhar, gravidade e ControleAtivo seguem iguais. */
+    public float MultiplicadorVelocidade { get; set; } = 1f;
+    public bool PodeCorrerEPular { get; set; } = true;
+
     /* Desligado = sem andar/olhar/pular (a gravidade continua valendo). Usado no fim de jogo. */
     public bool ControleAtivo
     {
@@ -120,8 +126,8 @@ public class ControladorJogador : MonoBehaviour
             ultimoTempoNoChao = Time.time;
 
         Vector2 pedido = controleAtivo ? entrada.Movimento : Vector2.zero;
-        Correndo = entrada.CorrerSegurado && pedido.y > 0.1f && controleAtivo;
-        float velMax = Correndo ? velocidadeCorrer : velocidadeAndar;
+        Correndo = PodeCorrerEPular && entrada.CorrerSegurado && pedido.y > 0.1f && controleAtivo;
+        float velMax = (Correndo ? velocidadeCorrer : velocidadeAndar) * MultiplicadorVelocidade;
 
         Vector3 frente = transform.forward;
         Vector3 direita = transform.right;
@@ -135,8 +141,13 @@ public class ControladorJogador : MonoBehaviour
             Correndo = false;
 
         // --- 3. Pulo (coyote time + buffer) ---
+        // Com o pulo bloqueado (carregando pneu), o aperto é descartado: se
+        // ficasse no buffer, o agente pularia sozinho ao largar o pneu.
+        if (controleAtivo && !PodeCorrerEPular && entrada.PuloNoBuffer)
+            entrada.ConsumirPulo();
+
         bool podePular = NoChao || (Time.time - ultimoTempoNoChao <= coyoteTime && velocidadeVertical <= 0f);
-        if (controleAtivo && podePular && entrada.PuloNoBuffer)
+        if (controleAtivo && PodeCorrerEPular && podePular && entrada.PuloNoBuffer)
         {
             entrada.ConsumirPulo();
             velocidadeVertical = Mathf.Sqrt(2f * alturaPulo * -gravidade);

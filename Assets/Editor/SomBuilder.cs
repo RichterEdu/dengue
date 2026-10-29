@@ -20,6 +20,9 @@ using UnityEngine.SceneManagement;
 /// Os clipes são religados toda vez (a pasta gerada é a fonte da verdade); volumes e
 /// ajustes do Inspector ficam como estão. Na tabela de cliques dos focos, só entra
 /// o tipo que ainda não tem linha.
+///
+/// LigarKit(SomDoKit) liga os sons do kit do agente (Parte A); fica fora do
+/// Configurar e é chamado por quem monta o kit no Player.
 /// </summary>
 public static class SomBuilder
 {
@@ -192,6 +195,20 @@ public static class SomBuilder
         Lista(so.FindProperty("passosPiso"), Clips("passo_piso", 4));
         Ref(so, "pulo", Clip("pulo"));
         Ref(so, "aterrissagem", Clip("aterrissagem"));
+        so.ApplyModifiedProperties();
+    }
+
+    /* Sons do kit do agente (Parte A), religados pelo nome do arquivo. */
+    public static void LigarKit(SomDoKit c)
+    {
+        SerializedObject so = new SerializedObject(c);
+        Ref(so, "trocar", Clip("kit_trocar"));
+        Ref(so, "erro", Clip("kit_erro"));
+        Ref(so, "reabastecer", Clip("kit_reabastecer"));
+        Ref(so, "despejar", Clip("cacamba_despejar"));
+        Ref(so, "pneuPegar", Clip("pneu_pegar"));
+        Ref(so, "pneuLargar", Clip("pneu_largar"));
+        Ref(so, "segurarLoop", Clip("kit_segurar_loop"));
         so.ApplyModifiedProperties();
     }
 

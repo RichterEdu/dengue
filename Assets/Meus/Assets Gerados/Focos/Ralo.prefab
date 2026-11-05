@@ -466,8 +466,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4c2d0525c2bb8e04384a60443c63b417, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RaloInteractable
-  requiredClicks: 3
+  requiredClicks: 5
   interactionRange: 3
+  ferramentaNecessaria: 2
+  segundosParaConcluir: 2
+  podeEsvaziar: 0
+  passosParaEsvaziar: 3
+  segundosParaEsvaziar: 1.2
   punchScale: 0.04
   punchDuration: 0.14
   scaleReductionPerClick: 0
@@ -488,6 +493,7 @@ MonoBehaviour:
   agua: {fileID: 1703553269122882784}
   tela: {fileID: 2737627283493232943}
   removeOnComplete: 0
+  segundosPorVolta: 1.5
 --- !u!114 &4284925836572460184
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -501,10 +507,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FocoHUDInfo
   nome: o ralo
-  textoAoMirar: Clique para tampar {nome}
+  textoAoMirar: "Ralo destampado com \xE1gua parada"
   dica: "Ralo aberto junta \xE1gua parada. Mantenha fechado ou com tela e limpe toda
     semana."
   textoAoEliminar: 
+  textoFerramentaErrada: "Isso n\xE3o resolve o ralo. Ralo se protege com <b>tela</b>
+    e grelha fechada."
   usarCorPropria: 0
   corDaBarra: {r: 0.25, g: 1, b: 0.8, a: 1}
   esconderProgresso: 0

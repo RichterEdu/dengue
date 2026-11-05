@@ -8,6 +8,10 @@ using UnityEngine;
  *
  *  Campos vazios usam o padrão configurado no DengueHUD.
  *
+ *  Kit do agente (Parte A): o texto ao mirar mostra o PROBLEMA, não a
+ *  solução (ex.: "Ralo destampado com água parada"); quem ensina a
+ *  ferramenta certa é o textoFerramentaErrada, no aviso de recusa.
+ *
  *  Marcadores que podem ser usados nos textos:
  *    {nome}     -> o campo "Nome" abaixo
  *    {cliques}  -> cliques já dados
@@ -22,7 +26,7 @@ public class FocoHUDInfo : MonoBehaviour
     [Tooltip("Nome do foco usado nos textos. Ex.: \"o pneu\", \"a caixa d'água\".")]
     public string nome = "";
 
-    [Tooltip("Texto ao mirar. Vazio = padrão do DengueHUD. Ex.: \"Clique para esvaziar {nome}\"")]
+    [Tooltip("Texto ao mirar (o problema). Vazio = padrão do DengueHUD. Ex.: \"Pneu velho com água parada\"")]
     [TextArea(1, 3)]
     public string textoAoMirar = "";
 
@@ -33,6 +37,10 @@ public class FocoHUDInfo : MonoBehaviour
     [Tooltip("Mensagem rápida quando o foco é eliminado. Vazio = padrão do DengueHUD.")]
     [TextArea(1, 3)]
     public string textoAoEliminar = "";
+
+    [Tooltip("Aviso quando o agente tenta com a ferramenta errada: o porquê e a ferramenta certa. Vazio = \"Isso não resolve aqui. Tente: <ferramenta certa>.\"")]
+    [TextArea(1, 3)]
+    public string textoFerramentaErrada = "";
 
     [Header("Visual (opcional)")]
     [Tooltip("Troca a cor da barra de progresso para este foco.")]

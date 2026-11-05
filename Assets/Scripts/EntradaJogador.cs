@@ -5,15 +5,23 @@ using UnityEngine.InputSystem;
  *  EntradaJogador.cs
  *  ---------------------------------------------------------------------
  *  ÚNICO lugar que lê a entrada do jogador (andar, olhar, pular, correr,
- *  interagir). Usa as ações do asset Assets/InputSystem_Actions.inputactions
- *  (mapa "Player"), então teclado+mouse e controle (gamepad) funcionam
- *  sem nenhum código extra:
+ *  interagir, trocar de ferramenta, largar). Usa as ações do asset
+ *  Assets/InputSystem_Actions.inputactions (mapa "Player"), então
+ *  teclado+mouse e controle (gamepad) funcionam sem nenhum código extra:
  *
- *    Move    WASD / setas       | analógico esquerdo
- *    Look    mouse              | analógico direito
- *    Jump    Espaço             | botão Sul (A / X)
- *    Sprint  Shift esquerdo     | apertar o analógico esquerdo
- *    Attack  clique esquerdo    | botão Oeste (X / Quadrado)
+ *    Move      WASD / setas       | analógico esquerdo
+ *    Look      mouse              | analógico direito
+ *    Jump      Espaço             | botão Sul (A / X)
+ *    Sprint    Shift esquerdo     | apertar o analógico esquerdo
+ *    Attack    clique esquerdo    | botão Oeste (X / Quadrado)
+ *    Next      roda para baixo    | RB / direcional para a direita
+ *    Previous  roda para cima     | LB / direcional para a esquerda
+ *    Largar    clique direito / G | botão Norte (Y / Triângulo)
+ *
+ *  Kit do agente (Parte A): as teclas 1–5 (ou 1–5 do teclado numérico)
+ *  escolhem a ferramenta direto, e a roda do mouse anda pela barra. As
+ *  duas são lidas aqui, direto do Keyboard/Mouse, porque não têm ação no
+ *  asset (as teclas 1 e 2 saíram de Previous/Next para isso).
  *
  *  O ControladorJogador.cs e o Interactor.cs só consomem os valores
  *  prontos daqui. Roda antes deles (DefaultExecutionOrder) para que todos
@@ -45,7 +53,17 @@ public class EntradaJogador : MonoBehaviour
     private InputAction acaoPular;
     private InputAction acaoCorrer;
     private InputAction acaoInteragir;
+    private InputAction acaoProxima;
+    private InputAction acaoAnterior;
+    private InputAction acaoLargar;
     private float ultimoApertoPulo = float.NegativeInfinity;
+
+    // Teclas que escolhem a ferramenta: índice 0..4 = espaço 1..5 da barra.
+    private static readonly Key[] teclasFerramenta = { Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4, Key.Digit5 };
+    private static readonly Key[] teclasFerramentaNumpad = { Key.Numpad1, Key.Numpad2, Key.Numpad3, Key.Numpad4, Key.Numpad5 };
+
+    // Abaixo disso, o valor da roda é ruído (mesmo limiar do CelularController).
+    private const float LimiarRoda = 0.01f;
 
     /* Desligado = o jogador não anda, não olha e não interage (fim de jogo, menus). */
     public bool Habilitado { get; set; } = true;
@@ -61,6 +79,52 @@ public class EntradaJogador : MonoBehaviour
     public bool CorrerSegurado => Habilitado && acaoCorrer != null && acaoCorrer.IsPressed();
 
     public bool InteragirPressionado => Habilitado && acaoInteragir != null && acaoInteragir.WasPressedThisFrame();
+
+    /* Botão de interagir mantido apertado (o "segurar para agir" do kit). */
+    public bool InteragirSegurado => Habilitado && acaoInteragir != null && acaoInteragir.IsPressed();
+
+    /* Largar o pneu, apertado neste frame. */
+    public bool LargarPressionado => Habilitado && acaoLargar != null && acaoLargar.WasPressedThisFrame();
+
+    /* Ferramenta escolhida neste frame pelas teclas 1–5 (ou numpad 1–5):
+     * 0..4 = espaço da barra; −1 = nenhuma. */
+    public int FerramentaPedida
+    {
+        get
+        {
+            Keyboard teclado = Keyboard.current;
+            if (!Habilitado || teclado == null)
+                return -1;
+
+            for (int i = 0; i < teclasFerramenta.Length; i++)
+            {
+                if (teclado[teclasFerramenta[i]].wasPressedThisFrame ||
+                    teclado[teclasFerramentaNumpad[i]].wasPressedThisFrame)
+                    return i;
+            }
+            return -1;
+        }
+    }
+
+    /* Andar na barra neste frame: +1 = próxima (Next ou roda para baixo),
+     * −1 = anterior (Previous ou roda para cima), 0 = nada. */
+    public int TrocaDeFerramenta
+    {
+        get
+        {
+            if (!Habilitado)
+                return 0;
+
+            Mouse mouse = Mouse.current;
+            float roda = mouse != null ? mouse.scroll.ReadValue().y : 0f;
+
+            if ((acaoProxima != null && acaoProxima.WasPressedThisFrame()) || roda < -LimiarRoda)
+                return +1;
+            if ((acaoAnterior != null && acaoAnterior.WasPressedThisFrame()) || roda > LimiarRoda)
+                return -1;
+            return 0;
+        }
+    }
 
     /* Pulo apertado há pouco e ainda não usado (ver bufferPulo). */
     public bool PuloNoBuffer => Habilitado && Time.time - ultimoApertoPulo <= bufferPulo;
@@ -91,14 +155,27 @@ public class EntradaJogador : MonoBehaviour
             return;
         }
 
-        acaoMover = asset.FindAction("Player/Move");
-        acaoOlhar = asset.FindAction("Player/Look");
-        acaoPular = asset.FindAction("Player/Jump");
-        acaoCorrer = asset.FindAction("Player/Sprint");
-        acaoInteragir = asset.FindAction("Player/Attack");
+        acaoMover = AcharAcao(asset, "Player/Move");
+        acaoOlhar = AcharAcao(asset, "Player/Look");
+        acaoPular = AcharAcao(asset, "Player/Jump");
+        acaoCorrer = AcharAcao(asset, "Player/Sprint");
+        acaoInteragir = AcharAcao(asset, "Player/Attack");
+        acaoProxima = AcharAcao(asset, "Player/Next");
+        acaoAnterior = AcharAcao(asset, "Player/Previous");
+        acaoLargar = AcharAcao(asset, "Player/Largar");
 
         InputActionMap mapa = asset.FindActionMap("Player");
         mapa?.Enable();
+    }
+
+    /* FindAction com aviso: uma ação faltando no asset (ex.: asset antigo,
+     * sem "Largar") só desliga aquele comando, mas não pode passar calada. */
+    private InputAction AcharAcao(InputActionAsset asset, string nome)
+    {
+        InputAction acao = asset.FindAction(nome);
+        if (acao == null)
+            Debug.LogWarning($"[EntradaJogador] Ação \"{nome}\" não encontrada no asset {asset.name} — esse comando não vai responder.", this);
+        return acao;
     }
 
     void Update()

@@ -6,7 +6,9 @@ using UnityEngine.UI;
  *  ---------------------------------------------------------------------
  *  Se o jogador passa um tempo sem correr, mostra na lateral esquerda
  *  da tela a dica "Pressione [Shift] para correr". Ao correr, a dica
- *  some e o contador zera.
+ *  some e o contador zera. Enquanto o agente não pode correr
+ *  (ControladorJogador.PodePular falso: carregando pneu), a dica
+ *  não aparece e o tempo não conta.
  *
  *  Não precisa ser colocado na cena: se instala sozinho no objeto que
  *  tem o ControladorJogador (RuntimeInitializeOnLoadMethod) e cria o
@@ -43,8 +45,9 @@ public class DicaCorrer : MonoBehaviour
 
     void Update()
     {
+        // Carregando pneu o Shift não corre: mandar correr seria mentira.
         bool podeMostrar = Time.timeScale > 0f
-            && (controlador == null || controlador.ControleAtivo)
+            && (controlador == null || (controlador.ControleAtivo && controlador.PodePular))
             && (entrada == null || entrada.Habilitado);
 
         bool correndo = entrada != null && entrada.CorrerSegurado;

@@ -432,6 +432,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BromeliaInteractable
   requiredClicks: 5
   interactionRange: 3
+  ferramentaNecessaria: 3
+  segundosParaConcluir: 2
   punchScale: 0.06
   punchDuration: 0.14
   scaleReductionPerClick: 0
@@ -463,10 +465,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FocoHUDInfo
   nome: "a brom\xE9lia"
-  textoAoMirar: Clique para esvaziar {nome}
-  dica: "Brom\xE9lia guarda \xE1gua entre as folhas. Esvazie com um jato d'\xE1gua
-    toda semana."
+  textoAoMirar: "Brom\xE9lia com \xE1gua acumulada nas folhas"
+  dica: "Brom\xE9lia guarda \xE1gua entre as folhas. Regue o copinho com \xE1gua
+    sanit\xE1ria dilu\xEDda (1 colher de sopa por litro) duas vezes por semana."
   textoAoEliminar: 
+  textoFerramentaErrada: "N\xE3o precisa arrancar nem cobrir. Brom\xE9lia se trata
+    com <b>\xE1gua sanit\xE1ria</b> dilu\xEDda."
   usarCorPropria: 0
   corDaBarra: {r: 0.25, g: 1, b: 0.8, a: 1}
   esconderProgresso: 0

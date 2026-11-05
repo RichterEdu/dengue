@@ -14,7 +14,7 @@ using UnityEngine.SceneManagement;
 /// Menu: Dengue > Organizar Hierarquia
 ///
 /// Resultado:
-///   --- SISTEMAS ---             FluxoDeJogo, Historia
+///   --- SISTEMAS ---             FluxoDeJogo, Historia, Sons
 ///   --- JOGADOR ---              Player, Main Camera (a câmera continua irmã do Player)
 ///   --- ILUMINACAO ---           luz direcional, Global Volume
 ///   --- UI ---                   EventSystem e todos os Canvas
@@ -135,7 +135,7 @@ public static class HierarquiaOrganizador
         if (go.GetComponent<Canvas>() != null || go.GetComponent<EventSystem>() != null) return UI;
         if (go.GetComponent<ControladorJogador>() != null || go.GetComponent<CameraJogador>() != null) return Jogador;
         if (go.GetComponent<Light>() != null || go.GetComponent<Volume>() != null) return Iluminacao;
-        if (go.GetComponent<FluxoDeJogo>() != null || go.GetComponent<HistoriaDoJogo>() != null) return Sistemas;
+        if (go.GetComponent<FluxoDeJogo>() != null || go.GetComponent<HistoriaDoJogo>() != null || go.GetComponent<TrilhaSonora>() != null) return Sistemas;
         if (go.GetComponentInChildren<SaidaDoHospital>(true) != null) return Hospital;
         if (go.GetComponent<Terrain>() != null) return Bairro + "/Terrenos";
 

@@ -10,6 +10,10 @@ Convenções:
   - Pés no chão em z = 0, altura total ~1,78 m com o boné.
   - Esqueleto Generic com nomes compatíveis com Humanoid do Unity.
   - Animações in-place: Idle, Walk (16 f), Run (15 f), Air (20 f) a 30 fps.
+  - Carregando (Parte B): pose estática (1 f) com o pneu de 0,7 m nos braços,
+    usada pela camada "Carregando" do Animator (só tronco, braços e mãos).
+  - CarregandoSaco (Parte B): pose estática (1 f) com o braço direito erguido à
+    frente, usada pela camada "CarregandoSaco" do Animator (só o braço direito).
 """
 import bpy, bmesh, math, sys, os
 from mathutils import Vector, Matrix, Quaternion
@@ -818,6 +822,106 @@ for f in range(0, N + 1, 2):
     ps['Chest'] = Rx(2)
     ps['Head'] = Rx(-6)
     aplicar(f, ps, Vector((0, 0, 0.0)))
+
+# --- Carregando (Parte B: pneu nos braços; pose estática, 1 frame de duração)
+# No Unity a camada "Carregando" do Animator (máscara: Spine, Chest, braços e mãos)
+# põe esta pose por cima da locomoção. O pneu (disco de 0,7 m, banda de ~0,2 m) fica
+# de pé na frente do agente, centrado em CARGA_CENTRO, com o topo CARGA_INCLINACAO
+# graus para a frente. As mãos pegam a banda dos dois lados, CARGA_PEGA graus acima
+# da linha do centro (como num volante): é o que as põe nos cantos inferiores da tela
+# em primeira pessoa sem subir o pneu até a mira. A palma fica virada para o centro
+# do pneu, com os dedos por cima da banda, para a frente. Os braços saem por IK de
+# dois ossos, com os cotovelos para fora e para baixo. Spine e Chest inclinam um
+# pouco para trás (contrapeso).
+CARGA_CENTRO = Vector((0.0, -0.46, 1.20))
+CARGA_INCLINACAO = 8.0                     # graus: topo do pneu para a frente
+CARGA_PEGA = 45.0                          # graus acima da linha do centro do pneu
+CARGA_PALMA_R = 0.37                       # raio do disco (0,35) + meia palma
+CARGA_POLO = Vector((1.0, 0.30, -0.50))    # para onde vai o cotovelo (lado esquerdo; x espelha)
+CARGA_SPINE, CARGA_CHEST = -3.0, -2.0      # graus em X (negativo = para trás)
+PIVO_SPINE, PIVO_CHEST = Vector((0, 0, 1.05)), Vector((0, 0, 1.20))
+PALMA_NA_MAO = 0.047                       # do pulso ao centro da palma (malha da mão)
+
+def espelha(v, s):
+    return Vector((v.x * s, v.y, v.z))
+
+def no_peito(p):
+    """Ponto do mundo -> referencial de repouso do Chest (desfaz Spine e Chest)."""
+    q = Rx(CARGA_SPINE).inverted() @ (p - PIVO_SPINE) - (PIVO_CHEST - PIVO_SPINE)
+    return PIVO_CHEST + Rx(CARGA_CHEST).inverted() @ q
+
+def dir_no_peito(v):
+    return Rx(CARGA_CHEST).inverted() @ (Rx(CARGA_SPINE).inverted() @ v)
+
+def base(comprimento, normal):
+    """Base ortonormal (colunas: comprimento, normal, comprimento × normal)."""
+    l = comprimento.normalized()
+    n = (normal - normal.dot(l) * l).normalized()
+    return Matrix((l, n, l.cross(n))).transposed()
+
+def braco_ik(s, palma, dedos, normal_palma, polo):
+    """IK de dois ossos até a palma. Tudo no referencial de repouso do Chest."""
+    S, D = OMBRO[s], DIR_BRACO[s]
+    a, b = (COTOVELO[s] - S).length, (PULSO[s] - COTOVELO[s]).length
+    dedos = dedos.normalized()
+    pulso = palma - dedos * PALMA_NA_MAO
+    d = pulso - S
+    dist = min(d.length, a + b - 1e-3)
+    n = d.normalized()
+    x = (a * a - b * b + dist * dist) / (2 * dist)
+    h = math.sqrt(max(a * a - x * x, 0.0))
+    polo = (polo - polo.dot(n) * n).normalized()
+    cotovelo = S + n * x + polo * h
+    Ru = D.rotation_difference((cotovelo - S).normalized()).to_matrix()
+    Rl = D.rotation_difference(Ru.inverted() @ (S + n * dist - cotovelo).normalized()).to_matrix()
+    # Mão: no repouso o comprimento é D e a palma olha para o corpo (-s X, para baixo).
+    palma_repouso = Vector((-s * 0.707, 0.0, -0.707))
+    Rmao = base(dedos, normal_palma) @ base(D, palma_repouso).inverted()
+    Rh = (Ru @ Rl).inverted() @ Rmao
+    L = LADO[s]
+    return {L + 'UpperArm': Ru, L + 'LowerArm': Rl, L + 'Hand': Rh}
+
+def braco_carregando(s):
+    giro = math.radians(CARGA_INCLINACAO)
+    pega = math.radians(CARGA_PEGA)
+    frente = Vector((0.0, -math.cos(giro), -math.sin(giro)))    # eixo da roda, para a frente
+    topo = Vector((0.0, -math.sin(giro), math.cos(giro)))       # do centro ao topo do pneu
+    fora = Vector((s * math.cos(pega), 0.0, 0.0)) + topo * math.sin(pega)  # do centro à mão
+    palma = CARGA_CENTRO + fora * CARGA_PALMA_R
+    dedos = frente * 0.85 - fora * 0.50
+    return braco_ik(s, no_peito(palma), dir_no_peito(dedos), dir_no_peito(-fora),
+                    dir_no_peito(espelha(CARGA_POLO, s)))
+
+acoes.append(nova_acao('Carregando', 1))
+ps = {}
+ps.update(pose_perna(1, 1.0, 3.0, 0.0))
+ps.update(pose_perna(-1, -1.0, 4.0, 0.0))
+ps.update(braco_carregando(1))
+ps.update(braco_carregando(-1))
+ps['Spine'] = Rx(CARGA_SPINE)
+ps['Chest'] = Rx(CARGA_CHEST)
+ps['Neck'] = Rx(1.5)
+for f in (0, 1):
+    aplicar(f, ps, Vector((0, 0, -0.004)))
+
+# --- CarregandoSaco (Parte B: saco de garrafas na mão direita; pose estática, 1 frame)
+# No Unity a camada "CarregandoSaco" do Animator (máscara: só o braço direito) ergue
+# o braço à frente e para o lado, para o saco, que pende da mão, entrar no canto
+# inferior direito da tela em primeira pessoa. A mão segura a boca do saco, com os
+# dedos para a frente e para baixo e a palma para dentro; o cotovelo fica para fora
+# e para baixo. O tronco não entra (é o da locomoção).
+SACO_PALMA = Vector((-0.30, -0.50, 1.555))  # centro da palma (mão direita: x negativo)
+SACO_DEDOS = Vector((0.10, -0.85, -0.50))   # direção dos dedos
+SACO_NORMAL = Vector((1.0, 0.0, 0.0))       # para onde a palma olha
+SACO_POLO = Vector((-1.0, 0.30, -0.70))     # para onde vai o cotovelo
+
+acoes.append(nova_acao('CarregandoSaco', 1))
+ps = {}
+ps.update(pose_perna(1, 1.0, 3.0, 0.0))
+ps.update(pose_perna(-1, -1.0, 4.0, 0.0))
+ps.update(braco_ik(-1, SACO_PALMA, SACO_DEDOS, SACO_NORMAL, SACO_POLO))
+for f in (0, 1):
+    aplicar(f, ps, Vector((0, 0, -0.004)))
 
 # pose padrão do FBX = Idle no frame 0 (sem isso sai a última pose calculada, a do pulo)
 for pb in arm.pose.bones:

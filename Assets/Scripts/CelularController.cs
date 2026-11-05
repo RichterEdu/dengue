@@ -11,8 +11,9 @@ using UnityEngine.UI;
  *  - Tecla T (configurável) abre / fecha o painel.
  *  - O painel sobe do canto inferior direito, onde fica o ícone:
  *    desliza + aparece + dá uma leve "esticada" no fim (overshoot).
- *  - Com o painel fechado, publicação nova faz o ícone sacudir,
- *    pulsar e mostrar o badge vermelho de não lidos.
+ *  - Com o painel fechado, cada AVISO da RedeSocial (no máximo um a cada
+ *    tantos segundos — ver RedeSocial.OnAviso) faz o ícone sacudir, pulsar
+ *    e tocar o som. O badge vermelho conta todos os não lidos.
  *  - Com o painel aberto: bloqueia a interação com os focos, esconde a
  *    HUD do jogo e a rodinha do mouse rola o feed.
  *
@@ -65,6 +66,7 @@ public class CelularController : MonoBehaviour
     private Vector2 iconeBase;
 
     public bool Aberto => aberto;
+    public Key TeclaAbrir => teclaAbrir;
 
     void Start()
     {
@@ -77,7 +79,7 @@ public class CelularController : MonoBehaviour
 
         if (rede != null)
         {
-            rede.OnPostPublicado += HandlePostPublicado;
+            rede.OnAviso += HandleAviso;
             rede.OnNaoLidosMudou += AtualizarBadge;
         }
 
@@ -97,7 +99,7 @@ public class CelularController : MonoBehaviour
     {
         if (rede != null)
         {
-            rede.OnPostPublicado -= HandlePostPublicado;
+            rede.OnAviso -= HandleAviso;
             rede.OnNaoLidosMudou -= AtualizarBadge;
         }
     }
@@ -118,7 +120,9 @@ public class CelularController : MonoBehaviour
     private void LerEntrada()
     {
         Keyboard teclado = Keyboard.current;
-        if (teclado != null && teclado[teclaAbrir].wasPressedThisFrame)
+        // Sem celular durante o skill check: seria um jeito de fugir do erro.
+        bool emSkillCheck = interactor != null && interactor.SkillCheckAtivo != null;
+        if (teclado != null && teclado[teclaAbrir].wasPressedThisFrame && !emSkillCheck)
             Alternar();
 
         if (aberto && feed != null && Mouse.current != null)
@@ -187,7 +191,7 @@ public class CelularController : MonoBehaviour
 
     /* ---------------- Ícone ---------------- */
 
-    private void HandlePostPublicado(PostRedeSocial post)
+    private void HandleAviso(PostRedeSocial post)
     {
         if (aberto)
             return;

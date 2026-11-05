@@ -66,7 +66,7 @@ public static class DengueHUDReparo
         if (toast == null)
         {
             toast = NovoRect("ToastPanel", rootRt, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                new Vector2(0f, -60f), new Vector2(700f, 72f));
+                new Vector2(0f, -126f), new Vector2(700f, 72f));
             criados.Append("\n  • ToastPanel");
         }
 

@@ -82,8 +82,8 @@ public static class FluxoDeJogoHUDBuilder
         RectTransform ocupacaoPanel = Achar<RectTransform>(hudRoot, "OcupacaoPanel");
         if (ocupacaoPanel == null)
         {
-            ocupacaoPanel = PainelSobrio("OcupacaoPanel", hudRt, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 86f), new Vector2(560f, 84f));
+            ocupacaoPanel = PainelSobrio("OcupacaoPanel", hudRt, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                new Vector2(0f, -32f), new Vector2(560f, 84f));
 
             IconeSaude(ocupacaoPanel, new Vector2(28f, -42f), 30f, AccentColor);
 

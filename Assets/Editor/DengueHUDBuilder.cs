@@ -157,7 +157,7 @@ public static class DengueHUDBuilder
 
         /* ---------- Aviso de foco eliminado (topo da tela) ---------- */
         RectTransform toast = CreateRect("ToastPanel", rootRt, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-            new Vector2(0, -60), new Vector2(700, 50));
+            new Vector2(0, -126), new Vector2(700, 50));
         CanvasGroup toastGroup = toast.gameObject.AddComponent<CanvasGroup>();
         toastGroup.blocksRaycasts = false;
         toastGroup.interactable = false;

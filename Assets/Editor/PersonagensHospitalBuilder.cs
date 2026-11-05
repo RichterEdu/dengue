@@ -87,8 +87,10 @@ public static class PersonagensHospitalBuilder
     // com 0,05 aqui ela flutuava 5 cm (conferido com raycast no piso).
     private const float OffsetPeEnfermeira = 0f;
 
-    private const string FalaEnfermeira =
-        "Agente, o hospital não aguenta mais! O bairro vai te contar pelo celular [T] onde estão os focos. Vai lá!";
+    // public: o KitDoAgenteBuilder.cs regrava esta fala no balão da Rita que
+    // já está na cena (a sala não precisa ser reconstruída).
+    public const string FalaEnfermeira =
+        "Agente, o hospital não aguenta mais! Seu kit está pronto [1-5] e a picape da UPA tem mais material. O bairro vai te contar pelo celular [T] onde estão os focos. Vai lá!";
 
     public static void Popular(Transform pai, float metade)
     {

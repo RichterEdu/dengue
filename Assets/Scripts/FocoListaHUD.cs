@@ -12,9 +12,10 @@ using UnityEngine.InputSystem;
  *
  *  - Não bloqueia o Interactor nem desliga a DengueHUD: é só um
  *    CanvasGroup com fade, igual a qualquer outro painel da HUD.
- *  - Escaneia os Interactable da cena no Start() (mesmo padrão do
- *    DengueHUD/RedeSocial) e assina OnCompleted para tirar cada foco
- *    da lista assim que é eliminado, esteja o painel aberto ou não.
+ *  - Pega os focos do GerenciadorDeFocos no Start() (do campo ou, vazio,
+ *    GerenciadorDeFocos.Obter()) e assina o OnFocoEliminado dele para
+ *    tirar cada foco da lista assim que é eliminado, esteja o painel
+ *    aberto ou não. Sem gerenciador, a lista fica vazia.
  *
  *  A hierarquia é gerada pelo menu  Dengue > Criar Lista de Focos (Tab)
  *  (Assets/Editor/FocoListaHUDBuilder.cs), que já liga as referências.
@@ -44,6 +45,10 @@ public class FocoListaHUD : MonoBehaviour
     [Tooltip("Se marcado, a lista já começa aberta no início do jogo.")]
     [SerializeField] private bool comecarAberto = true;
 
+    [Header("Referências")]
+    [Tooltip("Focos da partida. Vazio = GerenciadorDeFocos.Obter().")]
+    [SerializeField] private GerenciadorDeFocos gerenciador;
+
     private bool aberto;
     private readonly List<Interactable> focosRestantes = new List<Interactable>();
 
@@ -51,14 +56,18 @@ public class FocoListaHUD : MonoBehaviour
 
     void Start()
     {
-        // Registra os focos ainda não concluídos (mesmo padrão de
-        // DengueHUD.Start()/RedeSocial.Start()).
-        foreach (Interactable foco in FindObjectsByType<Interactable>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        // Registra os focos ainda não concluídos, vindos do gerenciador.
+        if (gerenciador == null) gerenciador = GerenciadorDeFocos.Obter();
+        if (gerenciador != null)
         {
-            if (foco.IsComplete)
-                continue;
-            focosRestantes.Add(foco);
-            foco.OnCompleted += HandleFocoCompletado;
+            gerenciador.Garantir();
+            foreach (Interactable foco in gerenciador.Focos)
+            {
+                if (foco == null || foco.IsComplete)
+                    continue;
+                focosRestantes.Add(foco);
+            }
+            gerenciador.OnFocoEliminado += HandleFocoCompletado;
         }
 
         aberto = comecarAberto;
@@ -73,11 +82,12 @@ public class FocoListaHUD : MonoBehaviour
         AtualizarTexto();
     }
 
+    /* Só pelo campo: procurar ou criar um gerenciador aqui (fim do Play,
+     * troca de cena) deixaria objeto novo para trás. */
     void OnDestroy()
     {
-        foreach (Interactable foco in focosRestantes)
-            if (foco != null)
-                foco.OnCompleted -= HandleFocoCompletado;
+        if (gerenciador != null)
+            gerenciador.OnFocoEliminado -= HandleFocoCompletado;
     }
 
     void Update()
@@ -95,9 +105,9 @@ public class FocoListaHUD : MonoBehaviour
 
     public void Alternar() => aberto = !aberto;
 
+    /* OnFocoEliminado do gerenciador (uma vez por foco). */
     private void HandleFocoCompletado(Interactable foco)
     {
-        foco.OnCompleted -= HandleFocoCompletado;
         focosRestantes.Remove(foco);
         AtualizarTexto();
     }
@@ -155,7 +165,7 @@ public class FocoListaHUD : MonoBehaviour
      * usa "Garrafas" em vez do FocoHUDInfo.nome daquele tipo, porque ali o
      * nome descreve a quantidade de garrafas DENTRO do grupo, não a
      * quantidade de grupos restantes (que é o que esta lista conta). */
-    private static (string chave, string rotulo) Categoria(Interactable foco, FocoHUDInfo info)
+    internal static (string chave, string rotulo) Categoria(Interactable foco, FocoHUDInfo info)
     {
         if (foco is PneuInteractable) return ("pneu", "Pneu");
         if (foco is VasoInteractable) return ("vaso", "Vaso de flor");

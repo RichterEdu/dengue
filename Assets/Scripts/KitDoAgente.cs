@@ -15,13 +15,16 @@ using UnityEngine;
  *      dando a volta na lista);
  *    - o pneu que está sendo carregado (PneuCarregado). Pegar o põe no
  *      PontoDeCarga e limita o jogador (velocidade × multiplicadorCarregando,
- *      sem correr nem pular); enquanto carrega, não troca de ferramenta.
+ *      sem pular); enquanto carrega, não troca de ferramenta. O Shift corre
+ *      gastando a Stamina (StaminaDeCarga): zerada, só anda até recuperar.
+ *      De mãos livres a corrida não gasta nada, e a stamina volta sozinha.
  *      LargarPneu (no chão, na frente do agente e fora do corpo dele) e
- *      EntregarPneu (na caçamba, onde o foco conclui) devolvem o
- *      movimento normal. Largar em cima de uma caçamba é entregar.
+ *      EntregarPneu (na caçamba da picape, onde o foco conclui e o pneu
+ *      vai para uma vaga da carroceria) devolvem o movimento normal.
+ *      Largar em cima da caçamba é entregar.
  *
  *  Quem mexe no estoque passa por aqui (Consumir, Reabastecer,
- *  GuardarGarrafa, EsvaziarSaco) para a HUD ficar sabendo: OnMudou
+ *  GuardarGarrafa, EsvaziarSaco — este, na lixeira) para a HUD ficar sabendo: OnMudou
  *  avisa qualquer mudança; OnReabasteceu e OnSacoEsvaziado só quando
  *  algo encheu ou saiu de verdade (dão o som e o aviso na tela). O
  *  OnReabasteceu diz de que ponto veio o material (o post da picape da
@@ -43,14 +46,24 @@ public class KitDoAgente : MonoBehaviour
     [Tooltip("Doses de água sanitária (cada uma trata uma bromélia).")]
     [SerializeField] private int cargaAguaSanitaria = 2;
 
-    [Tooltip("Quantas garrafas cabem no saco de lixo antes de esvaziar na caçamba.")]
+    [Tooltip("Quantas garrafas cabem no saco de lixo antes de esvaziar numa lixeira.")]
     [SerializeField] private int capacidadeSaco = 6;
 
     [Header("Carregando pneu")]
-    [Tooltip("Multiplica a velocidade do jogador enquanto carrega um pneu (sem correr nem pular).")]
-    [SerializeField] private float multiplicadorCarregando = 0.7f;
+    [Tooltip("Multiplica a velocidade do jogador enquanto carrega um pneu, andando ou correndo (sem pular).")]
+    [SerializeField] private float multiplicadorCarregando = 0.85f;
 
-    [Tooltip("Onde o pneu fica enquanto é carregado (filho da câmera, no canto da tela).")]
+    [Tooltip("Segundos correndo com o pneu até a stamina zerar.")]
+    [SerializeField] private float segundosDeCorrida = 6f;
+
+    [Tooltip("Segundos sem correr para a stamina encher de zero, com ou sem o pneu.")]
+    [SerializeField] private float segundosParaRecuperar = 5f;
+
+    [Tooltip("Zerada, a stamina precisa voltar a esta fração para correr de novo (0.3 = 30%).")]
+    [Range(0f, 1f)]
+    [SerializeField] private float fracaoParaVoltarACorrer = 0.3f;
+
+    [Tooltip("Onde o pneu fica enquanto é carregado (filho do osso Chest, entre as mãos da pose de carga).")]
     [SerializeField] private Transform pontoDeCarga;
 
     [Header("Referências")]
@@ -62,9 +75,11 @@ public class KitDoAgente : MonoBehaviour
     private const float RaioPadraoDoAgente = 0.33f;
 
     private EstoqueDoKit estoque;
+    private StaminaDeCarga stamina;
 
     /* Qualquer mudança no kit (ferramenta, cargas, saco, pneu): a HUD se redesenha. */
     public event Action OnMudou;
+    public event Action OnStaminaEsgotada;
     public event Action<Ferramenta> OnFerramentaTrocada;
 
     /* Alguma carga encheu de verdade; o ponto usado vai junto (null = sem ponto). */
@@ -96,6 +111,36 @@ public class KitDoAgente : MonoBehaviour
     {
         get => pontoDeCarga;
         set => pontoDeCarga = value;
+    }
+
+    /* A stamina da corrida com o pneu (criada no primeiro uso, como o estoque). */
+    public StaminaDeCarga Stamina
+    {
+        get
+        {
+            if (stamina == null)
+                stamina = new StaminaDeCarga(segundosDeCorrida, segundosParaRecuperar, fracaoParaVoltarACorrer);
+            return stamina;
+        }
+    }
+
+    void Update()
+    {
+        ControladorJogador controlador = Jogador;
+        AvancarStamina(Time.deltaTime, controlador != null && controlador.Correndo);
+    }
+
+    /* Só gasta correndo com o pneu. Com ele, a corrida depende da stamina;
+     * sem ele, o movimento é o normal (LimitarMovimento já devolveu). */
+    internal void AvancarStamina(float dt, bool correndo)
+    {
+        bool comPneu = PneuCarregado != null;
+        if (Stamina.Avancar(dt, correndo && comPneu))
+            OnStaminaEsgotada?.Invoke();
+
+        ControladorJogador controlador = Jogador;
+        if (comPneu && controlador != null)
+            controlador.PodeCorrer = Stamina.PodeCorrer;
     }
 
     /* O ControladorJogador do campo ou, vazio, o deste objeto (achado no primeiro uso). */
@@ -190,7 +235,7 @@ public class KitDoAgente : MonoBehaviour
         return true;
     }
 
-    /* Esvazia o saco na caçamba e devolve quantas garrafas saíram (avisa só se saiu alguma). */
+    /* Esvazia o saco (na lixeira) e devolve quantas garrafas saíram (avisa só se saiu alguma). */
     public int EsvaziarSaco()
     {
         int tiradas = Estoque.EsvaziarSaco();
@@ -211,7 +256,7 @@ public class KitDoAgente : MonoBehaviour
 
         PneuCarregado = pneu;
         pneu.PrenderEm(pontoDeCarga != null ? pontoDeCarga : transform);
-        LimitarMovimento(multiplicadorCarregando, false);
+        LimitarMovimento(multiplicadorCarregando, Stamina.PodeCorrer, false);
 
         OnPneuPego?.Invoke(pneu);
         OnMudou?.Invoke();
@@ -219,9 +264,9 @@ public class KitDoAgente : MonoBehaviour
     }
 
     /* Larga o pneu no chão, na frente dos pés e fora do corpo do agente
-     * (PneuInteractable.OndeCai). Se ele cairia numa caçamba (o agente
-     * encostado nela, achando que joga dentro), é entrega, e o foco
-     * conclui. False se não carrega nenhum. */
+     * (PneuInteractable.OndeCai). Se ele cairia na caçamba (o agente
+     * encostado nela, achando que joga dentro), é entrega (EntregarPneu),
+     * e o foco conclui. False se não carrega nenhum. */
     public bool LargarPneu(Vector3 pes, Vector3 frente)
     {
         PneuInteractable pneu = PneuCarregado;
@@ -230,10 +275,10 @@ public class KitDoAgente : MonoBehaviour
 
         pneu.OndeCai(pes, frente, RaioDoAgente, out Vector3 posicao, out Quaternion giro, out Cacamba cacamba);
         if (cacamba != null)
-            return EntregarPneu(cacamba.PontoDeDescarte);
+            return EntregarPneu(cacamba);
 
         PneuCarregado = null;
-        LimitarMovimento(1f, true);
+        LimitarMovimento(1f, true, true);
         pneu.Largar(posicao, giro);
 
         OnPneuLargado?.Invoke(pneu);
@@ -241,18 +286,20 @@ public class KitDoAgente : MonoBehaviour
         return true;
     }
 
-    /* Entrega o pneu na caçamba, em 'destino', onde o foco conclui. False
-     * se não carrega nenhum. As mãos ficam livres antes do OnCompleted do
-     * pneu, para quem o escuta já ver o kit sem pneu. */
-    public bool EntregarPneu(Vector3 destino)
+    /* Entrega o pneu na caçamba da picape, onde o foco conclui e o pneu
+     * vai para a próxima vaga da carroceria (PneuInteractable.EntregarEm).
+     * False se não carrega nenhum (ou sem caçamba). As mãos ficam livres
+     * antes do OnCompleted do pneu, para quem o escuta já ver o kit sem
+     * pneu. */
+    public bool EntregarPneu(Cacamba cacamba)
     {
         PneuInteractable pneu = PneuCarregado;
-        if (pneu == null)
+        if (pneu == null || cacamba == null)
             return false;
 
         PneuCarregado = null;
-        LimitarMovimento(1f, true);
-        pneu.Entregar(destino);
+        LimitarMovimento(1f, true, true);
+        pneu.EntregarEm(cacamba);
 
         OnPneuEntregue?.Invoke(pneu);
         OnMudou?.Invoke();
@@ -260,13 +307,14 @@ public class KitDoAgente : MonoBehaviour
     }
 
     /* Limites de movimento do jogador (sem ControladorJogador, nada a fazer). */
-    private void LimitarMovimento(float multiplicador, bool podeCorrerEPular)
+    private void LimitarMovimento(float multiplicador, bool podeCorrer, bool podePular)
     {
         ControladorJogador controlador = Jogador;
         if (controlador == null)
             return;
 
         controlador.MultiplicadorVelocidade = multiplicador;
-        controlador.PodeCorrerEPular = podeCorrerEPular;
+        controlador.PodeCorrer = podeCorrer;
+        controlador.PodePular = podePular;
     }
 }

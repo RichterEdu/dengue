@@ -12,10 +12,23 @@ using UnityEngine;
  *    maxZumbidosJuntos focos MAIS PERTO (padrão: 1) zumbem — pedido do
  *    usuário, "menos sons de mosquitos". Trocar de foco é um fade (peso),
  *    não um corte. Curva de distância própria: cheio até distanciaMinima e
- *    ZERO em distanciaMaxima. Some em duracaoSumir ao eliminar.
+ *    ZERO em distanciaMaxima. Some em duracaoSumir ao eliminar. O volume
+ *    sobe com o estágio do foco no GerenciadorDeFocos (volumePorEstagio:
+ *    ovo mais baixo, mosquito cheio), em rampa: trocar de estágio não dá
+ *    degrau no volume. O foco pode mudar de lugar (o pneu largado longe e
+ *    reenchido pela chuva): a fonte vai junto (OnFocoReenchido).
+ *    Limpar um foco (esvaziado ou eliminado) cala TODOS os zumbidos por
+ *    silencioAposLimpar segundos: há focos a menos de 1 m um do outro, e o
+ *    vizinho entrando na hora parecia o foco limpo ainda zumbindo.
  *  - CLIQUE: som do tipo do foco (tabela sonsPorTipo), 3D, no foco.
+ *  - ESVAZIAR: o splash da água saindo (OnFocoEsvaziado), 3D, no foco. O
+ *    clique e o splash saem de onde o foco está naquela hora, não de onde
+ *    ele nasceu: as fontes do pool só alcançam 30 m.
  *  - ELIMINADO: whoosh + brilho (2D) e, logo depois, a "confirmação" de que
  *    a ocupação do hospital caiu (não toca no último foco: é a vitória).
+ *
+ *  Os focos, os cliques, os esvaziados e as eliminações vêm do
+ *  GerenciadorDeFocos (do campo ou, vazio, GerenciadorDeFocos.Obter()).
  *
  *  Os objetos de áudio nascem em runtime como filhos DESTE objeto (não dos
  *  focos: nada muda na hierarquia deles). Montado por Dengue > Configurar Sons.
@@ -52,6 +65,11 @@ public class SomDosFocos : MonoBehaviour
     [SerializeField] private float duracaoTroca = 0.5f;
     [Tooltip("Tempo (s) para o zumbido sumir quando o foco é eliminado.")]
     [SerializeField] private float duracaoSumir = 0.4f;
+    [Tooltip("Segundos sem nenhum zumbido depois de limpar um foco (o vizinho não entra na hora).")]
+    [Min(0f)]
+    [SerializeField] private float silencioAposLimpar = 3f;
+    [Tooltip("Multiplicador do volume do zumbido por estágio do foco: x = ovo, y = larva, z = mosquito (quanto mais perto de virar mosquito, mais alto).")]
+    [SerializeField] private Vector3 volumePorEstagio = new Vector3(0.45f, 0.7f, 1.0f);
 
     [Header("Cliques")]
     [SerializeField] private List<SomPorTipo> sonsPorTipo = new List<SomPorTipo>();
@@ -61,6 +79,13 @@ public class SomDosFocos : MonoBehaviour
     [SerializeField] private float volumeCliques = 0.8f;
     [Tooltip("Variação aleatória do pitch a cada clique (0.06 = ±6%).")]
     [SerializeField] private float variacaoPitch = 0.06f;
+
+    [Header("Foco esvaziado")]
+    [Tooltip("Splash da água saindo, no foco, quando ele fica sem água. Vazio = sem som.")]
+    [SerializeField] private AudioClip esvaziar;
+    [Tooltip("Volume do splash ao esvaziar.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float volumeEsvaziar = 0.8f;
 
     [Header("Foco eliminado")]
     [SerializeField] private AudioClip eliminado;
@@ -75,6 +100,9 @@ public class SomDosFocos : MonoBehaviour
     [Tooltip("Vazio = procura na cena.")]
     [SerializeField] private FluxoDeJogo fluxo;
 
+    [Tooltip("Focos da partida (lista, cliques, eliminados e estágio de cada um). Vazio = GerenciadorDeFocos.Obter().")]
+    [SerializeField] private GerenciadorDeFocos gerenciador;
+
     private class Zumbido
     {
         public Interactable foco;
@@ -82,22 +110,33 @@ public class SomDosFocos : MonoBehaviour
         public bool sumindo;
         public float peso;        // 0 a 1: entra/sai suave
         public float distancia;   // ao ouvinte, neste frame
+        public float fator;       // do estágio, em rampa (sem degrau no volume)
     }
 
     private const int TamanhoPool = 4;
 
     private readonly List<Zumbido> zumbidos = new List<Zumbido>();
     private readonly List<Zumbido> perto = new List<Zumbido>();
-    private readonly List<Interactable> focos = new List<Interactable>();
-    private readonly Dictionary<Interactable, Vector3> centros = new Dictionary<Interactable, Vector3>();
     private CanalDeAudio[] pool;
     private int proximoPool;
     private CanalDeAudio fonte2D;
     private Transform ouvinte;
+    private float silencioAte;   // Time.time até quando nenhum foco zumbe
+
+    /* Um foco acabou de ser limpo: nenhum zumbido entra agora. */
+    internal bool ZumbidosEmSilencio => Time.time < silencioAte;
 
     void Start()
     {
+        Ligar();
+    }
+
+    /* O corpo do Start (chamável no EditMode, onde ele não roda): acha as
+     * referências, cria as fontes e assina o gerenciador. Uma vez só. */
+    internal void Ligar()
+    {
         if (fluxo == null) fluxo = FindAnyObjectByType<FluxoDeJogo>();
+        if (gerenciador == null) gerenciador = GerenciadorDeFocos.Obter();
         AudioListener listener = FindAnyObjectByType<AudioListener>();
         ouvinte = listener != null ? listener.transform : (Camera.main != null ? Camera.main.transform : null);
 
@@ -116,27 +155,34 @@ public class SomDosFocos : MonoBehaviour
         raiz.SetParent(transform, false);
         AnimationCurve curva = CurvaZumbido();
 
-        foreach (Interactable foco in FindObjectsByType<Interactable>(FindObjectsInactive.Include))
+        // Os focos vêm do gerenciador (sem ele, nenhum foco: nada zumbe).
+        if (gerenciador == null)
+            return;
+
+        gerenciador.Garantir();
+        foreach (Interactable foco in gerenciador.Focos)
         {
-            focos.Add(foco);
-            centros[foco] = CentroDe(foco);
-            foco.OnClicado += Clicado;
-            if (foco.IsComplete)
+            if (foco == null || foco.IsComplete)
                 continue;
-            foco.OnCompleted += Concluido;
             if (zumbido != null)
                 zumbidos.Add(CriarZumbido(foco, raiz, curva));
         }
+        gerenciador.OnFocoClicado += Clicado;
+        gerenciador.OnFocoEsvaziado += Esvaziado;
+        gerenciador.OnFocoReenchido += Reenchido;
+        gerenciador.OnFocoEliminado += Concluido;
     }
 
+    /* Só pelo campo: procurar ou criar um gerenciador aqui (fim do Play,
+     * troca de cena) deixaria objeto novo para trás. */
     void OnDestroy()
     {
-        foreach (Interactable foco in focos)
-        {
-            if (foco == null) continue;
-            foco.OnClicado -= Clicado;
-            foco.OnCompleted -= Concluido;
-        }
+        if (gerenciador == null)
+            return;
+        gerenciador.OnFocoClicado -= Clicado;
+        gerenciador.OnFocoEsvaziado -= Esvaziado;
+        gerenciador.OnFocoReenchido -= Reenchido;
+        gerenciador.OnFocoEliminado -= Concluido;
     }
 
     void Update()
@@ -163,9 +209,10 @@ public class SomDosFocos : MonoBehaviour
             if (z.sumindo || z.canal == null)
                 continue;
             int lugar = perto.IndexOf(z);
-            float alvo = lugar >= 0 && lugar < maxZumbidosJuntos ? 1f : 0f;
+            float alvo = !ZumbidosEmSilencio && lugar >= 0 && lugar < maxZumbidosJuntos ? 1f : 0f;
             z.peso = Mathf.MoveTowards(z.peso, alvo, passo);
-            z.canal.Volume = volumeZumbido * z.peso;
+            z.fator = Mathf.MoveTowards(z.fator, FatorDe(z.foco), passo);
+            z.canal.Volume = volumeZumbido * z.peso * z.fator;
 
             AudioSource f = z.canal.Fonte;
             if (z.peso > 0f && !f.isPlaying)
@@ -185,7 +232,7 @@ public class SomDosFocos : MonoBehaviour
     private Zumbido CriarZumbido(Interactable foco, Transform raiz, AnimationCurve curva)
     {
         CanalDeAudio c = CanalDeAudio.Criar(raiz, "Zumbido " + foco.name, CanalSom.Efeitos, true);
-        c.transform.position = centros[foco];
+        c.transform.position = CentroDe(foco);
         AudioSource f = c.Fonte;
         f.clip = zumbido;
         f.loop = true;
@@ -195,7 +242,7 @@ public class SomDosFocos : MonoBehaviour
         f.maxDistance = distanciaMaxima;
         f.SetCustomCurve(AudioSourceCurveType.CustomRolloff, curva);
         c.Volume = 0f;   // o Update sobe o peso do mais perto
-        return new Zumbido { foco = foco, canal = c };
+        return new Zumbido { foco = foco, canal = c, fator = FatorDe(foco) };
     }
 
     /* Volume × distância/maxDistance: cheio até distanciaMinima, cai como 1/d
@@ -236,6 +283,24 @@ public class SomDosFocos : MonoBehaviour
         z.peso = 0f;
     }
 
+    /* Multiplicador do volume do zumbido pelo estágio do foco: ovo = x,
+     * larva = y, mosquito = z da tabela (volumePorEstagio). */
+    internal static float FatorDoEstagio(EstagioDoFoco e, Vector3 tabela)
+    {
+        switch (e)
+        {
+            case EstagioDoFoco.Larva: return tabela.y;
+            case EstagioDoFoco.Mosquito: return tabela.z;
+            default: return tabela.x;
+        }
+    }
+
+    /* Fator do estágio atual do foco (sem gerenciador, 1: volume cheio). */
+    private float FatorDe(Interactable foco)
+    {
+        return gerenciador != null ? FatorDoEstagio(gerenciador.EstagioDe(foco), volumePorEstagio) : 1f;
+    }
+
     /* ---------------- cliques e eliminação ---------------- */
 
     private void Clicado(Interactable foco)
@@ -244,21 +309,54 @@ public class SomDosFocos : MonoBehaviour
         if (som == null)
             return;
 
-        AudioClip clip = foco.CurrentClicks == 1 && som.primeiroClique != null ? som.primeiroClique : Sortear(som);
+        AudioClip clip = TocaPrimeiroClique(foco) && som.primeiroClique != null ? som.primeiroClique : Sortear(som);
         if (clip == null)
             return;
 
-        CanalDeAudio c = pool[proximoPool];
-        proximoPool = (proximoPool + 1) % pool.Length;
-        c.transform.position = centros.TryGetValue(foco, out Vector3 centro) ? centro : foco.transform.position;
-        c.Fonte.pitch = som.pitch * (1f + Random.Range(-variacaoPitch, variacaoPitch));
-        c.Fonte.PlayOneShot(clip, som.volume * volumeCliques);
+        TocarNoFoco(foco, clip, som.pitch, som.volume * volumeCliques);
     }
 
+    /* O primeiroClique é "tira a água, depois põe a ação": só no 1º passo de
+     * um foco que ainda tem água. No esvaziado, a água já saiu. */
+    internal static bool TocaPrimeiroClique(Interactable foco)
+    {
+        return foco.CurrentClicks == 1 && !foco.Esvaziado;
+    }
+
+    /* OnFocoEsvaziado do gerenciador: a água saiu. */
+    private void Esvaziado(Interactable foco)
+    {
+        Silenciar();
+        if (esvaziar != null)
+            TocarNoFoco(foco, esvaziar, 1f, volumeEsvaziar);
+    }
+
+    private void Silenciar()
+    {
+        silencioAte = Time.time + silencioAposLimpar;
+    }
+
+    /* OnFocoReenchido do gerenciador: a água voltou, e o foco volta a zumbir
+     * onde ele está agora. */
+    private void Reenchido(Interactable foco)
+    {
+        CentroAtual(foco);
+    }
+
+    /* Um som 3D no centro do foco, na próxima fonte do pool. */
+    private void TocarNoFoco(Interactable foco, AudioClip clip, float pitch, float volume)
+    {
+        CanalDeAudio c = pool[proximoPool];
+        proximoPool = (proximoPool + 1) % pool.Length;
+        c.transform.position = CentroAtual(foco);
+        c.Fonte.pitch = pitch * (1f + Random.Range(-variacaoPitch, variacaoPitch));
+        c.Fonte.PlayOneShot(clip, volume);
+    }
+
+    /* OnFocoEliminado do gerenciador (uma vez por foco). */
     private void Concluido(Interactable foco)
     {
-        foco.OnCompleted -= Concluido;
-
+        Silenciar();
         Zumbido z = zumbidos.Find(x => x.foco == foco);
         if (z != null && !z.sumindo)
             StartCoroutine(Sumir(z));
@@ -297,6 +395,17 @@ public class SomDosFocos : MonoBehaviour
             i = (i + 1) % som.cliques.Length;
         som.ultimo = i;
         return som.cliques[i];
+    }
+
+    /* O centro do foco agora (ele pode ter mudado de lugar). A fonte do
+     * zumbido dele, parada no mundo, vai junto. */
+    private Vector3 CentroAtual(Interactable foco)
+    {
+        Vector3 centro = CentroDe(foco);
+        Zumbido z = zumbidos.Find(x => x.foco == foco);
+        if (z != null && z.canal != null)
+            z.canal.transform.position = centro;
+        return centro;
     }
 
     /* Centro visual do foco (o pivô costuma estar no chão). */

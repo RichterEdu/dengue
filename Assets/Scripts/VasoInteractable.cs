@@ -14,6 +14,13 @@ using UnityEngine;
  *  - O vaso CONTINUA na cena (não encolhe/some), a menos que
  *    removeOnComplete seja marcado.
  *
+ *  Atalho de esvaziar (Parte B, podeEsvaziar no Interactable): com as
+ *  Mãos, a água do pratinho baixa a cada passo e some no último; o vaso
+ *  fica Esvaziado (sem areia, sem concluir). Reenchido (a chuva), a água
+ *  volta com a altura original; com a areia já começada, não reenche. A
+ *  escala original da água é guardada no primeiro passo de esvaziar (o
+ *  OnStart não roda fora do Play).
+ *
  *  O prefab é gerado pelo menu  Dengue > Criar Vaso de Flor com Pratinho
  *  (Assets/Editor/VasoComPratoBuilder.cs).
  * ============================================================ */
@@ -38,10 +45,18 @@ public class VasoInteractable : Interactable
     [SerializeField] private bool removeOnComplete = false;
 
     private Vector3 sandFullScale = Vector3.one;
+
+    // Escala da água cheia, guardada no primeiro passo de esvaziar.
+    private Vector3 escalaDaAgua;
+    private bool escalaDaAguaGuardada;
     private Coroutine fillRoutine;
 
     /* 0 = vazio, 1 = pratinho cheio de areia. */
     public float SandFill { get; private set; }
+
+    /* Com a areia já começada, a chuva não reenche: a água voltaria por
+     * cima da areia pela metade. */
+    public override bool PodeReencher => base.PodeReencher && CurrentClicks == 0;
 
     protected override void OnStart()
     {
@@ -68,11 +83,54 @@ public class VasoInteractable : Interactable
         base.OnInteract();
     }
 
+    /* Atalho de esvaziar: a água baixa na fração que falta (0 no último passo). */
+    protected override void AoAvancarEsvaziando(int passo)
+    {
+        if (water == null)
+            return;
+
+        GuardarEscalaDaAgua();
+        float resta = Mathf.Clamp01(1f - (float)passo / Mathf.Max(1, passosParaEsvaziar));
+        water.transform.localScale = new Vector3(escalaDaAgua.x, escalaDaAgua.y * resta, escalaDaAgua.z);
+    }
+
+    /* Esvaziado: a água do pratinho some. */
+    protected override void AoEsvaziar()
+    {
+        if (water == null)
+            return;
+
+        GuardarEscalaDaAgua();
+        water.SetActive(false);
+    }
+
+    /* Reenchido (a chuva): a água volta, na altura original. */
+    protected override void AoReencher()
+    {
+        if (water == null)
+            return;
+
+        if (escalaDaAguaGuardada)
+            water.transform.localScale = escalaDaAgua;
+        water.SetActive(true);
+    }
+
     protected override void OnComplete()
     {
         if (removeOnComplete)
             base.OnComplete();
         // Caso contrário, o vaso fica na cena com o pratinho cheio de areia.
+    }
+
+    /* Guarda a escala da água cheia uma vez só, antes do primeiro passo de
+     * esvaziar mexer nela. */
+    private void GuardarEscalaDaAgua()
+    {
+        if (escalaDaAguaGuardada)
+            return;
+
+        escalaDaAgua = water.transform.localScale;
+        escalaDaAguaGuardada = true;
     }
 
     private void SetSandFill(float target)

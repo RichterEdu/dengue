@@ -80,10 +80,12 @@ public class ControladorJogador : MonoBehaviour
     public float TempoNoAr => NoChao ? 0f : Time.time - ultimoTempoNoChao;
 
     /* Limites do KitDoAgente enquanto carrega pneu (Parte A): multiplica a
-       velocidade máxima, e com PodeCorrerEPular = false o Shift não corre e
-       o pulo é ignorado. Olhar, gravidade e ControleAtivo seguem iguais. */
+       velocidade máxima; com PodeCorrer = false o Shift não corre (stamina
+       zerada), e com PodePular = false o pulo é ignorado. Olhar, gravidade
+       e ControleAtivo seguem iguais. */
     public float MultiplicadorVelocidade { get; set; } = 1f;
-    public bool PodeCorrerEPular { get; set; } = true;
+    public bool PodeCorrer { get; set; } = true;
+    public bool PodePular { get; set; } = true;
 
     /* Desligado = sem andar/olhar/pular (a gravidade continua valendo). Usado no fim de jogo. */
     public bool ControleAtivo
@@ -96,6 +98,12 @@ public class ControladorJogador : MonoBehaviour
                 entrada.Habilitado = value;
         }
     }
+
+    /* Parado durante uma ação (skill check): sem andar, olhar nem pular, mas
+       a entrada segue ligada para o Interactor ler o clique. */
+    public bool Imobilizado { get; set; }
+
+    private bool ControlaOCorpo => controleAtivo && !Imobilizado;
 
     void Awake()
     {
@@ -115,7 +123,7 @@ public class ControladorJogador : MonoBehaviour
         float dt = Time.deltaTime;
 
         // --- 1. Olhar ---
-        Vector2 olhar = controleAtivo ? entrada.Olhar : Vector2.zero;
+        Vector2 olhar = ControlaOCorpo ? entrada.Olhar : Vector2.zero;
         Yaw = Mathf.Repeat(Yaw + olhar.x, 360f);
         Pitch = Mathf.Clamp(Pitch - olhar.y, pitchMinimo, pitchMaximo);
         transform.rotation = Quaternion.Euler(0f, Yaw, 0f);
@@ -125,8 +133,8 @@ public class ControladorJogador : MonoBehaviour
         if (NoChao)
             ultimoTempoNoChao = Time.time;
 
-        Vector2 pedido = controleAtivo ? entrada.Movimento : Vector2.zero;
-        Correndo = PodeCorrerEPular && entrada.CorrerSegurado && pedido.y > 0.1f && controleAtivo;
+        Vector2 pedido = ControlaOCorpo ? entrada.Movimento : Vector2.zero;
+        Correndo = PodeCorrer && entrada.CorrerSegurado && pedido.y > 0.1f && ControlaOCorpo;
         float velMax = (Correndo ? velocidadeCorrer : velocidadeAndar) * MultiplicadorVelocidade;
 
         Vector3 frente = transform.forward;
@@ -143,11 +151,11 @@ public class ControladorJogador : MonoBehaviour
         // --- 3. Pulo (coyote time + buffer) ---
         // Com o pulo bloqueado (carregando pneu), o aperto é descartado: se
         // ficasse no buffer, o agente pularia sozinho ao largar o pneu.
-        if (controleAtivo && !PodeCorrerEPular && entrada.PuloNoBuffer)
+        if (ControlaOCorpo && !PodePular && entrada.PuloNoBuffer)
             entrada.ConsumirPulo();
 
         bool podePular = NoChao || (Time.time - ultimoTempoNoChao <= coyoteTime && velocidadeVertical <= 0f);
-        if (controleAtivo && PodeCorrerEPular && podePular && entrada.PuloNoBuffer)
+        if (ControlaOCorpo && PodePular && podePular && entrada.PuloNoBuffer)
         {
             entrada.ConsumirPulo();
             velocidadeVertical = Mathf.Sqrt(2f * alturaPulo * -gravidade);

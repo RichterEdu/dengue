@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 /* ============================================================
@@ -13,12 +12,15 @@ using UnityEngine;
  *    (SaidaDoHospital.cs chama IniciarPartida()) — antes disso, o
  *    relógio fica parado.
  *  - Como no GameDoc, cada foco eliminado DESACELERA a subida: a taxa é
- *    proporcional aos focos ainda ativos (taxaComTodosOsFocos com todos,
- *    menos recuperacaoSemFocos). Quando sobram poucos focos a taxa fica
- *    negativa e a ocupação DESCE — o "clímax" de sucesso. Cada foco ainda
- *    dá um alívio pequeno na hora (alivioPorFoco), e a ocupação nunca fica
- *    abaixo de ocupacaoMinima: não dá pra "guardar" vantagem zerando a
- *    barra no começo.
+ *    proporcional à PRESSÃO dos focos (Parte B: GerenciadorDeFocos.Pressao,
+ *    a média dos pesos de ovo, larva e mosquito sobre o total; pode passar
+ *    de 1 quando muitos focos já viraram mosquito), vezes
+ *    taxaComTodosOsFocos, menos recuperacaoSemFocos. Quando sobram poucos
+ *    focos a taxa fica negativa e a ocupação DESCE — o "clímax" de
+ *    sucesso. Cada foco eliminado ainda dá um alívio pequeno na hora
+ *    (alivioPorFoco, pelo OnFocoEliminado do gerenciador; esvaziar não
+ *    conta), e a ocupação nunca fica abaixo de ocupacaoMinima: não dá pra
+ *    "guardar" vantagem zerando a barra no começo.
  *    Vitória: todos os focos eliminados antes de bater 100%.
  *    Derrota: ocupação bate 100% antes de todos os focos sumirem.
  *  - O ritmo NÃO é constante (pedido do usuário, "pra dar tempo do player
@@ -30,9 +32,9 @@ using UnityEngine;
  *  - Para reajustar os números: Dengue > Simular Balanceamento
  *    (Assets/Editor/BalanceamentoSimulador.cs), que usa o mesmo TaxaPara.
  *
- *  Mesma varredura de Interactable usada por DengueHUD/RedeSocial/
- *  FocoListaHUD — não existe gerenciador central de focos no projeto,
- *  cada sistema faz a própria.
+ *  Os focos vêm do GerenciadorDeFocos (do campo ou, vazio,
+ *  GerenciadorDeFocos.Obter()): FocosTotal e FocosEliminados são os dele.
+ *  No EditMode o Start não roda: os testes chamam Ligar() direto.
  * ============================================================ */
 
 public class FluxoDeJogo : MonoBehaviour
@@ -73,6 +75,9 @@ public class FluxoDeJogo : MonoBehaviour
     [Tooltip("Vazio = procura o CelularController na cena.")]
     [SerializeField] private CelularController celular;
 
+    [Tooltip("Focos da partida (total, eliminados e pressão sobre a ocupação). Vazio = o GerenciadorDeFocos da cena (em Play, cria um se não houver).")]
+    [SerializeField] private GerenciadorDeFocos gerenciador;
+
     public event Action OnPartidaIniciada;
     public event Action OnVitoria;
     public event Action OnDerrota;
@@ -81,37 +86,53 @@ public class FluxoDeJogo : MonoBehaviour
     public bool PartidaIniciada { get; private set; }
     public bool PartidaEncerrada { get; private set; }
     public float TempoDecorrido { get; private set; }
-    public int FocosEliminados { get; private set; }
-    public int FocosTotal { get; private set; }
+    public int FocosEliminados => gerenciador != null ? gerenciador.Eliminados : 0;
+    public int FocosTotal => gerenciador != null ? gerenciador.Total : 0;
 
     /* Lidos pelo simulador de balanceamento (Editor). */
     public float OcupacaoInicial => Mathf.Clamp(ocupacaoInicial, ocupacaoMinima, 1f);
     public float OcupacaoMinima => ocupacaoMinima;
     public float AlivioPorFoco => alivioPorFoco;
 
-    private readonly List<Interactable> focos = new List<Interactable>();
-
     void Start()
+    {
+        Ligar();
+    }
+
+    /* O corpo do Start: ocupação inicial, celular e gerenciador (o do campo
+     * ou o da cena) e a assinatura do OnFocoEliminado. Em Play, o do campo
+     * também registra os focos já aqui (Garantir), mesmo que o Awake dele
+     * ainda não tenha rodado; no EditMode não, para não puxar os focos da
+     * cena aberta. Os testes chamam direto (no EditMode o Start não roda);
+     * chamar de novo não assina duas vezes. */
+    internal void Ligar()
     {
         Ocupacao = OcupacaoInicial;
         if (celular == null) celular = FindAnyObjectByType<CelularController>();
+        if (gerenciador == null) gerenciador = GerenciadorDeFocos.Obter();
+        else if (Application.isPlaying) gerenciador.Garantir();
 
-        foreach (Interactable foco in FindObjectsByType<Interactable>(FindObjectsInactive.Include))
+        if (gerenciador != null)
         {
-            focos.Add(foco);
-            if (foco.IsComplete)
-                FocosEliminados++;
-            else
-                foco.OnCompleted += HandleFocoCompletado;
+            gerenciador.OnFocoEliminado -= HandleFocoEliminado;
+            gerenciador.OnFocoEliminado += HandleFocoEliminado;
         }
-        FocosTotal = focos.Count;
     }
 
+    /* Só pelo campo: procurar ou criar um gerenciador aqui (fim do Play,
+     * troca de cena) deixaria objeto novo para trás. */
     void OnDestroy()
     {
-        foreach (Interactable foco in focos)
-            if (foco != null)
-                foco.OnCompleted -= HandleFocoCompletado;
+        if (gerenciador != null)
+            gerenciador.OnFocoEliminado -= HandleFocoEliminado;
+    }
+
+    /* Para os testes da Parte B (Task 7): põe a partida no estado pedido
+     * sem passar pelo SaidaDoHospital nem disparar eventos. */
+    internal void DefinirEstadoParaTeste(bool iniciada, bool encerrada)
+    {
+        PartidaIniciada = iniciada;
+        PartidaEncerrada = encerrada;
     }
 
     /* Chamado pelo SaidaDoHospital.cs quando o jogador cruza a porta. */
@@ -130,7 +151,12 @@ public class FluxoDeJogo : MonoBehaviour
             return;
 
         TempoDecorrido += Time.deltaTime;
-        float taxa = TaxaPara(TempoDecorrido, FocosTotal - FocosEliminados, celular != null && celular.Aberto);
+
+        // Sem gerenciador não há focos para pesar: a barra fica parada.
+        if (gerenciador == null)
+            return;
+
+        float taxa = TaxaPara(TempoDecorrido, gerenciador.Pressao(), celular != null && celular.Aberto);
         Ocupacao = Mathf.Clamp(Ocupacao + taxa * Time.deltaTime, ocupacaoMinima, 1f);
 
         if (Ocupacao >= 1f)
@@ -140,17 +166,14 @@ public class FluxoDeJogo : MonoBehaviour
         }
     }
 
-    /* Quanto a ocupação varia por segundo (negativo = desce) com `focosAtivos`
-     * ainda de pé, `tempo` segundos depois da saída do hospital: proporcional
-     * aos focos ativos, calmo no começo e com a subida mais lenta com o
-     * celular aberto. `focosTotal` < 0 usa o FocosTotal da partida (o
-     * simulador do Editor passa o total, porque fora do Play o Start não rodou). */
-    public float TaxaPara(float tempo, int focosAtivos, bool celularAberto, int focosTotal = -1)
+    /* Quanto a ocupação varia por segundo (negativo = desce) com a `pressao`
+     * dos focos (GerenciadorDeFocos.Pressao: 1 = todos com ovos; sem Clamp01,
+     * passa de 1 com larvas e mosquitos), `tempo` segundos depois da saída
+     * do hospital: proporcional à pressão, calmo no começo e com a subida
+     * mais lenta com o celular aberto. O simulador do Editor usa a mesma
+     * conta. */
+    public float TaxaPara(float tempo, float pressao, bool celularAberto)
     {
-        if (focosTotal < 0)
-            focosTotal = FocosTotal;
-        float pressao = focosTotal > 0 ? Mathf.Clamp01((float)focosAtivos / focosTotal) : 0f;
-
         float progressoRampa = duracaoRampa > 0f
             ? Mathf.Clamp01((tempo - duracaoInicioCalmo) / duracaoRampa)
             : (tempo >= duracaoInicioCalmo ? 1f : 0f);
@@ -162,13 +185,13 @@ public class FluxoDeJogo : MonoBehaviour
         return taxa;
     }
 
-    private void HandleFocoCompletado(Interactable foco)
+    /* OnFocoEliminado do gerenciador (uma vez por foco; esvaziado não
+     * chega aqui): alívio na hora e, com todos eliminados, a vitória. */
+    private void HandleFocoEliminado(Interactable foco)
     {
-        foco.OnCompleted -= HandleFocoCompletado;
-        FocosEliminados++;
         Ocupacao = Mathf.Max(ocupacaoMinima, Ocupacao - alivioPorFoco);
 
-        if (!PartidaEncerrada && FocosEliminados >= FocosTotal)
+        if (!PartidaEncerrada && FocosTotal > 0 && FocosEliminados >= FocosTotal)
         {
             PartidaEncerrada = true;
             OnVitoria?.Invoke();

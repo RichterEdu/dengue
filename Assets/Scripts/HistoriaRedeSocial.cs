@@ -13,8 +13,9 @@ using UnityEngine;
  *    - um foco desse tipo é eliminado (fala do primeiro, das seguintes e
  *      uma comemoração quando é o último do tipo);
  *    - o jogador começa a limpar um foco e vai embora deixando pela metade
- *      (o pneu já esvaziado, largado para levar depois, e as garrafas
- *      com o saco cheio, a caminho de esvaziar numa caçamba, não contam);
+ *      (o pneu já esvaziado, largado para levar à picape da UPA depois,
+ *      e as garrafas com o saco cheio, a caminho de esvaziar numa
+ *      lixeira, não contam);
  *    - o jogador tenta um foco desse tipo com a ferramenta errada (uma
  *      vez por tipo — Interactor.OnRecusado).
  *
@@ -26,9 +27,26 @@ using UnityEngine;
  *
  *  Kit do agente (Parte A): o primeiro reabastecimento na picape da UPA
  *  (o monte de areia não conta), o agente carregando pneu e o primeiro
- *  saco de garrafas na caçamba também viram post (KitDoAgente.
+ *  saco de garrafas na lixeira também viram post (KitDoAgente.
  *  OnReabasteceu / OnPneuPego / OnSacoEsvaziado). Sem KitDoAgente ou sem
  *  Interactor na cena, esses posts só não saem.
+ *
+ *  Chuva e atalho (Parte B):
+ *    - cada previsão de chuva (Chuva.OnPrevisao) dá um post, sorteado
+ *      sem repetir o da previsão anterior — é o único aviso da chuva, por
+ *      isso sai com prioridade Alta e, se a janela de conflito recusar,
+ *      fica pendente e tenta de novo até começar a chover;
+ *    - o primeiro foco esvaziado pelo atalho das Mãos (GerenciadorDeFocos.
+ *      OnFocoEsvaziado; vaso e garrafas — o pneu esvaziado é o caminho
+ *      normal dele, não o atalho, e não conta) lembra que os ovos ficam e
+ *      a chuva traz de volta;
+ *    - o primeiro foco reenchido pela chuva (OnFocoReenchido) dá o post
+ *      do tipo dele (aoReencherPrimeiraVez, um por tipo; um só na
+ *      partida);
+ *    - o primeiro pneu entregue na caçamba da picape da UPA também vira
+ *      post: sai no próprio HandleFocoEliminado (a entrega é o que elimina
+ *      o pneu), no lugar da fala do dono.
+ *  Sem Chuva na cena, a previsão só não sai.
  *
  *  Quem publica de fato é a RedeSocial.cs (avisos, não lidos). Ao nascer,
  *  este componente liga RedeSocial.NarradorExterno: a RedeSocial passa a
@@ -37,16 +55,17 @@ using UnityEngine;
  *  Cada mensagem sai NA HORA do gatilho ou é recusada (outro aviso tão ou
  *  mais importante acabou de sair — RedeSocial.Aceitaria). Recusada, ela
  *  não é gasta e só volta quando o gatilho dela acontecer DE NOVO. Um foco
- *  eliminado gera UMA mensagem: finais > último do tipo > sequência rápida
- *  > fala do dono.
+ *  eliminado gera UMA mensagem: finais > primeiro pneu na picape > último
+ *  do tipo > sequência rápida > fala do dono.
  *
  *  Marcadores que dá pra usar nos textos daqui (trocados na hora de
  *  postar): {restantesTipo} {eliminadosTipo} {totalTipo} {ocupacao}.
  *  Os marcadores do feed ({eliminados} {total} {restantes}) continuam
  *  valendo e são trocados na hora da publicação, como sempre.
  *
- *  Mesma varredura de Interactable usada por DengueHUD/RedeSocial/
- *  FocoListaHUD/FluxoDeJogo — não existe gerenciador central de focos.
+ *  Os focos vêm do GerenciadorDeFocos (do campo ou, vazio,
+ *  GerenciadorDeFocos.Obter()), como no DengueHUD/RedeSocial/FocoListaHUD/
+ *  FluxoDeJogo; cada eliminação, do OnFocoEliminado dele.
  *
  *  Tudo é editável pelo Inspector (objeto "Historia"), sem tocar em código.
  *  Criado pelo menu  Dengue > Configurar Historia  (HistoriaBuilder.cs).
@@ -107,6 +126,17 @@ public class MarcoDeOcupacao
     public PostRedeSocial post = new PostRedeSocial();
 }
 
+/* Um post ligado a um tipo de foco (o primeiro reenchido escolhe pelo tipo). */
+[System.Serializable]
+public class PostPorTipo
+{
+    [Tooltip("Tipo de foco a que este post responde.")]
+    public TipoFoco tipo = TipoFoco.Nenhum;
+
+    [Tooltip("O post que sai quando o gatilho é de um foco deste tipo.")]
+    public PostRedeSocial post = new PostRedeSocial();
+}
+
 public class HistoriaRedeSocial : MonoBehaviour
 {
     [Header("Referências (vazias = procura na cena)")]
@@ -118,8 +148,14 @@ public class HistoriaRedeSocial : MonoBehaviour
     [Tooltip("Interactor do jogador: avisa quando um foco recusa a ferramenta selecionada.")]
     [SerializeField] private Interactor interactor;
 
-    [Tooltip("Kit do agente: avisa o reabastecimento, o pneu pego e o saco esvaziado na caçamba.")]
+    [Tooltip("Kit do agente: avisa o reabastecimento, o pneu pego, o pneu entregue na picape e o saco esvaziado na lixeira.")]
     [SerializeField] private KitDoAgente kit;
+
+    [Tooltip("Relógio da chuva: avisa a previsão. Vazio = procura a Chuva na cena.")]
+    [SerializeField] private Chuva chuva;
+
+    [Tooltip("Focos da partida (tipos, eliminados). Vazio = GerenciadorDeFocos.Obter().")]
+    [SerializeField] private GerenciadorDeFocos gerenciador;
 
     [Header("Personagens (um por tipo de foco)")]
     [SerializeField] private List<PersonagemDoBairro> personagens = new List<PersonagemDoBairro>();
@@ -155,8 +191,21 @@ public class HistoriaRedeSocial : MonoBehaviour
     [Tooltip("Sai quando o agente pega um pneu pela primeira vez. Com mais de um post: um por pneu pego, em ordem, até acabar.")]
     [SerializeField] private List<PostRedeSocial> aoCarregarPneu = new List<PostRedeSocial>();
 
-    [Tooltip("Sai quando o primeiro saco de garrafas é esvaziado na caçamba. Com mais de um post: um por saco, em ordem, até acabar.")]
+    [Tooltip("Sai quando o primeiro saco de garrafas é esvaziado na lixeira. Com mais de um post: um por saco, em ordem, até acabar.")]
     [SerializeField] private List<PostRedeSocial> aoEsvaziarSacoPrimeiraVez = new List<PostRedeSocial>();
+
+    [Tooltip("Sai quando o primeiro pneu é entregue na caçamba da picape da UPA. Com mais de um post: um por pneu, em ordem, até acabar.")]
+    [SerializeField] private List<PostRedeSocial> aoEntregarPneuPrimeiraVez = EntregarPneuPadrao();
+
+    [Header("Chuva e atalho de esvaziar (Parte B)")]
+    [Tooltip("Um por previsão de chuva, sorteado sem repetir o da previsão anterior. É o único aviso da chuva: sai com prioridade Alta e, recusado, tenta de novo até começar a chover.")]
+    [SerializeField] private List<PostRedeSocial> aoPreverChuva = PrevisaoPadrao();
+
+    [Tooltip("Sai no primeiro foco esvaziado pelo atalho das Mãos (vaso e garrafas; o pneu esvaziado é o caminho normal dele e não conta). Com mais de um post: um por esvaziado, em ordem, até acabar.")]
+    [SerializeField] private List<PostRedeSocial> aoEsvaziarPrimeiraVez = EsvaziarPadrao();
+
+    [Tooltip("O primeiro foco reenchido pela chuva: sai o post do tipo dele (um post só na partida). Tipo sem post aqui = não posta e espera o próximo reenchido.")]
+    [SerializeField] private List<PostPorTipo> aoReencherPrimeiraVez = ReencherPadrao();
 
     [Header("Gatilhos")]
     [Tooltip("Distância (m) que conta como \"chegou perto\" de um foco.")]
@@ -196,6 +245,12 @@ public class HistoriaRedeSocial : MonoBehaviour
     private int eliminadosTotal;
     private int idxDemora, idxParado, idxCombo, idxPulos, idxSemDono;
     private int idxReabastecer, idxCarregarPneu, idxEsvaziarSaco;
+    private int idxEntregarPneu, idxEsvaziar;
+    private int ultimaPrevisao = -1;   // índice do último post de previsão que saiu
+    private int previsaoPendente = -1; // índice da previsão recusada que ainda vai sair (-1 = nenhuma)
+    private float proximaTentativaPrevisao;
+    private bool reenchidoPostado;
+    private readonly System.Random sorteioPrevisao = new System.Random();
     private bool[] marcoArmado;
     private bool[] marcoDisparado;
     private float timerSemFoco;
@@ -206,7 +261,9 @@ public class HistoriaRedeSocial : MonoBehaviour
     // Regra das mensagens (pedido do usuário): sai NA HORA ou é recusada pela
     // RedeSocial (outro aviso tão ou mais importante acabou de sair). Recusada
     // = a mensagem não é gasta e só volta quando o gatilho dela acontecer DE
-    // NOVO — nunca sai sozinha depois.
+    // NOVO — nunca sai sozinha depois. Exceção: a previsão de chuva, que é o
+    // único aviso da chuva (OnPrevisao sai uma vez por chuva) — recusada, ela
+    // fica pendente e tenta de novo enquanto a chuva estiver em previsão.
     private bool EmJogo => fluxo != null && fluxo.PartidaIniciada && !fluxo.PartidaEncerrada;
 
     void Reset()
@@ -228,6 +285,7 @@ public class HistoriaRedeSocial : MonoBehaviour
         // cena (kit ainda não montado), os posts do kit só não saem.
         if (interactor == null) interactor = FindAnyObjectByType<Interactor>();
         if (kit == null) kit = FindAnyObjectByType<KitDoAgente>();
+        if (chuva == null) chuva = FindAnyObjectByType<Chuva>();
 
         // Awake roda antes de qualquer Start: a RedeSocial já nasce sabendo
         // que incentivos e finais são decididos aqui.
@@ -241,22 +299,30 @@ public class HistoriaRedeSocial : MonoBehaviour
         if (player != null)
             ultimaPosicaoPlayer = player.position;
 
-        foreach (Interactable foco in FindObjectsByType<Interactable>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        // Os focos da partida (inclusive desativados), vindos do gerenciador.
+        if (gerenciador == null) gerenciador = GerenciadorDeFocos.Obter();
+        if (gerenciador != null)
         {
-            TipoFoco tipo = TipoDoFoco(foco);
-            focos.Add(foco);
-            tipoDe[foco] = tipo;
-            totalPorTipo[tipo] = Contar(totalPorTipo, tipo) + 1;
+            gerenciador.Garantir();
+            foreach (Interactable foco in gerenciador.Focos)
+            {
+                if (foco == null)
+                    continue;
 
-            if (foco.IsComplete)
-            {
-                eliminadosTotal++;
-                eliminadosPorTipo[tipo] = Contar(eliminadosPorTipo, tipo) + 1;
+                TipoFoco tipo = TipoDoFoco(foco);
+                focos.Add(foco);
+                tipoDe[foco] = tipo;
+                totalPorTipo[tipo] = Contar(totalPorTipo, tipo) + 1;
+
+                if (foco.IsComplete)
+                {
+                    eliminadosTotal++;
+                    eliminadosPorTipo[tipo] = Contar(eliminadosPorTipo, tipo) + 1;
+                }
             }
-            else
-            {
-                foco.OnCompleted += HandleFocoEliminado;
-            }
+            gerenciador.OnFocoEliminado += HandleFocoEliminado;
+            gerenciador.OnFocoEsvaziado += HandleFocoEsvaziado;
+            gerenciador.OnFocoReenchido += HandleFocoReenchido;
         }
 
         marcoArmado = new bool[marcosDeOcupacao.Count];
@@ -277,13 +343,23 @@ public class HistoriaRedeSocial : MonoBehaviour
             kit.OnPneuPego += HandlePneuPego;
             kit.OnSacoEsvaziado += HandleSacoEsvaziado;
         }
+        if (chuva != null)
+        {
+            chuva.OnPrevisao += HandlePrevisaoChuva;
+            chuva.OnComecou += HandleChuvaComecou;
+        }
     }
 
     void OnDestroy()
     {
-        foreach (Interactable foco in focos)
-            if (foco != null)
-                foco.OnCompleted -= HandleFocoEliminado;
+        // Só pelo campo: procurar ou criar um gerenciador aqui (fim do Play,
+        // troca de cena) deixaria objeto novo para trás.
+        if (gerenciador != null)
+        {
+            gerenciador.OnFocoEliminado -= HandleFocoEliminado;
+            gerenciador.OnFocoEsvaziado -= HandleFocoEsvaziado;
+            gerenciador.OnFocoReenchido -= HandleFocoReenchido;
+        }
 
         if (fluxo != null)
         {
@@ -300,6 +376,11 @@ public class HistoriaRedeSocial : MonoBehaviour
             kit.OnPneuPego -= HandlePneuPego;
             kit.OnSacoEsvaziado -= HandleSacoEsvaziado;
         }
+        if (chuva != null)
+        {
+            chuva.OnPrevisao -= HandlePrevisaoChuva;
+            chuva.OnComecou -= HandleChuvaComecou;
+        }
     }
 
     void Update()
@@ -311,6 +392,14 @@ public class HistoriaRedeSocial : MonoBehaviour
             return;
 
         VerificarOcupacao();
+
+        // Previsão de chuva recusada pela janela de conflito: tenta de novo
+        // a cada 1 s enquanto a chuva ainda está em previsão.
+        if (previsaoPendente >= 0 && Time.time >= proximaTentativaPrevisao)
+        {
+            proximaTentativaPrevisao = Time.time + 1f;
+            TentarPrevisaoPendente();
+        }
 
         if (Time.time >= proximaVarredura)
         {
@@ -398,8 +487,6 @@ public class HistoriaRedeSocial : MonoBehaviour
      * gastas: ficam para a próxima vez que o gatilho delas acontecer. */
     private void HandleFocoEliminado(Interactable foco)
     {
-        foco.OnCompleted -= HandleFocoEliminado;
-
         TipoFoco tipo = tipoDe.TryGetValue(foco, out TipoFoco t) ? t : TipoFoco.Nenhum;
         eliminadosTotal++;
         eliminadosPorTipo[tipo] = Contar(eliminadosPorTipo, tipo) + 1;
@@ -416,6 +503,11 @@ public class HistoriaRedeSocial : MonoBehaviour
                 rede.PostarGrupo(rede.PostsFinais, PrioridadePost.Maxima);
             return;
         }
+
+        // Pneu só é eliminado na entrega: o primeiro dá o post da picape, e
+        // a fala do dono fica para o próximo. Recusado, não é gasto.
+        if (foco is PneuInteractable && PostarDaLista(aoEntregarPneuPrimeiraVez, ref idxEntregarPneu, PrioridadePost.Alta))
+            return;
 
         PersonagemDoBairro dono = Personagem(tipo);
         int total = Contar(totalPorTipo, tipo);
@@ -501,6 +593,106 @@ public class HistoriaRedeSocial : MonoBehaviour
             PostarDaLista(aoEsvaziarSacoPrimeiraVez, ref idxEsvaziarSaco, PrioridadePost.Normal);
     }
 
+    /* Parte B. Os métodos abaixo são internal para os testes EditMode
+     * chamarem direto (o Start, que assina os eventos, e o Update, que
+     * tenta de novo a previsão pendente, não rodam lá). */
+
+    /* Previsão de chuva: um post por previsão, sorteado entre os da lista
+     * sem repetir o da previsão anterior (com um post só, ele repete).
+     * É o único aviso da chuva: recusado pela janela de conflito, o post
+     * sorteado fica pendente (o "anterior" ainda não muda) e o Update
+     * tenta de novo a cada 1 s (TentarPrevisaoPendente) enquanto a chuva
+     * estiver em previsão. Uma previsão nova substitui a pendente. */
+    internal void HandlePrevisaoChuva()
+    {
+        previsaoPendente = -1;
+        if (!EmJogo || aoPreverChuva == null || aoPreverChuva.Count == 0)
+            return;
+
+        int n = aoPreverChuva.Count;
+        int i;
+        if (n == 1 || ultimaPrevisao < 0 || ultimaPrevisao >= n)
+            i = sorteioPrevisao.Next(n);
+        else
+        {
+            // Sorteia entre os n - 1 que não são o anterior: pula o índice dele.
+            i = sorteioPrevisao.Next(n - 1);
+            if (i >= ultimaPrevisao)
+                i++;
+        }
+
+        PostRedeSocial p = aoPreverChuva[i];
+        if (p == null)
+            return;
+        if (Postar(p.autor, p.usuario, p.texto, p.humor, TipoFoco.Nenhum, p.curtidas, PrioridadePost.Alta))
+            ultimaPrevisao = i;
+        else
+        {
+            previsaoPendente = i;
+            proximaTentativaPrevisao = Time.time + 1f;
+        }
+    }
+
+    /* Nova tentativa da previsão recusada. Só vale enquanto a chuva está
+     * em previsão: choveu (ou acabou a partida, ou não há Chuva para
+     * conferir), a pendente é descartada. */
+    internal void TentarPrevisaoPendente()
+    {
+        if (previsaoPendente < 0)
+            return;
+
+        if (!EmJogo || chuva == null || chuva.Estado != EstadoDaChuva.Previsao
+            || aoPreverChuva == null || previsaoPendente >= aoPreverChuva.Count
+            || aoPreverChuva[previsaoPendente] == null)
+        {
+            previsaoPendente = -1;
+            return;
+        }
+
+        PostRedeSocial p = aoPreverChuva[previsaoPendente];
+        if (Postar(p.autor, p.usuario, p.texto, p.humor, TipoFoco.Nenhum, p.curtidas, PrioridadePost.Alta))
+        {
+            ultimaPrevisao = previsaoPendente;
+            previsaoPendente = -1;
+        }
+    }
+
+    /* Começou a chover: a previsão que não saiu perdeu a hora. */
+    internal void HandleChuvaComecou()
+    {
+        previsaoPendente = -1;
+    }
+
+    /* Foco esvaziado pelo atalho das Mãos (vaso e garrafas): avisa, da
+     * lista, que os ovos ficam e a chuva traz de volta. O pneu esvaziado
+     * NÃO conta: tirar a água do pneu é o caminho normal da ação
+     * definitiva (esvaziar e levar pra picape), não o atalho — o DengueHUD
+     * faz a mesma distinção. Ele é ignorado sem gastar o gatilho. */
+    internal void HandleFocoEsvaziado(Interactable foco)
+    {
+        if (!EmJogo || foco is PneuInteractable)
+            return;
+        PostarDaLista(aoEsvaziarPrimeiraVez, ref idxEsvaziar, PrioridadePost.Normal);
+    }
+
+    /* Foco reenchido pela chuva: o primeiro da partida dá o post do tipo
+     * dele. Só fica "gasto" se o post sair (tipo sem post na lista ou
+     * recusado = espera o próximo reenchido). */
+    internal void HandleFocoReenchido(Interactable foco)
+    {
+        if (!EmJogo || foco == null || reenchidoPostado || aoReencherPrimeiraVez == null)
+            return;
+
+        TipoFoco tipo = TipoDoFoco(foco);
+        PostPorTipo doTipo = aoReencherPrimeiraVez.Find(x => x != null && x.tipo == tipo && x.post != null);
+        if (doTipo == null)
+            return;
+
+        PostRedeSocial p = doTipo.post;
+        if (Postar(p.autor, p.usuario, p.texto, p.humor, tipo, p.curtidas, PrioridadePost.Normal))
+            reenchidoPostado = true;
+    }
+
     /* ---------------- Verificações periódicas ---------------- */
 
     /* Gatilho = ENTRAR no raio de um foco (não "estar perto"). Recusada, só
@@ -571,9 +763,9 @@ public class HistoriaRedeSocial : MonoBehaviour
 
     /* Sair de perto deste foco começado agora é o que o jogo manda, e não
      * abandono:
-     *   - o pneu já esvaziado: largado (ou nos braços) a caminho da caçamba
-     *     não está "pela metade" — a água já saiu;
-     *   - as garrafas com o saco cheio: o aviso manda esvaziar numa caçamba.
+     *   - o pneu já esvaziado: largado (ou nos braços) a caminho da picape
+     *     da UPA não está "pela metade" — a água já saiu;
+     *   - as garrafas com o saco cheio: o aviso manda esvaziar numa lixeira.
      *     Enquanto o saco está cheio o grupo sai do pertoDoComecado; ao
      *     voltar com espaço e sair de novo deixando garrafas, aí é
      *     abandono, e o post sai. */
@@ -803,6 +995,10 @@ public class HistoriaRedeSocial : MonoBehaviour
         if (tudo || aoReabastecerPrimeiraVez == null || aoReabastecerPrimeiraVez.Count == 0) aoReabastecerPrimeiraVez = ReabastecerPadrao();
         if (tudo || aoCarregarPneu == null || aoCarregarPneu.Count == 0) aoCarregarPneu = CarregarPneuPadrao();
         if (tudo || aoEsvaziarSacoPrimeiraVez == null || aoEsvaziarSacoPrimeiraVez.Count == 0) aoEsvaziarSacoPrimeiraVez = EsvaziarSacoPadrao();
+        if (tudo || aoEntregarPneuPrimeiraVez == null || aoEntregarPneuPrimeiraVez.Count == 0) aoEntregarPneuPrimeiraVez = EntregarPneuPadrao();
+        if (tudo || aoPreverChuva == null || aoPreverChuva.Count == 0) aoPreverChuva = PrevisaoPadrao();
+        if (tudo || aoEsvaziarPrimeiraVez == null || aoEsvaziarPrimeiraVez.Count == 0) aoEsvaziarPrimeiraVez = EsvaziarPadrao();
+        if (tudo || aoReencherPrimeiraVez == null || aoReencherPrimeiraVez.Count == 0) aoReencherPrimeiraVez = ReencherPadrao();
     }
 
     /* Acrescenta o personagem padrão de cada tipo de foco que ainda não tem
@@ -834,6 +1030,44 @@ public class HistoriaRedeSocial : MonoBehaviour
         return novos;
     }
 
+    /* Regrava nesta instância os textos da Parte B: os campos novos e os
+     * revistos (a carga agora vai para a picape e para a lixeira). O builder
+     * da cena chama: o PreencherPadroes só preenche lista vazia, e os
+     * textos antigos salvos na cena ficariam. */
+    internal void RegravarTextosDaParteB()
+    {
+        aoCarregarPneu = CarregarPneuPadrao();
+        aoEsvaziarSacoPrimeiraVez = EsvaziarSacoPadrao();
+        aoEntregarPneuPrimeiraVez = EntregarPneuPadrao();
+        aoPreverChuva = PrevisaoPadrao();
+        aoEsvaziarPrimeiraVez = EsvaziarPadrao();
+        aoReencherPrimeiraVez = ReencherPadrao();
+
+        foreach (PersonagemDoBairro padrao in PersonagensPadrao())
+        {
+            if (padrao.tipo != TipoFoco.Pneu && padrao.tipo != TipoFoco.Garrafas)
+                continue;
+
+            // O primeiro do tipo, o mesmo que o Personagem(tipo) usa para postar.
+            PersonagemDoBairro existente = personagens.Find(p => p != null && p.tipo == padrao.tipo);
+            if (existente == null)
+                continue;
+
+            existente.aoUsarFerramentaErrada = padrao.aoUsarFerramentaErrada;
+
+            // A 1ª fala do Carlos só sai a partir do 2º pneu (o 1º é o post
+            // da picape); as outras ficam como estão.
+            if (padrao.tipo == TipoFoco.Pneu && existente.aoEliminar != null && existente.aoEliminar.Count > 0)
+                existente.aoEliminar[0] = FalaCarlosDepoisDoPrimeiroPneu;
+        }
+    }
+
+    /* 1ª fala do Carlos ao eliminar um pneu. O primeiro pneu entregue dá o
+     * post da picape (aoEntregarPneuPrimeiraVez), então esta sai no 2º e
+     * não pode dizer "primeiro". */
+    internal const string FalaCarlosDepoisDoPrimeiroPneu =
+        "Lá se vai mais um na picape da UPA. Faltam {restantesTipo}, e eu tô contando daqui da janela.";
+
     /* 1ª fala da Lúcia ao eliminar uma bromélia: a bromélia é tratada com
      * água sanitária diluída (Parte A). Pública porque o KitDoAgenteBuilder
      * grava a mesma fala no personagem já salvo na cena (o padrão daqui só
@@ -856,13 +1090,13 @@ public class HistoriaRedeSocial : MonoBehaviour
                 aoChegarPerto = "Tô vendo daqui da janela: o agente chegou perto dos pneus. Meses reclamando disso... vamos ver.",
                 aoEliminar = new List<string>
                 {
-                    "O agente esvaziou o primeiro pneu e saiu água parada pra todo lado. Faltam {restantesTipo}.",
+                    FalaCarlosDepoisDoPrimeiroPneu,
                     "Mais um pneu sem água. Ninguém tinha feito isso em um ano.",
                     "Tá indo pneu por pneu. Faltam {restantesTipo}, agente!",
                 },
                 aoEliminarUltimo = "ACABOU! Nenhum pneu com água no bairro. Eu reclamei por meses e o agente resolveu numa tarde.",
                 aoLargarPelaMetade = "Ué, o agente mexeu num pneu e foi embora com ele ainda cheio d'água? Volta aqui, moço!",
-                aoUsarFerramentaErrada = "Pneu não adianta só esvaziar: tem que levar embora. Pega com as mãos e leva pra caçamba!",
+                aoUsarFerramentaErrada = "Pneu não adianta só esvaziar: tem que levar embora. Pega com as mãos e leva pra picape da UPA!",
                 epilogoLimpo = "Juntei a vizinhança e o terreno baldio virou horta comunitária. Pneu agora só furado, de vaso de couve.",
                 epilogoPendente = "Os pneus continuam lá, cheios d'água. Todo fim de tarde é aquela nuvem de mosquito.",
             },
@@ -922,7 +1156,7 @@ public class HistoriaRedeSocial : MonoBehaviour
                 },
                 aoEliminarUltimo = "Nenhuma garrafa largada no bairro! Agora é com a gente manter assim.",
                 aoLargarPelaMetade = "O agente começou a recolher as garrafas e deixou metade pra trás. Cada uma que sobra é um criadouro.",
-                aoUsarFerramentaErrada = "Garrafa vai pro saco de lixo e depois pra caçamba. Nada de deixar pelo chão!",
+                aoUsarFerramentaErrada = "Garrafa vai pro saco de lixo e depois pra lixeira. Nada de deixar pelo chão!",
                 epilogoLimpo = "A rua ganhou um ponto de coleta de recicláveis. Garrafa agora vai pro lugar certo, não pro quintal.",
                 epilogoPendente = "O lixo acumulado continua juntando água a cada chuva. Já tem gente doente no fim da rua.",
             },
@@ -1087,7 +1321,7 @@ public class HistoriaRedeSocial : MonoBehaviour
         return new List<PostRedeSocial>
         {
             Novo("Carlos Mendes", "@carlinhos.m",
-                "Olha o agente carregando pneu pela rua! Finalmente alguém tirando esse entulho do terreno.",
+                "Olha o agente carregando pneu pela rua até a picape da UPA! Finalmente alguém tirando esse entulho do terreno.",
                 -1, HumorPost.Positivo),
         };
     }
@@ -1097,8 +1331,64 @@ public class HistoriaRedeSocial : MonoBehaviour
         return new List<PostRedeSocial>
         {
             Novo("Bruna Lima", "@bru.lima",
-                "Primeiro saco de garrafas na caçamba! Lixo no lugar certo não junta água.",
+                "Primeiro saco de garrafas na lixeira! Lixo no lugar certo não junta água.",
                 -1, HumorPost.Positivo),
+        };
+    }
+
+    /* Chuva, atalho e destinos (Parte B). Curtidas -1 = sorteia. */
+    private static List<PostRedeSocial> EntregarPneuPadrao()
+    {
+        return new List<PostRedeSocial>
+        {
+            Novo("Carlos Mendes", "@carlinhos.m",
+                "Primeiro pneu na caçamba da picape da UPA! Um criadouro a menos no bairro.",
+                -1, HumorPost.Positivo),
+        };
+    }
+
+    private static List<PostRedeSocial> PrevisaoPadrao()
+    {
+        return new List<PostRedeSocial>
+        {
+            Novo("Ana Paula", "@anapaula.rs",
+                "Previsão de chuva forte daqui a pouco aqui no bairro! Tudo que estiver só esvaziado vai encher de novo.",
+                -1, HumorPost.Neutro),
+            Novo("João Silva", "@joaosilva",
+                "O céu fechou do lado da praça. Vai cair água já já.",
+                -1, HumorPost.Neutro),
+            Novo("Dona Neusa", "@neusa.flores",
+                "Recolhi a roupa do varal, que vem chuva aí. Quem esvaziou vaso, bota areia antes que encha.",
+                -1, HumorPost.Neutro),
+            Novo("Seu Osvaldo", "@osvaldo.bar",
+                "Trovoada chegando. Daqui a pouco chove forte no bairro.",
+                -1, HumorPost.Neutro),
+        };
+    }
+
+    private static List<PostRedeSocial> EsvaziarPadrao()
+    {
+        return new List<PostRedeSocial>
+        {
+            Novo("Lúcia Andrade", "@lu.plantas",
+                "Esvaziar ajuda, mas os ovos ficam grudados na parede. Se chover, eles voltam.",
+                -1, HumorPost.Neutro),
+        };
+    }
+
+    private static List<PostPorTipo> ReencherPadrao()
+    {
+        return new List<PostPorTipo>
+        {
+            new PostPorTipo { tipo = TipoFoco.Vaso, post = Novo("Dona Neusa", "@neusa.flores",
+                "Choveu e aquele pratinho já está cheio de larva de novo. Tem que pôr areia.",
+                -1, HumorPost.Negativo) },
+            new PostPorTipo { tipo = TipoFoco.Pneu, post = Novo("Carlos Mendes", "@carlinhos.m",
+                "Choveu e o pneu que só esvaziaram encheu de novo. Pneu tem que ir embora na picape.",
+                -1, HumorPost.Negativo) },
+            new PostPorTipo { tipo = TipoFoco.Garrafas, post = Novo("Bruna Lima", "@bru.lima",
+                "Choveu e as garrafas largadas encheram de água de novo. Garrafa vai pro saco e pra lixeira.",
+                -1, HumorPost.Negativo) },
         };
     }
 

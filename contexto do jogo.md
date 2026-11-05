@@ -2399,3 +2399,533 @@ Rota com kit (com pneu a 1,96 m/s, sem correr): 676 m correndo + 86 m com pneu +
 - **Outras falas da Lúcia ainda falam em "esvaziar" a bromélia:** `aoLargarPelaMetade`, `aoEliminarUltimo` ("jato de mangueira") e o epílogo. Ficaram de fora do item L, que pedia só a dica e a 1ª fala.
 - **O `OnReabasteceu` leva o ponto de origem.** Assinante novo usa `Action<PontoDeReabastecimento>`.
 - **A rota mínima do simulador conta cliques** (0,25 s cada). Mudar o número de passos de um foco mexe nessa referência, e por isso no "custo do kit", mesmo sem mudar a rota real.
+
+
+### 2026-10-29 — Spec da Parte B (focos vivos, chuva e entregas com peso)
+
+**Objetivo (pedido do usuário):** seguir o roteiro com a Parte B. O brainstorming terminou com a spec aprovada seção por seção.
+
+**Escolhas do usuário:**
+- **Papel da chuva:** o atalho que cobra depois. Esvaziar com as Mãos (vaso, pneu e garrafas) é rápido e não gasta carga, mas a chuva reenche e o foco volta como larva. A ferramenta certa resolve de vez.
+- **Ciclo do foco:** ovo → larva → mosquito, cerca de 75 s por etapa. O foco com mosquito **pesa mais na barra** (pesos 1 / 1,5 / 2,5), mas não espalha. O estágio aparece **no mundo** (enxame) e **na mira**, nunca na lista.
+- **Foco esvaziado:** alivia a barra, mas não conta para a vitória.
+- **Chuva:** a cada 3 a 4 min, com previsão no celular 45 s antes.
+- **Arquitetura:** um **gerenciador central de focos** (`GerenciadorDeFocos`) substitui as 7 varreduras de `Interactable`.
+- **Feedback com muita importância**, sobretudo carregando. O agente **segura o pneu com os braços** (pose nova no Blender e camada no Animator), sem ícone flutuante.
+- **Destinos (mudam a Parte A):**
+  - pneus vão para a **caçamba da picape da UPA** e ficam empilhados lá;
+  - garrafas vão para as **lixeiras de rua** (as 3 que já existem e mais 2 novas);
+  - as 3 caçambas de entulho saem da cena.
+- **Pneus em tamanho real:** passam de cerca de 2 m de diâmetro para cerca de 0,7 m. A medição na cena mostrou 2,02 m num agente de 1,88 m e numa picape de 2,05 m de altura.
+
+**Arquivo novo:** `docs/superpowers/specs/2026-10-29-parte-b-focos-vivos-e-chuva-design.md`.
+
+**Nenhum script, cena ou asset foi alterado nesta entrada.** O próximo passo é o plano de implementação (`writing-plans`).
+
+**Medições feitas na cena (somente leitura, com a `SampleScene` aberta como aditiva e fechada sem salvar):**
+- distâncias de cada pneu até a picape da UPA (-2,2; -19,2): 36 a 96 m; até a caçamba mais perto: 4 a 20 m;
+- lixeiras de rua: `Trassh Bin` (7, -6), `Trassh Bin (1)` (-10, -15) e `Trash_01` (-20, 24). `Lixo` (-39, 54) é um monte do terreno baldio, não uma lixeira.
+
+**Observações para futuras sessões de IA:**
+- O rig do agente (`AgenteSaude.fbx`) é **Generic** (`animationType: 2`), sem IK Humanoid. A pose de carregar é uma ação do Blender numa camada com `AvatarMask`.
+- Com os pneus até a picape, a partida fica cerca de 4 min mais longa só de caminhada carregando. A spec sobe `multiplicadorCarregando` para 0,85 e pede recalibração no simulador.
+
+
+### 2026-10-29 — Plano de implementação da Parte B
+
+**Objetivo (pedido do usuário):** com a spec da Parte B aprovada, escrever o plano de implementação.
+
+**Arquivo novo:** `docs/superpowers/plans/2026-10-29-parte-b-focos-vivos-e-chuva.md`, com 15 tarefas:
+1. ciclo de vida;
+2. atalho de esvaziar na base, no vaso e nas garrafas;
+3. pneu esvaziado no lugar;
+4. `GerenciadorDeFocos`;
+5. `FluxoDeJogo` com pressão por peso;
+6. migração das outras 6 varreduras e zumbido por estágio;
+7. chuva;
+8. caçamba da picape com vagas e lixeiras;
+9. enxame e textos da HUD;
+10. posts;
+11. pose de carregar, saco na mão e peso, **com preview aprovado pelo usuário antes de seguir**;
+12. sons;
+13. builder `Dengue > Configurar Focos Vivos e Chuva`;
+14. balanceamento;
+15. verificação em Play e registro.
+
+**Nenhum script, cena ou asset foi alterado nesta entrada.**
+
+**Observações para futuras sessões de IA:**
+- `ResultadoDoPasso` ganha `JaVazio` e `Esvaziou` no fim do enum.
+- Os testes novos usam a categoria `ParteB`, e o ciclo roda `ParteA` e `ParteB`.
+
+
+### 2026-11-04 — Parte B implementada: focos vivos, chuva e entregas com peso
+
+**Objetivo (pedido do usuário):** implementar a Parte B do roteiro. Os focos evoluem (ovo → larva → mosquito) e pesam na barra de ocupação. As Mãos ganham um atalho de esvaziar, que a chuva cobra reenchendo. Os pneus vão para a caçamba da picape da UPA, as garrafas vão para as lixeiras de rua, e carregar tem feedback forte.
+
+Spec: `docs/superpowers/specs/2026-10-29-parte-b-focos-vivos-e-chuva-design.md`. Plano (15 tarefas): `docs/superpowers/plans/2026-10-29-parte-b-focos-vivos-e-chuva.md`. Branch `parte-b/focos-vivos-e-chuva`, **sem commit** (o usuário decide). Registro por tarefa: `.superpowers/sdd/2026-10-29-parte-b-focos-vivos-e-chuva/progress.md`.
+
+**Resultado dos testes:** ParteA 57/57 e ParteB 155/155, `Failed: 0`. Console do Play: 0 erros e 0 avisos nas duas sessões (os erros antigos do `Default-Particle.psd` sumiram na Task 12).
+
+**O que o jogador vê agora:**
+- **Ciclo do foco:** ovo → larva → mosquito, com enxame em volta do foco e o estágio na mira ("com larvas", "com mosquitos voando"). A lista não mostra o estágio. Quem tem mosquito pesa mais na barra.
+- **Atalho de esvaziar:** Mãos em vaso e garrafas, em 3 passos (1,2 s), só com a ação definitiva ainda não começada. O pneu não usa o atalho: esvazia nos 5 passos da ação normal, com as Mãos. O foco esvaziado pesa 0, não zumbe, não dá alívio e não conta para a vitória. A mira diz "vazio, por enquanto" e ensina a ferramenta certa.
+- **Chuva:** a cada 3 a 4 min, com previsão no celular 45 s antes. Luz e névoa caem em rampa, depois vêm gotas, trovão e loop. O esvaziado volta como larva.
+- **Destinos:** pneu em tamanho real (0,7 m) para as 6 vagas da carroceria da picape, arremessado em arco e com balanço. Garrafas para as 5 lixeiras de rua. As 3 caçambas de entulho saíram.
+- **Peso de carregar:** pose nova de braços com o pneu, saco na mão direita que cresce com as garrafas, câmera mais pesada, passo pesado, esforço e tilintar.
+
+**Arquivos novos:**
+- **Scripts (`Assets/Scripts/`):** `AssemblyInfo.cs`, `Chuva.cs`, `ChuvaVisual.cs`, `CicloDeVida.cs`, `EnxameDeMosquitos.cs`, `FeedbackDeCarga.cs`, `GerenciadorDeFocos.cs`, `Lixeira.cs`.
+- **Editor (`Assets/Editor/`):** `FocosVivosBuilder.cs` (menu **Dengue > Configurar Focos Vivos e Chuva**), `PoseDeCarga.cs`.
+- **Testes (`Assets/Editor/Testes/`):** `BalanceamentoSimuladorTestes`, `ChuvaTestes`, `CicloDeVidaTestes`, `DestinosTestes`, `EsvaziarTestes`, `FeedbackDeCargaTestes`, `FluxoPressaoTestes`, `GerenciadorDeFocosTestes`, `HistoriaChuvaTestes`, `MigracaoGerenciadorTestes`, `PneuEsvaziarTestes`, `SinaisTestes`, `SonsNovosTestes`.
+- **Assets gerados (`Assets/Meus/Assets Gerados/`):**
+  - `Agente de Saude/Agente_Carregando.mask` e `Agente_CarregandoSaco.mask`;
+  - `Chuva/Gota de Chuva.mat`;
+  - `Saco/Saco.fbx` e `Saco/Saco_Plastico.mat`;
+  - em `Sons/`: `chuva_loop`, `esforco_1` a `3`, `esvaziar`, `lixeira_tampa`, `passo_pesado_1` a `3`, `pneu_picape`, `saco_tilintar`, `suspensao`, `trovao` (.wav).
+- **Ferramentas e docs:** `Ferramentas/Blender/gerar_saco.py`, a spec e o plano.
+
+**Arquivos alterados:**
+- **Scripts:** `Cacamba`, `CameraJogador`, `DengueHUD`, `EmissionHighlightUtil`, `Ferramenta`, `FluxoDeJogo`, `FocoListaHUD`, `FocoProximityGlow`, `GarrafaInteractable`, `HistoriaRedeSocial`, `Interactable`, `Interactor`, `KitDoAgente`, `KitHUD`, `PneuInteractable`, `PontoDeReabastecimento`, `PontoDeUso`, `RedeSocial`, `SomDoJogador`, `SomDoKit`, `SomDosFocos`, `VasoInteractable`.
+- **Editor:** `BalanceamentoSimulador`, `ImportadorDeSons`, `KitDoAgenteBuilder`, `SomBuilder`.
+- **Testes:** `PneuCarregarTestes`, `PontosDeUsoTestes`.
+- **Assets e cena:** `AgenteSaude.fbx` (e `.meta`), `Agente_AnimController.controller`, `Vaso de Flor.prefab`, `Assets/Scenes/SampleScene.unity`.
+- **Configuração e ferramentas:** `ProjectSettings/GraphicsSettings.asset` (Fog Modes em Custom, com Linear), `Ferramentas/Audio/gerar_sons.py`, `Ferramentas/Blender/gerar_agente.py`.
+
+**Valores finais (na cena):**
+
+| Campo | Valor |
+|---|---|
+| `FluxoDeJogo.taxaComTodosOsFocos` | **0,0013** (era 0,00277) |
+| `FluxoDeJogo.alivioPorFoco` | **4,5%** (era 2,5%) |
+| `FluxoDeJogo.recuperacaoSemFocos` | 0,1%/s (sem mudança) |
+| Ciclo | 75 s por estágio; pesos ovo 1, larva 1,5, mosquito 2,5 |
+| Início da partida | 3 focos com mosquito, 1/3 dos outros com larva, o resto com ovo |
+| Atalho (vaso e garrafas) | 3 passos em 1,2 s; o pneu esvazia nos 5 passos da ação normal |
+| Chuva | entre inícios 180–240 s, previsão 45 s, chovendo 20 s, volta do visual 10 s |
+| Visual da chuva | luz × 0,45, névoa Linear de 15 a 120 m |
+| `KitDoAgente.multiplicadorCarregando` | 0,85 |
+| Carroceria e saco | 6 vagas; saco de 6 garrafas |
+
+Os padrões dos campos no código continuam os antigos (0,003 e 0,025). Quem grava a calibração é o `FocosVivosBuilder`.
+
+**Simulador (Dengue > Simular Balanceamento, Task 14):**
+
+```
+[Balanceamento] 22 focos · ocupação inicial 70% · mínima 30% · alívio por foco 4,5%
+Taxa depois da rampa: +0,03%/s com todos em ovo · +0,23%/s com todos em mosquito · a ocupação começa a descer com 6 focos restantes em mosquito
+Ritmo + custo do kit (s/foco; os últimos levam até 1,6x; custo do kit 11,2 s/foco; maioria de 10 sementes):
+  15 s + 11,2 s → vence em 12:22 · pico 71% (70%–71%) · final 30% · 10/10 sementes vencem
+  20 s + 11,2 s → vence em 14:43 · pico 71% (71%–72%) · final 30% · 10/10 sementes vencem
+  25 s + 11,2 s → vence em 17:05 · pico 78% (77%–79%) · final 30% · 10/10 sementes vencem
+  30 s + 11,2 s → vence em 19:26 · pico 87% (86%–88%) · final 30% · 10/10 sementes vencem
+  35 s + 11,2 s → vence em 21:48 · pico 95% (94%–96%) · final 31% · 10/10 sementes vencem
+  40 s + 11,2 s → PERDE aos 7:37 (7:16–8:17) com 7/22 focos · 0/10 sementes vencem
+  45 s + 11,2 s → PERDE aos 6:17 (5:54–6:42) com 5/22 focos · 0/10 sementes vencem
+  50 s + 11,2 s → PERDE aos 5:39 (5:17–6:01) com 4/22 focos · 0/10 sementes vencem
+  parado → PERDE aos 3:21 (3:16–3:26) com 0/22 focos · 0/10 sementes vencem
+```
+
+- Os 4 critérios fecham nas 10 sementes: 30 s/foco com pico até 90%, 35 s vence, 40 s perde, parado perde entre 2:30 e 3:30.
+- **Nota sobre o alívio mínimo:** o relatório da Task 14 diz "pelo menos 4%", e isso é impreciso. Com 3,75% e taxa 0,00125 também fecha, mas sem folga. A escolha de 4,5% continua de pé: é o menor valor testado com 4 s de folga no parado.
+- A transição é abrupta: a primeira derrota de alguma semente sai em 37 s/foco, e a última vitória em 38 s/foco. A margem é de cerca de 2 s/foco para cada lado.
+
+**Verificado em Play (Task 15, `SampleScene`, duas sessões, abertura pulada, `runInBackground` só no teste):**
+1. **Início:** 3 focos em Mosquito, cada um com o filho "Enxame" tocando (24 mosquitos). Pressão 1,341.
+2. **Ciclo:** `Avancar(75)` mudou 19 estágios, e a pressão foi de 1,341 a 1,909.
+3. **Esvaziar e reencher:**
+   - O vaso esvaziado com as Mãos foi de peso 2,5 a 0, e um novo passo deu `JaVazio`.
+   - A chuva o reencheu como Larva (peso 1,5).
+   - Saíram a previsão, o post da Lúcia (primeiro esvaziar) e o da Bruna (primeiro reenchido).
+4. **Pneus:** os 6 ficaram nas Vagas 1 a 6, com a escala certa, e `FocosEliminados` subiu 6.
+5. **Saco:** 5 garrafas esvaziadas na Lixeira Oeste, e a lixeira recusa com o saco vazio. Há 5 lixeiras em cena.
+6. **Vitória:** com os 22 focos tratados, cada um com a ferramenta certa, saiu `OnVitoria`.
+7. **Console:** 0 erros e 0 avisos nas duas sessões, conferido também por `Application.logMessageReceived`.
+
+**Conferências extras:**
+- **Enxame e mira:** mirar e chegar perto do Ralo (2) com enxame não logou `_EmissionColor`.
+- **Poses (andar e correr por um controle virtual do Input System):**
+  - Com pneu: 2,38 m/s, sem corrida, camada "Carregando" em 1.
+  - Sem pneu: 2,80 m/s e 5,80 m/s, camada em 0. Os ossos do braço voltam ao descanso: diferença de 0,4° a 1,3°.
+  - Com o saco: camada "CarregandoSaco" em 1 e volta a 0 depois da lixeira, com o braço solto de novo (0,4°).
+  - O saco some com o pneu nos braços e volta ao largar.
+- **Pneu largado longe (zumbido):** reenchido a cerca de 80 m de onde nasceu, zumbe no lugar novo (fonte a 0,00 m do pneu, tocando, volume 0,245).
+- **Voltar ao menu pela pausa, chovendo:** a `MenuInicial` fica com a névoa dela (Linear, 40 a 170 m, cor 0,86/0,66/0,52), igual à registrada antes do Play.
+- **Água na cena real:**
+  - No vaso, o plano da água desce de y 1,210 a 1,162 (o fundo do prato), some no último passo e volta na altura original.
+  - O pneu perde e recupera a água.
+  - **As garrafas não têm água nenhuma:** os 3 grupos (22 garrafas e latas) não têm filho `agua*`, então esvaziar e reencher não muda nada no modelo (ver o item abaixo).
+- **Sons com o Player completo, por dedução:** a medida foi contar as subidas de `AudioSource.isPlaying` a cada tick do Editor. Ela mostra que a fonte começou a tocar, e não qual clipe tocou: o `PlayOneShot` não expõe o clipe. O que se mediu e o que se deduziu:
+  - **Passo pesado:** a fonte `Som Passos` subiu várias vezes andando com pneu, com o `PassoPesado` ligado e 3 clipes em `passosPesados` na cena. Que o clipe tocado era o pesado é dedução, juntando o flag e os clipes.
+  - **Esforço:** a fonte `Som Carga` subiu 4 vezes nos primeiros 20 s com o pneu. É esforço por eliminação: essa fonte só toca esforço e tilintar, e com o pneu o tilintar não sai.
+  - **Tilintar:** sem pneu e sem saco, a contagem da `Som Carga` ficou parada em 28, andando e correndo. Com o saco a 5/6, andando, foi a 30. É tilintar por eliminação: o esforço só toca com o pneu, então sem pneu só ele resta.
+  - **Tilintar correndo:** inconclusivo (ver "O que NÃO foi verificado").
+  - **Limiar da metade do saco:** não foi medido em Play, que só testou 5/6 e sem saco. Quem o cobre são os testes EditMode `Tilintar_ACadaPasso_ComSacoAcimaDaMetade` e `Tilintar_SacoAteAMetade_NaoToca`, que chamam `PassoDoSaco` sem fonte de áudio: a regra está testada, mas nenhum som tocou nesses casos.
+- **Mira e botões pelo `Interactor` real (controle virtual):** segurar esvaziou o vaso e o pneu, soltar e apertar de novo pegou o pneu, e o botão de largar largou.
+- **Capturas:** `.superpowers/sdd/2026-10-29-parte-b-focos-vivos-e-chuva/task-15-*.png` (enxame, chuva, pneu em 1ª pessoa, carroceria com 6 pneus, saco na mão, HUD "com larvas" e "vazio, por enquanto").
+
+**Bug achado e corrigido na Task 15:**
+- **O que era:** colado num muro, o pneu largado ficava flutuando a 2,1 m do chão. O pneu recua para perto do agente, e o raio do chão desce por dentro do corpo dele. O `CharacterController` fica na camada Default, a máscara não o tira, e o raio parava no corpo. Pior: a altura errada ia para o `alturaDoPivo` no pegar seguinte, e o pneu não descia mais.
+- **Correção:** `PneuInteractable.AcharChao`, usado no `OndeCai` e no `PrenderEm`, pega o acerto mais perto fora do corpo do agente.
+- **Teste novo:** `Largar_ColadoNoMuro_OCorpoDoAgenteNaoEChao` (`ParteA`). Antes da correção dava 2,10 m; agora dá 0,70 m. Na cena, encostado no `building 2`, o pneu assentou em y 0,657.
+
+**O que NÃO foi verificado:**
+- **Partida real com teclado e mouse.** A entrada foi um controle virtual ou chamadas diretas. Os focos foram tratados por `AvancarCom`, sem andar até cada um.
+- **Sons de ouvido.** `isPlaying` diz que a fonte tocou, não qual clipe, como soa nem se o volume está bom. Em especial: esforço, tilintar, passo pesado, trovão e a repetição do alerta.
+- **Identidade dos clipes de carga.** O tilintar, o esforço e o passo pesado foram deduzidos (ver "Sons com o Player completo"): nenhum clipe tocado foi lido.
+- **Tilintar correndo.** Com o saco a 5/6, a contagem da `Som Carga` não subiu mais ao correr. A amostra só conta subidas, então não dá para saber se a fonte seguiu tocando sem soltar ou se não tocou. Fica inconclusivo.
+- **Limiar da metade do saco em Play.** Com garrafas, só se andou com o saco a 5/6, sem nenhuma rodada de 1 garrafa até a metade: o limiar vem só dos testes EditMode.
+- **Dificuldade jogada.** Só há o simulador, e ele é pessimista.
+- **Build exportada:** a névoa Linear e o `_EMISSION` na mira dependem das variantes levadas para a build, e ninguém testou um executável.
+- **Abertura e saída do hospital reais.** A abertura foi pulada, e `IniciarPartida` foi chamado direto.
+- **Balanço da picape quadro a quadro,** nem a densidade das gotas como gosto do usuário.
+
+**Decisões tomadas durante a execução (`Ruling:` do ledger, em resumo):**
+- **Processo:** sem worktree e sem commit; o índice do git foi a base de cada tarefa. Dois revisores por tarefa, e as correções foram para agentes novos. A T11 parou até o usuário aprovar a pose, e os testes zeram `punchScale` e `shrinkDuration` quando não testam animação.
+- **Gerenciador:**
+  - Campo vazio chama `GerenciadorDeFocos.Obter()`: acha o da cena e, em Play, cria um se faltar. Ele também acha inativo, assina o fluxo no Awake e não cria saindo do Play.
+  - Um gerenciador inativo fica com o ciclo parado, sem aviso (fica assim).
+  - Os consumidores desassinam só pelo campo em cache.
+  - O sorteio exclui os esvaziados.
+  - O ciclo anda em velocidade cheia com o celular aberto.
+- **Esvaziar:**
+  - O passo não dispara `OnClicado`.
+  - `Esvaziou` exige soltar o botão, e `JaVazio` conta como recusa.
+  - `NoCaminhoDeEsvaziar` é público.
+  - Com a ação definitiva começada, vaso e garrafa não reenchem. O pneu nos braços também não, e o reencher zera os cliques.
+  - A água do pneu só sai no último passo.
+  - A mira das Mãos diz "Segure para esvaziar (a chuva enche de novo)", com toast próprio.
+- **Chuva:**
+  - `Avancar(dt)` processa em ordem todas as transições que atravessa.
+  - A névoa ficou Linear, com o builder pondo o Fog Modes em Custom.
+  - O `ChuvaVisual` só restaura o `RenderSettings` se alterou algo e se a cena dele é a ativa.
+  - A previsão recusada na janela de conflito fica pendente e tenta de novo, em prioridade Alta.
+- **Caçamba e lixeira:**
+  - Com pneu, a picape delega à `Cacamba`.
+  - Fora do Play o arremesso é instantâneo.
+  - A `Cacamba` conta os recebidos, e o pneu sem vaga encolhe 1,2 m acima do pivô.
+  - `ReservarVaga` pula vagas nulas.
+  - As vagas têm escala (1, 1, 1).
+  - Os textos não repetem o "segure".
+- **HUD e posts:**
+  - `Ferramentas.ComArtigo` dá o artigo certo.
+  - O toast do pneu diz "leve à picape".
+  - O enxame sincroniza no `Ligar` e fica fora do brilho (`Destacavel`).
+  - O reenchido usa `PostPorTipo`.
+  - O primeiro esvaziar ignora o pneu.
+- **Carga:**
+  - A pose vive em `PoseDeCarga.cs`.
+  - O saco pedido pelo usuário exigiu uma camada só do braço direito.
+  - As camadas nascem com peso 0 no asset.
+  - O `ModoPesado` é suavizado.
+  - O saco some com o pneu nos braços.
+- **Sons:** ficam em `Assets/Meus/Assets Gerados/Sons/`. As partículas de estouro usam material estático e textura gerada em código.
+- **Cena:** pneu medido no espaço dele (0,700 nos 6). Lixeiras novas copiam a `Trassh Bin (1)`, de 1,08 m. Nenhuma lixeira tem tampa separada.
+- **Balanceamento:** "média das sementes" é maioria, e a ordem de eliminação é a posição no sorteio. Alívio 4,5% e taxa 0,0013 foram a exceção prevista: só a taxa não fechava os 4 critérios.
+- **Encaminhadas e resolvidas:**
+  - **R3-1:** os comentários do `Interactable` que punham o pneu nos braços no último passo foram corrigidos (o último passo esvazia; pegar é o passo seguinte).
+  - **T6U-3:** o volume do zumbido muda de estágio em rampa (`fator` no `SomDosFocos`), sem degrau.
+  - **T6U-4:** a lista `focos` morta do `SomDosFocos` foi removida.
+  - **U8-1:** aceito que a cena não fechasse a partida entre a T8 e a T13; as lixeiras da T13 fecharam.
+  - **U8-6:** largar contra a cabine entrega (`CacambaDe`), e o tempo de segurar na delegação é o da caçamba (`SegundosParaUsarPara`).
+  - **U8-7:** o pneu empilhado não pisca com a picape mirada (`Interactor.EntraNoDestaque`).
+  - **U8-10:** o `OnDisable` da `Lixeira` fecha a tampa, e o da `Cacamba` endireita a carroceria.
+  - **U1:** o zumbido e o splash do pneu movido tocam onde ele está (`SomDosFocos.CentroAtual`).
+  - **T12-1:** o esforço não toca no epílogo (`FeedbackDeCarga.SonsLigados`).
+  - **T12-2:** sem pneu, o tempo de segurar na carroceria é o da picape (`Cacamba.SegundosParaUsarPara`).
+
+**Desvios do plano:**
+- **Névoa Linear** no lugar de `densidadeDeNevoaNaChuva`: os campos viraram `inicioDaNevoaNaChuva` e `fimDaNevoaNaChuva`, porque a névoa Linear sobrevive ao stripping da build.
+- **Pneu subiu 10 cm com a pega nova** (`PosicaoDaCarga`), depois do preview aprovado pelo usuário.
+- **Saco escondido com o pneu nos braços,** contra o "ativo com GarrafasNoSaco > 0" do plano: as duas mãos estão no pneu.
+- **Lixeiras sem animação de tampa.** Os 3 modelos são malha única, e só o som toca. O feedback substituto (balanço ou punch) ficou para decidir.
+- **`Assets/Scripts/AssemblyInfo.cs` com `InternalsVisibleTo("Assembly-CSharp-Editor")`,** para os testes chamarem métodos `internal`.
+- **O alerta sonoro pode repetir com o alívio novo:** 4,5% rearma o alerta (rearme 0,03) a cada foco, e o marco de 95% pode tocar até 4 vezes. Falta avaliar jogando.
+- **`alivioPorFoco` mudou:** o plano só previa mexer na taxa e, se preciso, no multiplicador.
+
+**Observações para futuras sessões de IA:**
+- **Só o gerenciador varre `Interactable`.** Nos scripts de jogo, ninguém mais faz `FindObjectsByType<Interactable>`. Quem precisa de focos usa `GerenciadorDeFocos.Obter()` e os eventos dele.
+- **O atalho fica na base (`Interactable`),** ligado por `podeEsvaziar`. Vaso e garrafas só dizem o que acontece com a água. O pneu não usa o atalho: esvazia nos 5 passos da ação normal.
+- **Os pneus estão em escala real** (0,7 m, escala de mundo 34,7) e **não há mais caçambas de entulho.** A única `Cacamba` é a da picape. O `Cacamba.mat` ficou órfão.
+- **Depois do `PlayerBuilder`, rode o menu Focos Vivos** (`GarantirAssets` + `Aplicar`), senão a pose de carga e o saco somem do Player.
+- **Cada rodada do menu reescreve o controller:** os fileIDs do `Agente_AnimController.controller` mudam sem mudança de comportamento.
+- **O simulador é pessimista:** o pneu esvaziado pesa 0 durante a viagem no jogo, mas no simulador pesa até a entrega, e o atalho fica de fora. O jogo real fica um pouco mais fácil que a tabela.
+- **A margem é estreita (~2 s/foco).** Mudar a picape de lugar ou o número de pneus pode pedir recalibração.
+- **O corpo do agente é collider na camada Default.** Raio que desce perto dele precisa ignorá-lo (`PneuInteractable.AcharChao`). A máscara `CorpoJogador` só tira a malha do modelo.
+- **Colado num muro, largar o pneu empurra o agente uns 20 cm:** o pneu recua e nasce encostado na cápsula. Não atrapalha, mas é o único caso em que ele nasce tocando o corpo.
+- **As garrafas não têm água na cena.** O `AoEsvaziar` e o `AoReencher` da `GarrafaInteractable` só agem sobre filhos `agua*`, que não existem nos 3 grupos. O feedback ali é o loop de segurar, o splash, o toast e a mira. Para ver a água mudar, é preciso modelar esses filhos.
+- **A `Chuva.Avancar` de uma vez só (fora do jogo normal) junta previsão e reenchido no mesmo instante,** e o post do reenchido cai na janela de conflito. No jogo há 45 s entre os dois, e o post saiu normalmente.
+- **`capture_game_view` grava em `Assets/` mesmo com caminho absoluto.** Mova a captura e apague a pasta `Assets/.superpowers`.
+
+
+### 2026-11-04 — Correções da revisão final da Parte B
+
+**Objetivo:** leva única de correção da revisão final (`.superpowers/sdd/2026-10-29-parte-b-focos-vivos-e-chuva/final-review-report.md`). Branch `parte-b/focos-vivos-e-chuva`, **sem commit**. Ficam como estão, por decisão do controlador: M6 (largar colado no muro empurra ~21 cm) e M7 (o alerta rearma a cada foco).
+
+**Resultado dos testes:** ParteA 57/57 e ParteB 165/165, `Failed: 0` (eram 155: 10 testes novos). Com as correções de M1, M2, M3, M4 e M8 desligadas de propósito, 5 testes falharam, um por correção; o código foi restaurado depois.
+
+**O que mudou:**
+- **M1 (post do primeiro pneu):** "Primeiro pneu na caçamba..." nunca saía: a fala do dono fechava a janela de conflito no mesmo quadro. Agora sai dentro do `HandleFocoEliminado`, depois dos finais, em prioridade Alta. Saíram a assinatura do `OnPneuEntregue` na `HistoriaRedeSocial` e o `HandlePneuEntregue` (o evento do kit fica). O teste passa pela entrega real, com a janela ligada.
+- **Fala do Carlos:** a 1ª do `aoEliminar` dizia "primeiro pneu" e sairia no 2º. Virou "Lá se vai mais um na picape da UPA. Faltam {restantesTipo}, e eu tô contando daqui da janela." (`FalaCarlosDepoisDoPrimeiroPneu`). O `RegravarTextosDaParteB` regrava só essa fala, e ela foi gravada na cena.
+- **M2 (aviso da entrega):** com vaga na carroceria, o `HandleCompleted` conta e dá o punch, sem "Foco eliminado!"; o "Pneu recolhido — N de T" sai no fim do arco. Sem vaga, o aviso de eliminado continua.
+- **M3 (lixeira):** sem tampa, a raiz balança ±6° em 0,3 s, em torno do Z do mundo (em 4 das 5, o Z local é o vertical, pelo giro de -90° do import), e volta ao giro original, também no `OnDisable`. As 5 lixeiras da cena têm `StaticEditorFlags` 0: o builder não precisou mudar.
+- **M4 (garrafas):** a mira do grupo esvaziado diz "Garrafas viradas — vazias, por enquanto", sem o "juntando água". Sem modelar água.
+- **M5 (enxame a distância):** com 0,002 e 24 partículas, o enxame não se lia a 15 e a 20 m: pontos de 2–3 px soltos no cenário. Subiu para `TamanhoMinimoNaTela` **0,004** e `particulas` **40** (no código e na cena). Agora se lê a 15 m, a 20 m e a 20 m na chuva.
+- **M8 (som):** o `primeiroClique` só toca com `!foco.Esvaziado` (`SomDosFocos.TocaPrimeiroClique`).
+- **M9 e T2-4 (comentários):** `EstoqueDoKit` e `GarrafaInteractable` mandam o saco para a lixeira, o `Interactor` diz que o pneu entregue fica na vaga, e o cabeçalho de `EsvaziarTestes` diz que o pneu esvazia pelo caminho normal.
+- **R15-2 e R15-3 (este arquivo):** na entrada da Parte B, vaso e garrafas usam o atalho de 3 passos e o pneu esvazia nos 5 da ação normal, e entrou o bullet "Encaminhadas e resolvidas".
+
+**Arquivos alterados:**
+- **Scripts:** `DengueHUD`, `EnxameDeMosquitos`, `EstoqueDoKit`, `GarrafaInteractable`, `HistoriaRedeSocial`, `Interactor`, `Lixeira`, `SomDosFocos`.
+- **Testes:** `DestinosTestes`, `EsvaziarTestes`, `HistoriaChuvaTestes`, `SinaisTestes`.
+- **Cena:** `Assets/Scenes/SampleScene.unity`, só a 1ª fala do Carlos e `EnxameDeMosquitos.particulas`.
+
+**Configurações aplicadas:**
+
+| Campo | Valor |
+|---|---|
+| `EnxameDeMosquitos.TamanhoMinimoNaTela` | **0,004** (era 0,002) |
+| `EnxameDeMosquitos.particulas` | **40** (era 24, código e cena) |
+| Balanço da lixeira | ±6° em 0,3 s, uma oscilação |
+
+**Verificado em Play (`SampleScene`, abertura pulada, `runInBackground` só no teste, chamadas diretas de `Usar`, `Pegar` e `EntregarPneu`):**
+- **Entrega real:** "Pneu recolhido — 1 de 6" a 0,60 s, `Eliminados` em 1, e o post do Carlos publicado. A ausência do "Foco eliminado!" antes do arco só tem cobertura em EditMode (em Play foi lido o texto do rótulo, não o alpha).
+- **Lixeira Oeste:** ângulo máximo 6,00°, ângulo final 0,000°.
+- **Capturas:** `.superpowers/sdd/2026-10-29-parte-b-focos-vivos-e-chuva/task-16-enxame-15m.png`, `task-16-enxame-20m.png`, `task-16-enxame-20m-chuva.png` e as duas `-antes` (vaso em frente à delegacia, com os valores antigos).
+
+**O que NÃO foi verificado:**
+- **Partida real com teclado e mouse.** Continua sendo condição do merge.
+- **Build exportada.** Névoa Linear e `_EMISSION` na mira seguem sem prova num executável.
+- **Sons de ouvido.** O `primeiroClique` corrigido e os sons da Parte B seguem sem escuta.
+- **Enxame em toda a cena.** Medido em um foco, no pneu do terreno baldio, contra a cerca; as capturas novas são só dele. Contra fundo movimentado, só há a captura `-antes`.
+- **Balanço visto em movimento.** Medi o ângulo, mas ninguém olhou a lixeira balançando.
+- **Aviso da entrega em Play.** O alpha do aviso não foi medido, e o punch do contador só tem cobertura em EditMode.
+
+**Observações para futuras sessões de IA:**
+- **O evento `KitDoAgente.OnPneuEntregue` segue existindo,** usado nos testes, mas a história não o escuta: o post sai do `HandleFocoEliminado`. A janela de conflito recusaria um segundo post no mesmo quadro.
+- **`AGENTS.md` continua desatualizado:** diz que o `PneuInteractable` tira a água "após 3 cliques" e "encolhe até sumir". Só o usuário pode pedir essa mudança.
+- **`particulas` é serializado:** mudar o padrão no código não muda a cena.
+
+
+### 2026-11-04 — Ajustes da Parte B depois da partida do usuário
+
+**Objetivo (pedido do usuário):** corrigir três pontos vistos jogando.
+
+**Arquivos alterados:** `Assets/Scripts/FeedbackDeCarga.cs`, `Assets/Scripts/EnxameDeMosquitos.cs`, `Assets/Scripts/DengueHUD.cs`, `Assets/Editor/Testes/FeedbackDeCargaTestes.cs`, `Assets/Editor/Testes/SinaisTestes.cs` e `Assets/Editor/Testes/SonsNovosTestes.cs`.
+
+**Mudanças:**
+- **Saco:** só fica à mão com o saco de lixo selecionado. Trocar de ferramenta guarda o saco, baixa o braço e para o tilintar; as garrafas continuam dentro. Vale também para a tecla 5 de volta.
+- **Mosquitos:** `TamanhoMinimoNaTela` foi de 0,004 para 0, então cada mosquito encolhe com a distância. Isso desfaz o ajuste M5 da revisão final: o enxame deixa de ser lido de 15 a 20 m por construção, e o requisito da spec dá lugar ao pedido do usuário.
+- **Mira:** saíram "com larvas" e "com mosquitos voando" (e o `ComplementoDoEstagio`). Fica só "vazio, por enquanto". Com isso, o estágio larva não tem mais nenhum sinal para o jogador.
+
+**Observações para futuras sessões de IA:** o foco ainda muda de estágio e pesa na barra; só o texto saiu da mira.
+
+
+### 2026-11-04 — Skill check no ralo
+
+**Objetivo:** Trocar o "segurar até concluir" do ralo por uma sequência de skill checks, a pedido do usuário.
+
+**Arquivos alterados:**
+- `Assets/Scripts/SkillCheck.cs` (novo) — lógica pura: `SkillCheck` e `SessaoDeSkillCheck`.
+- `Assets/Scripts/SkillCheckHUD.cs` (novo) — anel no centro da tela, com Canvas próprio em código. O `Interactor` adiciona o componente no `Start`; nada na cena.
+- `Assets/Scripts/Interactor.cs` — em foco com `UsaSkillCheck`, um aperto inicia os checks; evento `OnErrouSkillCheck`.
+- `Assets/Scripts/Interactable.cs` — `UsaSkillCheck`, `SegundosPorVoltaDoCheck`, `ErrarSkillCheck`, `CancelarSkillCheck`.
+- `Assets/Scripts/RaloInteractable.cs` — erro zera o progresso, devolve a grelha e gasta a tela; campo `segundosPorVolta`.
+- `Assets/Scripts/ControladorJogador.cs` — `Imobilizado`: sem andar, olhar nem pular, com a entrada ligada.
+- `Assets/Scripts/CelularController.cs` — o celular não abre durante o check.
+- `Assets/Scripts/DengueHUD.cs` e `Assets/Scripts/SomDoKit.cs` — aviso e som de erro.
+- `Assets/Editor/KitDoAgenteBuilder.cs` e `Assets/Meus/Assets Gerados/Focos/Ralo.prefab` — ralo com 3 passos (era 8).
+- `Assets/Editor/Testes/SkillCheckTestes.cs` (novo).
+
+**Configurações aplicadas:** 3 checks; 1,2 s por volta; zona de 15%, 12,5% e 10% do anel, sorteada entre 30% e 95% da volta; anel de 120 px em 1920x1080. Clicar fora da zona ou deixar a volta acabar é erro.
+
+**Observações técnicas:**
+- Testes EditMode: 232 de 232, já com o `Outline` do contador.
+- Play Mode: os 4 ralos têm 3 passos. O tempo esgotado zerou o progresso, gastou a tela e soltou o jogador. O check foi iniciado por reflexão; o clique real do mouse não foi exercitado.
+- O contador "1/3" não apareceu na captura sobre a parede clara, e o `Outline` foi acrescentado sem nova captura.
+- `Bloqueado` no meio do check cancela sem gastar a tela. O `BalanceamentoSimulador` segue com 2,0 s por ralo e não conta os erros nem a viagem extra à picape.
+
+
+### 2026-11-04 — Visual do skill check do ralo
+
+**Objetivo:** Deixar só o skill check na tela durante a ação e melhorar o visual, a pedido do usuário.
+
+**Arquivos alterados:**
+- `Assets/Scripts/SkillCheckHUD.cs` — refeito: disco escuro, trilho fino, rastro do ponteiro, zona verde com brilho, ponteiro afilado e um pontinho por check no lugar do texto "1/3". Formas em sprites gerados com borda suave; zona e rastro usam `Image` Filled radial. Animações de entrada, acerto, conclusão e erro.
+- `Assets/Scripts/DengueHUD.cs` — durante o check, esconde a mira e o painel do alvo (texto, barra e 3/5). Nova `AcaoSkillCheck`: "Clique para encaixar a grelha", no lugar do "segure o clique" no ralo.
+
+**Configurações aplicadas:** anel segue com 120 px em 1920x1080; ponteiro fica verde dentro da zona.
+
+**Observações técnicas:**
+- Testes EditMode: 232 de 232.
+- Play Mode, com check iniciado por script: mira desligada e `targetGroup` em alfa 0, conferidos por reflexão; anel e pontinhos conferidos em captura, sobre o ralo. As animações não foram vistas em movimento.
+- Canvas `ScreenSpaceOverlay` não aparece no `screenshot`: para capturar, trocar o Canvas `SkillCheckHUD` para `ScreenSpaceCamera` por eval.
+- Compilar com o Editor em Play Mode recarrega o domínio e deixa referências nulas (`KitHUD.cs:127`, `SkillCheckHUD`). Sair do Play Mode antes de recompilar.
+
+
+### 2026-11-04 — Skill check sem o rastro do ponteiro
+
+**Objetivo:** Tirar a faixa que acompanhava o ponteiro no anel, a pedido do usuário.
+
+**Arquivos alterados:** `Assets/Scripts/SkillCheckHUD.cs` — saiu a camada `Rastro`.
+
+**Configurações aplicadas:** nenhuma.
+
+**Observações técnicas:** o trilho, a zona e o ponteiro não mudaram.
+
+
+### 2026-11-04 — Pilha de pneus na cena
+
+**Objetivo:** Organizar os pneus do objeto `PilhadePneu` como uma pilha de verdade, a pedido do usuário.
+
+**Arquivos alterados:** `Assets/Scenes/SampleScene.unity` — 6 filhos de `--- FOCOS ---/PilhadePneu`.
+
+**Configurações aplicadas:** pneus deitados, em coluna única sobre o chão (y 0,293 a 1,460), com giro e deslocamento de até 3 cm em cada um para não ficar perfeito. Encaixe de 1 cm entre eles.
+
+**Observações técnicas:** altura conferida pelos `Renderer.bounds`, sem captura de tela. Os pneus não têm física: tirar um de baixo deixa os de cima parados no ar.
+
+
+### 2026-11-04 — Pneus em monte, em vez de pilha
+
+**Objetivo:** Trocar a coluna do `PilhadePneu` por um monte jogado, com cara de abandonado, a pedido do usuário.
+
+**Arquivos alterados:** `Assets/Scenes/SampleScene.unity` — 6 filhos de `--- FOCOS ---/PilhadePneu`.
+
+**Configurações aplicadas:** queda simulada no Editor (`Physics.Simulate`, 500 passos, semente 7). 4 pneus ficaram no chão e 2 apoiados neles. `Rigidbody` e `convex` foram só da simulação e saíram depois.
+
+**Observações técnicas:** esta entrada substitui a anterior, da coluna. Os pneus seguem sem física: tirar um de baixo deixa os apoiados parados como estão.
+
+
+### 2026-11-04 — Água dos pneus do monte
+
+**Objetivo:** Ajustar a água dos pneus do `PilhadePneu` à nova posição deles, a pedido do usuário.
+
+**Arquivos alterados:** `Assets/Scenes/SampleScene.unity` — filho `agua do pneu` dos 6 pneus.
+
+**Configurações aplicadas:** água sempre nivelada. Nos 4 pneus deitados, lâmina de 0,42 x 0,42 m tapando o furo, 2 cm abaixo do centro. Nos 2 inclinados, lâmina de 0,24 x 0,40 m a 15 cm do centro, no lado mais baixo do pneu.
+
+**Observações técnicas:** o `agua do pneu` é um cubo escalado, feito para pneu em pé: deitado, virava uma placa vertical. Os demais pneus da cena não mudaram. O `BoxCollider` da água acompanhou a nova escala.
+
+
+### 2026-11-04 — Água recortada no formato do pneu
+
+**Objetivo:** Fazer a água dos pneus do `PilhadePneu` ficar só dentro do pneu, a pedido do usuário.
+
+**Arquivos alterados:**
+- `Assets/Scenes/SampleScene.unity` — `agua do pneu` dos 6 pneus usa malha própria; `BoxCollider` ajustado a ela.
+- `Assets/Meus/Assets Gerados/Focos/Agua dos Pneus/` (novo) — 6 malhas `.asset`, uma por pneu.
+
+**Configurações aplicadas:** lâmina nivelada, recortada pelo interior do pneu (raio 0,25 m, 8,5 cm de cada lado do plano do pneu). Nos deitados, 2 cm abaixo do centro; nos inclinados, 10 cm abaixo.
+
+**Observações técnicas:** substitui as lâminas retangulares da entrada anterior. As malhas valem para a posição atual: mover ou girar um pneu do monte exige gerar a dele de novo.
+
+
+### 2026-11-04 — Água só na parte oca dos pneus do monte
+
+**Objetivo:** Deixar o furo dos pneus do `PilhadePneu` vazio, com água só por dentro da borracha, a pedido do usuário.
+
+**Arquivos alterados:**
+- `Assets/Scenes/SampleScene.unity` — `agua do pneu` dos 6 pneus (posição, escala e `BoxCollider`).
+- `Assets/Meus/Assets Gerados/Focos/Agua dos Pneus/` — as 6 malhas refeitas.
+
+**Configurações aplicadas:** lâmina nivelada, limitada à parte oca: raio de 0,215 a 0,325 m e 7,2 cm de cada lado do plano do pneu. Deitados: anel 1,5 cm acima da lateral de baixo. Inclinados: poça em meia-lua, 5 cm acima do ponto mais baixo.
+
+**Observações técnicas:**
+- A malha do pneu é oca, com a abertura voltada para o furo (raio 0,205 m). Substitui a entrada anterior, que tapava o furo.
+- A água fica sob a lateral de cima: é vista pelo furo, em ângulo, e não de cima.
+- Na captura, os 4 pneus deitados têm o furo vazio. A água dos 2 inclinados não ficou visível nesse ângulo; a malha deles foi gerada (42 e 38 triângulos).
+- As malhas valem para a posição atual dos pneus.
+
+
+### 2026-11-04 — Água na parte oca em todos os pneus
+
+**Objetivo:** Aplicar a água da parte oca a todos os pneus da cena, respeitando o ângulo de cada um, a pedido do usuário.
+
+**Arquivos alterados:**
+- `Assets/Scenes/SampleScene.unity` — `agua do pneu` dos 11 pneus (`--- FOCOS ---` e `PilhadePneu`).
+- `Assets/Meus/Assets Gerados/Focos/Agua dos Pneus/` — 11 malhas `.asset`, uma por pneu.
+
+**Configurações aplicadas:** mesmos limites da parte oca da entrada anterior (raio de 0,215 a 0,325 m, 7,2 cm de cada lado). Deitados: anel 1,5 cm acima da lateral de baixo. Inclinados ou em pé: poça nivelada com 6 cm de profundidade no ponto mais baixo (os do monte eram 5 cm).
+
+**Observações técnicas:**
+- O recorte passou a tratar o plano da água como uma reta no perfil do pneu, porque a conta anterior dividia pelo `a.y`, que é zero em pneu em pé.
+- O pneu largado só gira em torno do vertical (`DeLadoPara`), então a inclinação não muda e a água continua nivelada quando a chuva o reenche.
+- Mudar a inclinação de um pneu na cena exige gerar a malha dele de novo.
+- Conferido por captura: `pneu (1)`, `pneu (3)` e parte do monte. `pneu`, `pneu (2)` e `pneu (4)` foram conferidos só pelos números da malha.
+
+
+### 2026-11-05 — Mira mostra só o nome do foco
+
+**Objetivo (pedido do usuário):** ao apontar para um foco, mostrar apenas o nome dele.
+
+**Arquivos alterados:** `Assets/Scripts/DengueHUD.cs`, `Assets/Scripts/FocoListaHUD.cs` (`Categoria` virou `internal`), `Assets/Editor/Testes/EsvaziarTestes.cs` e `Assets/Editor/Testes/SinaisTestes.cs`.
+
+**Mudanças:**
+- O texto de cima da mira usa o mesmo nome da lista de focos ("Pneu", "Vaso de flor", "Garrafas"...). Saíram as descrições do `FocoHUDInfo.textoAoMirar` (o campo continua na cena, sem uso na mira) e o "vazio, por enquanto".
+- A linha de ação, embaixo, continua: "Segure com a areia para resolver de vez", "Segure para esvaziar". O pneu vazio passa a mostrar ali "Pneu vazio: leve à picape da UPA".
+- Picape, lixeira e monte de areia não mudam.
+
+
+### 2026-11-05 — Picape para 11 pneus, corrida com pneu e stamina
+
+**Objetivo (pedido do usuário):** o usuário subiu os pneus do mapa de 6 para 11 (30 focos no total). A picape devia guardar todos, e o agente devia poder correr com o pneu gastando stamina.
+
+**Arquivos novos:** `Assets/Scripts/StaminaDeCarga.cs` e `Assets/Editor/Testes/StaminaDeCargaTestes.cs`.
+
+**Arquivos alterados:** `ControladorJogador.cs`, `DicaCorrer.cs`, `KitDoAgente.cs`, `KitHUD.cs`, `FeedbackDeCarga.cs`, `Assets/Editor/FocosVivosBuilder.cs`, `Assets/Editor/BalanceamentoSimulador.cs`, os testes que usavam `PodeCorrerEPular`, e a `SampleScene` (pelo menu).
+
+**Mudanças:**
+- **Vagas:** `FocosVivosBuilder.TotalDeVagas` dá uma vaga por pneu, em pares, com mínimo de 6. Com 11 pneus são 12 vagas em 2 colunas e 6 alturas (topo em y 2,13). Pôs mais pneus: rode **Dengue > Configurar Focos Vivos e Chuva**.
+- **Stamina:** com pneu, o Shift corre a `velocidadeCorrer × multiplicadorCarregando` (4,93 m/s), ainda sem pular. Esgota em 6 s, recupera em 5 s sem correr, e zerada só volta a correr com 30%. De mãos livres a corrida não gasta. Campos no `KitDoAgente`.
+- `ControladorJogador.PodeCorrerEPular` virou `PodeCorrer` e `PodePular`.
+- **HUD:** barra fina na linha "Carregando pneu", vermelha abaixo de 30%, e o aviso "[Shift] corre". Ao zerar, toca um esforço.
+- **Simulador:** a viagem com pneu usa a stamina, com o Shift apertado (`SegundosCarregando`).
+- **Balanceamento:** `alivioPorFoco` de 4,5% para 5,5%, com `taxaComTodosOsFocos` 0,0013. Varredura com custo do kit de 10,6 s/foco: 30 s vence com pico 83%; 35 s vence com 94%; 40 s perde; parado perde aos 3:21.
+
+**Efeito do menu:** ele reescalou para 0,70 m e reassentou os pneus (5) a (8), que estavam com 0,80 a 0,92 m, em volta de (40; 28).
+
+**Verificado em Play (chamadas diretas, tempo forçado a 1):** os 11 pneus em vagas distintas, stamina zerando e travando a corrida, a corrida voltando a 30%, movimento normal depois da entrega, Console sem erros.
+
+**NÃO verificado:** corrida com teclado de verdade, a barra na tela, a pilha de 12 vagas vista (a captura falhou) e a dificuldade jogada.
+
+**Observações para futuras sessões de IA:**
+- Antes de recompilar, confira `EditorApplication.isPlaying`: o usuário costuma jogar com o Editor aberto.
+- A abertura deixa o `timeScale` em 0; em teste por `eval_file`, force 1 para as corrotinas andarem.
+- `eval_file` não enxerga membros `internal`: use reflexão.
+
+
+### 2026-11-05 — Silêncio do zumbido depois de limpar um foco
+
+**Objetivo (pedido do usuário):** depois de limpo, o foco ainda parecia dar zumbido de mosquito.
+
+**Causa:** o zumbido do foco limpo já parava (`Zumbe` falso, ou `Sumir`). Quem zumbia era o vizinho: há focos colados na cena (6 pneus perto de (40; 28), a 0,5–0,9 m; 3 vasos a 0,9 m), e o `SomDosFocos` passava o som para o mais perto em 0,5 s, quase do mesmo ponto.
+
+**Arquivos alterados:** `Assets/Scripts/SomDosFocos.cs`, `Assets/Editor/Testes/SonsNovosTestes.cs`.
+
+**Mudança:** campo `silencioAposLimpar` (3 s): esvaziar ou eliminar um foco cala todos os zumbidos por esse tempo; depois, o foco de pé mais perto volta a zumbir. O tempo usa `Time.time`, então não corre na pausa.
+
+**Observações para futuras sessões de IA:** um foco reenchido pela chuva volta a zumbir, de propósito. Se o usuário quiser mais ou menos silêncio, ajuste `silencioAposLimpar` no objeto `Sons`.
+
+### 2026-11-05 — Janela Dengue > Configurações Globais
+
+**Objetivo (pedido do usuário):** mudar de uma vez valores globais, como a quantidade de cliques de todos os focos de um tipo, sem editar foco por foco no Inspector.
+
+**Arquivos alterados:**
+- `Assets/Editor/ConfiguracoesGlobais.cs` (novo) — lógica sem interface: tabela de tipos, leitura e gravação.
+- `Assets/Editor/ConfiguracoesGlobaisJanela.cs` (novo) — janela e menu `Dengue/Configurações Globais`.
+- `Assets/Editor/Testes/ConfiguracoesGlobaisTestes.cs` (novo) — 23 testes, categoria `Config`.
+- `Assets/Editor/KitDoAgenteBuilder.cs` — saíram as colunas `segundos` e `passos` da tabela `Focos`; não grava mais tempo nem cliques.
+- `Assets/Editor/FocosVivosBuilder.cs` — saíram `GravarBalanceamento` e o `multiplicadorCarregando`.
+- `Assets/Editor/Testes/BalanceamentoSimuladorTestes.cs` — saiu `Builder_GravaOsValoresCalibrados`, que testava o método removido.
+
+**Configurações aplicadas:** nenhum valor da cena ou dos prefabs mudou. Aba Focos: passos, tempo e esvaziar por tipo, com um Aplicar por tipo. Aba Partida: ocupação, ciclo de vida, chuva e kit, gravando na hora. Limites: passos mínimo 1, tempo mínimo 0, `segundosPorVolta` mínimo 0,1.
+
+**Observações técnicas:**
+- A cena agora é a única fonte de tempo, passos e balanceamento: rodar Configurar Kit do Agente ou Configurar Focos Vivos e Chuva não desfaz mais esses valores. O teste `Builders_NaoGravamOsCamposDaJanela` falha se algum deles voltar a gravar um campo da janela.
+- Foco novo criado do zero nasce com o padrão do script ou do prefab, porque a tabela do Kit não define mais o tempo. O `Ralo (1)` continua com 5 passos e o simulador segue lendo os 3 s dele: não foi unificado.
+- Nos focos de segurar, passos não muda o tempo total, só divide (`SegundosPorPasso`). Garrafas: passos é só leitura (um por garrafa). Ralo: cada passo é um skill check, e o tempo é o `segundosPorVolta`; `segundosParaConcluir` não vale em Play.
+- Aplicar grava primeiro no prefab de origem e depois nas instâncias: instância sem override segue herdando e as com override recebem o valor. Um único Ctrl+Z desfaz cena e prefab. A janela não chama `MarkSceneDirty`: com ele, a cena continuaria suja depois do Undo.
+- Prefab antigo é reserializado no primeiro Aplicar: o da bromélia ganha `podeEsvaziar`, `passosParaEsvaziar` e `segundosParaEsvaziar` com os valores padrão, sem mudar comportamento.
+- Calibração que estava no comentário removido do `FocosVivosBuilder` (taxa 0,0013 e alívio 0,055, com o custo de rota da Parte B): 30 s/foco vence com pico de 87%, 35 s/foco vence, 40 s/foco perde nas 10 sementes e o parado perde aos 3:21. Com a taxa em 0,0011, o parado leva 4:02.
+- Conferido: suíte EditMode 266/266; na `SampleScene`, Aplicar e Ctrl+Z nos vasos, com cena e prefab voltando idênticos. Os testes de cena rodam só na cena temporária do Test Runner.
+- Não conferido: partida em Play com valores alterados, inclusive pneu com 10 passos (pela leitura do código, o punch pode acumular escala com passo curto). Os dois menus também não foram rodados na cena real, porque salvam a cena e regravam HUD e textos; a garantia vem do teste acima.

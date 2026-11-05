@@ -17,7 +17,7 @@ using System.Collections.Generic;
  *  Mãos e Saco de lixo não gastam: TemCarga/Consumir dão sempre true e
  *  Quantidade/Capacidade dão 0. O saco tem a conta própria dele: cada
  *  garrafa recolhida ocupa um lugar e, cheio, só volta a aceitar depois
- *  de esvaziado na caçamba.
+ *  de esvaziado numa lixeira.
  *
  *  Os números padrão (areia 1, tela 1, água sanitária 2 doses, saco de
  *  6 garrafas) ficam no Inspector do KitDoAgente.
@@ -122,7 +122,7 @@ public class EstoqueDoKit
         return true;
     }
 
-    /* Esvazia o saco (na caçamba) e devolve quantas garrafas tirou. */
+    /* Esvazia o saco (na lixeira) e devolve quantas garrafas tirou. */
     public int EsvaziarSaco()
     {
         int tiradas = GarrafasNoSaco;

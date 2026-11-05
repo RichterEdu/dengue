@@ -14,8 +14,8 @@ using UnityEngine.UI;
  *    consumível "1/1", saco de lixo "garrafas/capacidade", mãos nada.
  *  - Selecionada: contorno verde-água e escala 1,1. Consumível zerado:
  *    quantidade em vermelho (hora de ir à picape da UPA).
- *  - Carregando pneu: uma linha acima da barra lembra a caçamba e o
- *    botão direito, que larga.
+ *  - Carregando pneu: uma linha acima da barra (TextoLinhaPneu) lembra a
+ *    picape da UPA e o botão direito, que larga.
  *  - Dica "Teclas 1–5 trocam a ferramenta", com o visual do DicaCorrer
  *    (na lateral esquerda, logo abaixo do lugar da dica de correr, para
  *    as duas não se taparem): aparece com a partida e some com fade na
@@ -53,10 +53,14 @@ public class KitHUD : MonoBehaviour
     private static readonly Color CorNumero = new Color(1f, 1f, 1f, 0.55f);
     private static readonly Color CorNome = new Color(1f, 1f, 1f, 0.85f);
 
-    private const string TextoLinhaPneu = "Carregando pneu: leve à caçamba  ·  [botão direito] larga";
+    internal const string TextoLinhaPneu = "Carregando pneu. Leve à <b>picape da UPA</b>. [Shift] corre. [Botão direito] larga.";
     private const string TextoDica = "Teclas <b>1–5</b> trocam a ferramenta";
 
     /* Peças de um espaço da barra, guardadas para redesenhar. */
+    private const float AlturaStamina = 5f;
+    private const float FracaoAlertaStamina = 0.3f;
+    private static readonly Color CorTrilhoStamina = new Color(1f, 1f, 1f, 0.15f);
+
     private class Espaco
     {
         public RectTransform rect;
@@ -67,6 +71,8 @@ public class KitHUD : MonoBehaviour
     private Espaco[] espacos;
     private CanvasGroup grupo;        // a barra toda (some fora da partida)
     private GameObject linhaPneu;
+    private RectTransform barraStamina;
+    private Image preenchimentoStamina;
     private CanvasGroup grupoDica;
 
     private KitDoAgente kit;
@@ -121,6 +127,13 @@ public class KitHUD : MonoBehaviour
 
         if (kit == null)
             return;
+
+        if (kit.PneuCarregado != null)
+        {
+            StaminaDeCarga stamina = kit.Stamina;
+            barraStamina.anchorMax = new Vector2(stamina.Fracao, 1f);
+            preenchimentoStamina.color = CorDaStamina(stamina);
+        }
 
         // A selecionada cresce (e a anterior volta) suavemente.
         float k = 1f - Mathf.Exp(-VelocidadeEscala * Time.unscaledDeltaTime);
@@ -283,8 +296,33 @@ public class KitHUD : MonoBehaviour
         TextMeshProUGUI texto = NovoTexto("Texto", painel, 24f, Color.white, TextAlignmentOptions.Center);
         texto.text = TextoLinhaPneu;
 
+        // A stamina: faixa fina na base do painel, fora do layout do texto.
+        RectTransform faixa = NovoRect("Stamina", painel);
+        faixa.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+        faixa.anchorMin = Vector2.zero;
+        faixa.anchorMax = new Vector2(1f, 0f);
+        faixa.pivot = new Vector2(0.5f, 0f);
+        faixa.sizeDelta = new Vector2(0f, AlturaStamina);
+        faixa.anchoredPosition = Vector2.zero;
+        Image trilho = faixa.gameObject.AddComponent<Image>();
+        trilho.color = CorTrilhoStamina;
+        trilho.raycastTarget = false;
+
+        barraStamina = NovoRect("Fill", faixa);
+        barraStamina.anchorMin = Vector2.zero;
+        barraStamina.anchorMax = Vector2.one;
+        barraStamina.offsetMin = barraStamina.offsetMax = Vector2.zero;
+        preenchimentoStamina = barraStamina.gameObject.AddComponent<Image>();
+        preenchimentoStamina.raycastTarget = false;
+
         linhaPneu = painel.gameObject;
         linhaPneu.SetActive(false);
+    }
+
+    /* Cor da stamina: esgotada ou abaixo de 30%, a do alerta. */
+    internal static Color CorDaStamina(StaminaDeCarga stamina)
+    {
+        return stamina.Esgotada || stamina.Fracao < FracaoAlertaStamina ? CorZerado : CorSelecionado;
     }
 
     /* Dica 1–5 com o visual do DicaCorrer: fundo preto translúcido, barrinha

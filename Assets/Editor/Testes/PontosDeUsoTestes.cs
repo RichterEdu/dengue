@@ -7,7 +7,8 @@ using UnityEngine;
  *  PontosDeUsoTestes.cs
  *  ---------------------------------------------------------------------
  *  Testes EditMode (Parte A) dos pontos de uso: a picape da UPA e o
- *  monte de areia (PontoDeReabastecimento) e a caçamba (Cacamba).
+ *  monte de areia (PontoDeReabastecimento), a caçamba (Cacamba) e, na
+ *  Parte B, a lixeira (Lixeira).
  *
  *    - PontoDeUso não é foco: não herda Interactable, que o FluxoDeJogo,
  *      a HUD e a rede social varrem como criadouro;
@@ -16,8 +17,10 @@ using UnityEngine;
  *      disparar o OnReabasteceu, que dá o post);
  *    - o OnReabasteceu leva o ponto usado: o post da picape da UPA só
  *      sai nela (ehPicapeDaUpa), e não no monte de areia;
- *    - a caçamba recebe o pneu carregado ou esvazia o saco e, sem nada
- *      para jogar, recusa.
+ *    - a caçamba recebe o pneu carregado (numa vaga da carroceria) e, sem
+ *      pneu e sem picape, recusa; o saco esvazia na lixeira, e não mais
+ *      na caçamba (Parte B). Os testes completos da Parte B estão no
+ *      DestinosTestes.
  *
  *  A lista 'recarrega' é trocada pelo SerializedObject (o TesteUtil.Setar
  *  não aceita listas), do mesmo jeito que o simulador a lê.
@@ -151,25 +154,41 @@ public class PontosDeUsoTestes
         Assert.AreEqual("Largue o pneu antes.", motivo);
     }
 
+    /* Parte B: o saco não esvazia mais na caçamba (ela só recebe pneus);
+     * vai para a lixeira. */
     [Test]
-    public void Cacamba_EsvaziaSaco()
+    public void Saco_EsvaziaNaLixeira_ENaoNaCacamba()
     {
         Cacamba cacamba = TesteUtil.Com<Cacamba>("Caçamba (teste)");
+        Lixeira lixeira = TesteUtil.Com<Lixeira>("Lixeira (teste)");
         for (int i = 0; i < 3; i++)
             Assert.IsTrue(kit.GuardarGarrafa(), $"garrafa {i + 1}");
 
-        Assert.IsTrue(cacamba.PodeUsar(kit, out string motivo), $"saco com garrafas (motivo: {motivo})");
+        Assert.IsFalse(cacamba.PodeUsar(kit, out _), "a caçamba só recebe pneus");
         cacamba.Usar(kit);
+        Assert.AreEqual(3, kit.Estoque.GarrafasNoSaco, "nada saiu na caçamba");
+
+        Assert.IsTrue(lixeira.PodeUsar(kit, out string motivo), $"saco com garrafas (motivo: {motivo})");
+        lixeira.Usar(kit);
 
         Assert.AreEqual(0, kit.Estoque.GarrafasNoSaco);
     }
 
-    /* O pneu é entregue acima da caçamba (alturaDescarte padrão 1,2 m) e conclui. */
+    /* O pneu entregue conclui e vai para a vaga da carroceria (Parte B:
+     * fora do Play, o arremesso é instantâneo). */
     [Test]
     public void Cacamba_EntregaPneu()
     {
         Cacamba cacamba = TesteUtil.Com<Cacamba>("Caçamba (teste)");
         cacamba.transform.position = new Vector3(3f, 0f, 4f);
+        Transform vaga = TesteUtil.Novo("Vaga (teste)").transform;
+        vaga.SetParent(cacamba.transform, false);
+        vaga.localPosition = new Vector3(0f, 1.2f, 0f);
+        SerializedObject so = new SerializedObject(cacamba);
+        SerializedProperty vagas = so.FindProperty("vagas");
+        vagas.arraySize = 1;
+        vagas.GetArrayElementAtIndex(0).objectReferenceValue = vaga;
+        so.ApplyModifiedPropertiesWithoutUndo();
         PneuInteractable pneu = PneuNasMaos();
 
         Assert.IsTrue(cacamba.PodeUsar(kit, out string motivo), $"pneu nas mãos (motivo: {motivo})");
@@ -178,15 +197,16 @@ public class PontosDeUsoTestes
         Assert.IsTrue(pneu.IsComplete, "só a entrega conclui o pneu");
         Assert.IsNull(kit.PneuCarregado, "mãos livres");
         Assert.That(Vector3.Distance(new Vector3(3f, 1.2f, 4f), pneu.transform.position), Is.LessThan(1e-4f),
-                    "solto acima da caçamba");
+                    "na vaga da caçamba");
     }
 
+    /* Parte B: sem pneu e sem picape, a caçamba não tem o que fazer. */
     [Test]
     public void Cacamba_Vazia_Recusa()
     {
         Cacamba cacamba = TesteUtil.Com<Cacamba>("Caçamba (teste)");
 
         Assert.IsFalse(cacamba.PodeUsar(kit, out string motivo));
-        Assert.AreEqual("Nada para jogar na caçamba.", motivo);
+        Assert.AreEqual("Só pneu vai na caçamba da picape.", motivo);
     }
 }

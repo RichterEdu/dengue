@@ -16,6 +16,9 @@ using UnityEngine;
  *
  *  Reaproveita a técnica de emissão (_EMISSION/_EmissionColor) via
  *  EmissionHighlightUtil.cs, a mesma já usada em Interactor/Interactable.
+ *
+ *  Os focos vêm do GerenciadorDeFocos (do campo ou, vazio,
+ *  GerenciadorDeFocos.Obter()); sem ele, nada brilha.
  * ============================================================ */
 
 public class FocoProximityGlow : MonoBehaviour
@@ -31,6 +34,10 @@ public class FocoProximityGlow : MonoBehaviour
     [Tooltip("Intensidade do brilho (baixa de propósito: vários focos podem ficar próximos ao mesmo tempo e somar no Bloom da cena).")]
     [SerializeField] private float intensidadeBrilho = 0.5f;
 
+    [Header("Referências")]
+    [Tooltip("Focos da partida. Vazio = GerenciadorDeFocos.Obter().")]
+    [SerializeField] private GerenciadorDeFocos gerenciador;
+
     private Camera cam;
     private Interactor interactor;
     private readonly List<Interactable> focos = new List<Interactable>();
@@ -41,7 +48,12 @@ public class FocoProximityGlow : MonoBehaviour
     {
         cam = Camera.main;
         interactor = GetComponent<Interactor>();
-        focos.AddRange(Object.FindObjectsByType<Interactable>(FindObjectsInactive.Include, FindObjectsSortMode.None));
+        if (gerenciador == null) gerenciador = GerenciadorDeFocos.Obter();
+        if (gerenciador != null)
+        {
+            gerenciador.Garantir();
+            focos.AddRange(gerenciador.Focos);
+        }
     }
 
     void Update()

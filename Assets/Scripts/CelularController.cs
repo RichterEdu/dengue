@@ -120,7 +120,9 @@ public class CelularController : MonoBehaviour
     private void LerEntrada()
     {
         Keyboard teclado = Keyboard.current;
-        if (teclado != null && teclado[teclaAbrir].wasPressedThisFrame)
+        // Sem celular durante o skill check: seria um jeito de fugir do erro.
+        bool emSkillCheck = interactor != null && interactor.SkillCheckAtivo != null;
+        if (teclado != null && teclado[teclaAbrir].wasPressedThisFrame && !emSkillCheck)
             Alternar();
 
         if (aberto && feed != null && Mouse.current != null)

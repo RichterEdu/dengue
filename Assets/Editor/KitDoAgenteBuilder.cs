@@ -23,9 +23,9 @@ using UnityEngine.SceneManagement;
  *
  *    1. Player (o objeto com ControladorJogador): KitDoAgente e SomDoKit
  *       (clipes pelo SomBuilder.LigarKit; o som de erro mais baixo, porque
- *       o kit_erro é bem mais "cheio" que os outros). PontoDeCarga, filho
- *       da Main Camera: onde o pneu fica nos braços, no canto inferior
- *       direito da tela, sem cobrir a mira.
+ *       o kit_erro é bem mais "cheio" que os outros). O PontoDeCarga não é
+ *       daqui: é filho do osso Chest, montado pelo PoseDeCarga no menu
+ *       Dengue > Configurar Focos Vivos e Chuva, e este builder o respeita.
  *    2. HUD: o objeto KitHUD, irmão da DengueHUD. Fica VAZIO (só o
  *       KitHUD), fora de qualquer Canvas: o KitHUD monta o próprio Canvas
  *       no Awake. A DengueHUD passa a mirar só "{nome}", porque a linha
@@ -33,38 +33,35 @@ using UnityEngine.SceneManagement;
  *       do KitHUD fica no centro de baixo da tela: a barra de Ocupação
  *       Hospitalar (com a sombra dela) sobe para o centro de cima e o
  *       aviso (toast) desce para logo abaixo dela.
- *    3. Focos: a tabela Focos (ferramenta, segundos, passos e textos por
- *       tipo C#) vai para os prefabs de foco E para cada instância da
- *       cena, que pode ter override ou nem ser instância (pneus e garrafas
- *       não têm prefab). Cria o FocoHUDInfo onde falta. Garrafas: sempre
- *       um passo por garrafa (cliquesIgualAoNumeroDeGarrafas), para a
- *       última garrafa recolhida fechar o grupo.
+ *    3. Focos: a tabela Focos (ferramenta e textos por tipo C#) vai para
+ *       os prefabs de foco E para cada instância da cena, que pode ter
+ *       override ou nem ser instância (pneus e garrafas não têm prefab).
+ *       Cria o FocoHUDInfo onde falta. Garrafas: sempre um passo por
+ *       garrafa (cliquesIgualAoNumeroDeGarrafas), para a última garrafa
+ *       recolhida fechar o grupo. Passos e tempo não são daqui: o valor
+ *       que vale é o da cena (Dengue > Configurações Globais).
  *    4. Picape da UPA (pacote Palmov), perto da saída do hospital no
  *       bairro: PontoDeReabastecimento de areia, tela e água sanitária,
  *       marcado como a picape (ehPicapeDaUpa: o post de reabastecer).
- *    5. Caçambas (5 cubos cada, pivô no chão), uma por grupo de pneus,
- *       nos lugares da tabela Cacambas: Cacamba. O pneu entregue é solto
- *       1,2 m acima do pivô, logo acima da borda (1,0 m). Cada lugar é
- *       conferido com OverlapBox (a caixa mais a folga em volta e acima);
- *       o resumo traz o pneu mais longe da caçamba mais perto.
- *    6. O "Monte de Areia 1" do terreno baldio mais perto dos vasos:
+ *    5. O "Monte de Areia 1" do terreno baldio mais perto dos vasos:
  *       PontoDeReabastecimento só de areia.
- *    7. O balão da Enf. Rita ganha a fala nova, que cita o kit e a picape
+ *    6. O balão da Enf. Rita ganha a fala nova, que cita o kit e a picape
  *       (PersonagensHospitalBuilder.FalaEnfermeira).
- *    8. A 1ª fala da Lúcia ao eliminar uma bromélia (personagem salvo na
+ *    7. A 1ª fala da Lúcia ao eliminar uma bromélia (personagem salvo na
  *       HistoriaRedeSocial da cena) fala da água sanitária
  *       (HistoriaRedeSocial.FalaLuciaPrimeiraBromelia).
  *
+ *  A caçamba da picape e as lixeiras (Parte B) são do FocosVivosBuilder.
+ *
  *  Os pontos de uso precisam de collider SÓLIDO (o Interactor ignora
  *  triggers). O destaque de mira usa _EmissionColor, que o URP Lit tem
- *  (picape, monte de areia e o material da caçamba).
+ *  (picape e monte de areia).
  * ============================================================ */
 
 public static class KitDoAgenteBuilder
 {
     private const string NomeUndo = "Configurar Kit do Agente";
 
-    private const string NomePontoDeCarga = "PontoDeCarga";
     private const string NomeKitHUD = "KitHUD";
     private const string NomePicape = "Picape da UPA";
     private const string NomeMonteDeAreia = "Monte de Areia 1";   // prefab do terreno baldio
@@ -73,44 +70,12 @@ public static class KitDoAgenteBuilder
 
     private const string CaminhoPicape =
         "Assets/Palmov Island/Low Poly Atmospheric Locations Pack/Prefabs/Vehicles/car SUVs pickups lights red.prefab";
-    private const string PastaCacamba = MeusOrganizador.Destino + "/Cacamba";
-    private const string CaminhoMaterialCacamba = PastaCacamba + "/Cacamba.mat";
-
-    // Pose do pneu nos braços, local na Main Camera: canto inferior direito
-    // da tela, sem cobrir a mira (conferida no preview em Play Mode). O pneu
-    // da cena tem ~2 m de diâmetro, com o eixo no X local: fica de pé, quase
-    // de perfil (giro de 10° em Y) e com o topo um pouco para fora (−10° em
-    // Z), e só o arco de baixo aparece no canto. Deitado na frente da câmera
-    // (a pose inicial do plano) ele tapava a metade de baixo da tela.
-    private static readonly Vector3 PosicaoDaCarga = new Vector3(0.80f, -1.00f, 1.10f);
-    private static readonly Vector3 RotacaoDaCarga = new Vector3(0f, 10f, -10f);
 
     // Onde a picape fica (conferido de cima: nada atravessa casa nem muro):
     // sai da posição da saída do hospital no bairro, estacionada na rua,
     // rente à calçada do lado norte, de frente para o oeste (mão brasileira).
     private static readonly Vector3 OffsetPicape = new Vector3(4.0f, 0f, 0.85f);
     private const float GiroPicape = -90f;
-
-    // As caçambas, uma por grupo de pneus: nome, lugar no chão (x, z; a
-    // altura sai do raio até o chão) e onde fica, para o resumo. Os 6 pneus
-    // estão espalhados pelas duas quadras (dois deles a ~91 m um do outro):
-    // com uma caçamba só, a viagem carregando pneu (0,7× a velocidade, sem
-    // correr) chegava a ~61 m. Com estas três, nenhum pneu fica a mais de
-    // ~20 m da caçamba mais perto. Os lugares foram conferidos de cima e com
-    // OverlapBox (caixa + FolgaCacamba): nada atravessa casa, muro, cerca
-    // nem enfeite do terreno baldio, e sobra passagem em volta.
-    //   - Cacamba: logo dentro da entrada do terreno baldio, ao sul do monte
-    //     de areia (pneu, pneu (1) e pneu (2); vê-se da rua);
-    //   - Cacamba (2): na grama a oeste da delegacia, entre a cerca do limite
-    //     do mapa (FimDoMundo) e o prédio (pneu (3) e pneu (4));
-    //   - Cacamba (3): no fundo do beco entre a oficina e o prédio laranja,
-    //     logo depois do pneu (5).
-    private static readonly (string nome, Vector3 lugar, string onde)[] Cacambas =
-    {
-        ("Cacamba",     new Vector3(-23.9f, 0f, 56.4f), "entrada do terreno baldio"),
-        ("Cacamba (2)", new Vector3(-45.3f, 0f, -2.7f), "grama a oeste da delegacia"),
-        ("Cacamba (3)", new Vector3(43.9f, 0f, 28.1f),  "fundo do beco do pneu (5)"),
-    };
 
     // Layout da HUD com o kit (mesmos valores do HUDLayoutAjustador, menu
     // Dengue > Ajustar Layout da HUD, sem as janelas de diálogo dele, que
@@ -124,19 +89,14 @@ public static class KitDoAgenteBuilder
     private const float AlturaDaBusca = 3f;
     private const float AlcanceDaBusca = 20f;
 
-    // Caçamba: caixa aberta de 2,4 × 1,0 × 1,4 m, com o pivô no chão.
-    private static readonly Vector3 TamanhoCacamba = new Vector3(2.4f, 1.0f, 1.4f);
-    private const float EspessuraFundo = 0.1f;
-    private const float EspessuraParede = 0.08f;
-    private static readonly Color CorCacamba = new Color32(0xE8, 0xA2, 0x1F, 0xFF);
-
-    // Ao conferir o lugar: folga em volta e acima da caixa, e o quanto ela
-    // sobe do chão (um piso vizinho na mesma altura, como a rua, não é
-    // obstáculo; um meio-fio já conta).
-    private const float FolgaCacamba = 0.6f;
-    private const float RespiroDoChao = 0.05f;
-
     private const float VolumeErro = 0.25f;
+
+    // Avisos de ferramenta errada que dizem para onde a carga vai: públicos
+    // porque o FocosVivosBuilder grava os dois nas instâncias da cena.
+    public const string TextoPneuFerramentaErrada =
+        "Pneu não se resolve com isso. Esvazie e leve para a picape da UPA: use as <b>mãos</b>.";
+    public const string TextoGarrafaFerramentaErrada =
+        "Garrafa vai para o <b>saco de lixo</b>, e o saco para a lixeira.";
 
     // Prefabs dos focos que têm prefab (pneus e garrafas não têm). A
     // piscina tem duas cópias: a gerada e uma antiga na raiz de Assets.
@@ -151,41 +111,37 @@ public static class KitDoAgenteBuilder
     };
 
     // Uma linha por tipo C# de foco. A mira mostra o problema; o texto de
-    // ferramenta errada ensina a certa. Garrafas: 'segundos' é por garrafa.
-    // 'passos' > 0 grava o requiredClicks (0 = cada foco mantém o seu). O
-    // ralo tem 8 passos de 0,25 s: ao soltar, só a fração do passo em
-    // andamento se perde, e com 3 passos de 0,67 s a barra voltava um
-    // terço. 'dica' != null grava a dica educativa do FocoHUDInfo (null =
-    // cada foco mantém a sua); a da bromélia ensina a água sanitária, como
-    // o aviso de ferramenta errada.
-    private static readonly (System.Type tipo, string rotulo, Ferramenta ferramenta, float segundos, int passos,
+    // ferramenta errada ensina a certa. 'dica' != null grava a dica educativa
+    // do FocoHUDInfo (null = cada foco mantém a sua); a da bromélia ensina a
+    // água sanitária, como o aviso de ferramenta errada.
+    private static readonly (System.Type tipo, string rotulo, Ferramenta ferramenta,
                              string textoAoMirar, string textoFerramentaErrada, string dica)[] Focos =
     {
-        (typeof(PneuInteractable), "pneus", Ferramenta.Maos, 1.5f, 0,
+        (typeof(PneuInteractable), "pneus", Ferramenta.Maos,
             "Pneu velho com água parada",
-            "Pneu não se resolve com isso. Esvazie e leve para a caçamba: use as <b>mãos</b>.",
+            TextoPneuFerramentaErrada,
             null),
-        (typeof(VasoInteractable), "vasos", Ferramenta.Areia, 2.0f, 0,
+        (typeof(VasoInteractable), "vasos", Ferramenta.Areia,
             "Pratinho do vaso com água parada",
             "Isso não deixa o pratinho seco. Encha de <b>areia</b> até a borda.",
             null),
-        (typeof(CaixaDaguaInteractable), "caixas", Ferramenta.Maos, 3.0f, 0,
+        (typeof(CaixaDaguaInteractable), "caixas", Ferramenta.Maos,
             "Caixa d'água destampada",
             "Caixa d'água se protege com a tampa. Use as <b>mãos</b> para encaixar.",
             null),
-        (typeof(PiscinaInteractable), "piscinas", Ferramenta.Maos, 2.5f, 0,
+        (typeof(PiscinaInteractable), "piscinas", Ferramenta.Maos,
             "Piscina de plástico com água da chuva",
             "Esvazie e vire de boca para baixo. Use as <b>mãos</b>.",
             null),
-        (typeof(GarrafaInteractable), "garrafas", Ferramenta.SacoDeLixo, 0.4f, 0,
+        (typeof(GarrafaInteractable), "garrafas", Ferramenta.SacoDeLixo,
             "Garrafas largadas juntando água",
-            "Garrafa vai para o <b>saco de lixo</b>, e o saco para a caçamba.",
+            TextoGarrafaFerramentaErrada,
             null),
-        (typeof(RaloInteractable), "ralos", Ferramenta.Tela, 2.0f, 8,
+        (typeof(RaloInteractable), "ralos", Ferramenta.Tela,
             "Ralo destampado com água parada",
             "Isso não resolve o ralo. Ralo se protege com <b>tela</b> e grelha fechada.",
             null),
-        (typeof(BromeliaInteractable), "bromélias", Ferramenta.AguaSanitaria, 2.0f, 0,
+        (typeof(BromeliaInteractable), "bromélias", Ferramenta.AguaSanitaria,
             "Bromélia com água acumulada nas folhas",
             "Não precisa arrancar nem cobrir. Bromélia se trata com <b>água sanitária</b> diluída.",
             "Bromélia guarda água entre as folhas. Regue o copinho com água sanitária diluída " +
@@ -212,8 +168,8 @@ public static class KitDoAgenteBuilder
         }
 
         // A cena do FluxoDeJogo, e não a ativa: com a MenuInicial ativa e a
-        // SampleScene aditiva, a picape, as caçambas e a KitHUD iriam (e
-        // seriam salvas) na MenuInicial.
+        // SampleScene aditiva, a picape e a KitHUD iriam (e seriam salvas)
+        // na MenuInicial.
         cenaDoJogo = fluxo.gameObject.scene;
         try
         {
@@ -234,7 +190,6 @@ public static class KitDoAgenteBuilder
             ConfigurarHUD(log);
             ConfigurarFocos(log);
             MontarPicape(log);
-            MontarCacambas(log);
             MontarMonteDeAreia(log);
             ConfigurarRita(log);
             ConfigurarLucia(log);
@@ -266,37 +221,12 @@ public static class KitDoAgenteBuilder
         soSom.FindProperty("volumeErro").floatValue = VolumeErro;
         soSom.ApplyModifiedProperties();
 
-        // A câmera é livre (não é filha do player): a CameraJogador a acha.
-        // A Camera.main só vale se for da cena do jogo (a MenuInicial tem a dela).
-        CameraJogador cameraJogador = PrimeiroDaCena<CameraJogador>();
-        Camera principal = Camera.main;
-        Transform camera = cameraJogador != null ? cameraJogador.transform
-                         : principal != null && principal.gameObject.scene == cenaDoJogo ? principal.transform : null;
-        if (camera == null)
-        {
-            Debug.LogWarning("[Kit] Main Camera não encontrada: o pneu carregado vai ficar preso ao player.");
-            log.Append("\n  • Player: KitDoAgente e SomDoKit (sem PontoDeCarga: falta a Main Camera)");
-            return;
-        }
-
-        Transform ponto = camera.Find(NomePontoDeCarga);
-        if (ponto == null)
-        {
-            ponto = NovoNaCena(NomePontoDeCarga).transform;
-            Undo.SetTransformParent(ponto, camera, false, NomeUndo);
-        }
-        Undo.RecordObject(ponto, NomeUndo);
-        ponto.localPosition = PosicaoDaCarga;
-        ponto.localEulerAngles = RotacaoDaCarga;
-        ponto.localScale = Vector3.one;
-
-        SerializedObject soKit = new SerializedObject(kit);
-        soKit.FindProperty("pontoDeCarga").objectReferenceValue = ponto;
-        soKit.ApplyModifiedProperties();
+        // O PontoDeCarga é do osso Chest (PoseDeCarga): aqui ele só é conferido.
+        if (kit.PontoDeCarga == null)
+            Debug.LogWarning("[Kit] KitDoAgente sem PontoDeCarga: rode Dengue > Configurar Focos Vivos e Chuva.");
 
         log.Append("\n  • Player: KitDoAgente, SomDoKit (volumeErro ").Append(VolumeErro.ToString("0.00"))
-           .Append(") e ").Append(camera.name).Append("/").Append(NomePontoDeCarga)
-           .Append(" em ").Append(PosicaoDaCarga.ToString("F2")).Append(", giro ").Append(RotacaoDaCarga.ToString("F0"));
+           .Append("), PontoDeCarga em ").Append(kit.PontoDeCarga != null ? kit.PontoDeCarga.parent.name : "(nenhum)");
     }
 
     /* ================= 2. HUD ================= */
@@ -441,8 +371,6 @@ public static class KitDoAgenteBuilder
         log.Append(") e ").Append(prefabs).Append(" prefabs; garrafas com um passo por garrafa");
         foreach (var dados in Focos)
         {
-            if (dados.passos > 0)
-                log.Append("; ").Append(dados.rotulo).Append(" com ").Append(dados.passos).Append(" passos");
             if (dados.dica != null)
                 log.Append("; dica nova nas ").Append(dados.rotulo);
         }
@@ -469,11 +397,6 @@ public static class KitDoAgenteBuilder
 
         SerializedObject so = new SerializedObject(foco);
         so.FindProperty("ferramentaNecessaria").intValue = (int)dados.ferramenta;
-        // Garrafas: o tempo é por garrafa (o total depende de quantas há).
-        string campoTempo = foco is GarrafaInteractable ? "segundosPorGarrafa" : "segundosParaConcluir";
-        so.FindProperty(campoTempo).floatValue = dados.segundos;
-        if (dados.passos > 0)
-            so.FindProperty("requiredClicks").intValue = dados.passos;
         // Garrafas: um passo por garrafa, sempre. Com o ajuste desligado, a
         // 'Lata 001' concluía em 11 passos e deixava 1 das 12 garrafas na
         // cena, fora do alcance da mira (o raio atravessa foco concluído).
@@ -533,7 +456,7 @@ public static class KitDoAgenteBuilder
 
         Undo.RecordObject(picape.transform, NomeUndo);
         picape.transform.rotation = Quaternion.Euler(0f, GiroPicape, 0f);
-        string chao = AssentarNoChao(picape, saidaNoBairro + OffsetPicape);
+        string chao = AssentarNoChao(picape, saidaNoBairro + OffsetPicape, out _);
 
         if (!TemColliderSolido(picape))
         {
@@ -551,173 +474,7 @@ public static class KitDoAgenteBuilder
            .Append(" (chão: ").Append(chao).Append("), reabastece areia, tela e água sanitária; ehPicapeDaUpa (post de reabastecer)");
     }
 
-    /* ================= 5. Caçambas ================= */
-
-    private static void MontarCacambas(StringBuilder log)
-    {
-        Material material = MaterialDaCacamba();
-        List<GameObject> montadas = new List<GameObject>();
-        foreach (var dados in Cacambas)
-        {
-            GameObject cacamba = MontarCacamba(dados.nome, dados.lugar, material, out string chao, out string espaco);
-            montadas.Add(cacamba);
-            log.Append("\n  • ").Append(dados.nome).Append(" (").Append(dados.onde).Append("): OK em ")
-               .Append(cacamba.transform.position.ToString("F2")).Append(" (chão: ").Append(chao)
-               .Append("; ").Append(espaco).Append(')');
-        }
-
-        // A viagem carregando pneu (0,7× a velocidade, sem correr): de cada
-        // pneu até a caçamba mais perto; o resumo traz a mais longa.
-        List<PneuInteractable> pneus = DaCena<PneuInteractable>();
-        if (pneus.Count == 0)
-        {
-            Debug.LogWarning("[Kit] Nenhum PneuInteractable na cena: confira se as caçambas ainda fazem sentido.");
-            log.Append("\n  • Pneus: nenhum na cena");
-            return;
-        }
-        float maisLonge = 0f;
-        string qual = "";
-        foreach (PneuInteractable pneu in pneus)
-        {
-            float distancia = float.MaxValue;
-            string cacambaMaisPerto = "";
-            foreach (GameObject cacamba in montadas)
-            {
-                float d = DistanciaNoChao(pneu.transform.position, cacamba.transform.position);
-                if (d < distancia)
-                {
-                    distancia = d;
-                    cacambaMaisPerto = cacamba.name;
-                }
-            }
-            if (distancia > maisLonge)
-            {
-                maisLonge = distancia;
-                qual = pneu.name + " → " + cacambaMaisPerto;
-            }
-        }
-        log.Append("\n  • Pneus: ").Append(pneus.Count).Append(", o mais longe da caçamba mais perto a ")
-           .Append(maisLonge.ToString("0.0")).Append(" m (").Append(qual).Append(')');
-    }
-
-    /* Uma caçamba (acha pelo nome ou cria) no lugar dado, com o pivô no chão.
-     * Devolve o nome do chão achado e o trecho do resumo sobre o espaço. */
-    private static GameObject MontarCacamba(string nome, Vector3 lugar, Material material,
-                                            out string chao, out string espaco)
-    {
-        GameObject cacamba = AcharNaCena(nome);
-        if (cacamba == null)
-        {
-            cacamba = NovoNaCena(nome);
-            PorNoGrupoDeRua(cacamba);
-        }
-
-        // Fundo e quatro paredes; as laterais cabem entre a frente e o fundo.
-        float largura = TamanhoCacamba.x, altura = TamanhoCacamba.y, profundidade = TamanhoCacamba.z;
-        float e = EspessuraParede;
-        Peca(cacamba, "Fundo", new Vector3(0f, EspessuraFundo / 2f, 0f),
-             new Vector3(largura, EspessuraFundo, profundidade), material);
-        Peca(cacamba, "Parede Frente", new Vector3(0f, altura / 2f, profundidade / 2f - e / 2f),
-             new Vector3(largura, altura, e), material);
-        Peca(cacamba, "Parede Tras", new Vector3(0f, altura / 2f, -(profundidade / 2f - e / 2f)),
-             new Vector3(largura, altura, e), material);
-        Peca(cacamba, "Parede Esquerda", new Vector3(-(largura / 2f - e / 2f), altura / 2f, 0f),
-             new Vector3(e, altura, profundidade - 2f * e), material);
-        Peca(cacamba, "Parede Direita", new Vector3(largura / 2f - e / 2f, altura / 2f, 0f),
-             new Vector3(e, altura, profundidade - 2f * e), material);
-
-        // Um collider só, na raiz (os cubos nascem sem): é o que a mira acha.
-        BoxCollider box = Garantir<BoxCollider>(cacamba);
-        Undo.RecordObject(box, NomeUndo);
-        box.isTrigger = false;
-        box.center = new Vector3(0f, altura / 2f, 0f);
-        box.size = TamanhoCacamba;
-
-        // Sem giro: a caixa conferida no OverlapBox fica alinhada aos eixos.
-        Undo.RecordObject(cacamba.transform, NomeUndo);
-        cacamba.transform.rotation = Quaternion.identity;
-        chao = AssentarNoChao(cacamba, lugar, out Collider colliderDoChao);
-        espaco = ConferirEspaco(cacamba, colliderDoChao);
-
-        Cacamba ponto = Garantir<Cacamba>(cacamba);
-        SerializedObject so = new SerializedObject(ponto);
-        so.FindProperty("textoAoMirar").stringValue = "Caçamba de entulho";
-        so.FindProperty("segundosParaUsar").floatValue = 1f;
-        so.ApplyModifiedProperties();
-        return cacamba;
-    }
-
-    /* Confere que nada atravessa a caçamba nem encosta nela: OverlapBox da
-     * caixa com FolgaCacamba em volta e acima, sem triggers, sem a própria
-     * caçamba e sem o chão em que ela assentou. Devolve o trecho do resumo
-     * (e avisa no Console se bateu em algo). */
-    private static string ConferirEspaco(GameObject cacamba, Collider chao)
-    {
-        Vector3 meiaCaixa = new Vector3(TamanhoCacamba.x / 2f + FolgaCacamba,
-                                        (TamanhoCacamba.y + FolgaCacamba) / 2f,
-                                        TamanhoCacamba.z / 2f + FolgaCacamba);
-        Vector3 centro = cacamba.transform.position + Vector3.up * (RespiroDoChao + meiaCaixa.y);
-
-        List<string> batidas = new List<string>();
-        foreach (Collider c in Physics.OverlapBox(centro, meiaCaixa, cacamba.transform.rotation, ~0,
-                                                  QueryTriggerInteraction.Ignore))
-        {
-            if (c != chao && !c.transform.IsChildOf(cacamba.transform))
-                batidas.Add(c.name);
-        }
-
-        if (batidas.Count == 0)
-            return "livre, com " + FolgaCacamba.ToString("0.0") + " m de folga";
-
-        string lista = string.Join(", ", batidas);
-        Debug.LogWarning("[Kit] " + cacamba.name + " encosta em: " + lista + ". Escolha outro lugar na tabela Cacambas.");
-        return "ENCOSTA em " + lista;
-    }
-
-    /* Um cubo da caçamba (acha pelo nome ou cria, sem collider próprio). */
-    private static void Peca(GameObject raiz, string nome, Vector3 centro, Vector3 tamanho, Material material)
-    {
-        Transform peca = raiz.transform.Find(nome);
-        if (peca == null)
-        {
-            GameObject cubo = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cubo.name = nome;
-            Object.DestroyImmediate(cubo.GetComponent<Collider>());
-            Undo.RegisterCreatedObjectUndo(cubo, NomeUndo);
-            Undo.SetTransformParent(cubo.transform, raiz.transform, false, NomeUndo);
-            peca = cubo.transform;
-        }
-        Undo.RecordObject(peca, NomeUndo);
-        peca.localPosition = centro;
-        peca.localRotation = Quaternion.identity;
-        peca.localScale = tamanho;
-
-        MeshRenderer rend = peca.GetComponent<MeshRenderer>();
-        Undo.RecordObject(rend, NomeUndo);
-        rend.sharedMaterial = material;
-    }
-
-    /* Cacamba.mat (URP Lit, amarelo de caçamba), criado ou atualizado. */
-    private static Material MaterialDaCacamba()
-    {
-        MeusOrganizador.GarantirPasta(PastaCacamba);
-        Shader lit = Shader.Find("Universal Render Pipeline/Lit");
-        Material mat = AssetDatabase.LoadAssetAtPath<Material>(CaminhoMaterialCacamba);
-        if (mat == null)
-        {
-            mat = new Material(lit);
-            AssetDatabase.CreateAsset(mat, CaminhoMaterialCacamba);
-        }
-        mat.shader = lit;
-        mat.SetColor("_BaseColor", CorCacamba);
-        mat.SetColor("_Color", CorCacamba);
-        mat.SetFloat("_Smoothness", 0.3f);
-        mat.SetFloat("_Metallic", 0f);
-        EditorUtility.SetDirty(mat);
-        return mat;
-    }
-
-    /* ================= 6. Monte de areia ================= */
+    /* ================= 5. Monte de areia ================= */
 
     private static void MontarMonteDeAreia(StringBuilder log)
     {
@@ -766,7 +523,7 @@ public static class KitDoAgenteBuilder
            .Append(" m do centro dos vasos; reabastece só a areia");
     }
 
-    /* ================= 7. Rita ================= */
+    /* ================= 6. Rita ================= */
 
     private static void ConfigurarRita(StringBuilder log)
     {
@@ -785,7 +542,7 @@ public static class KitDoAgenteBuilder
         log.Append("\n  • ").Append(QuemFalaRita).Append(": fala nova em ").Append(baloes).Append(" balão(ões)");
     }
 
-    /* ================= 8. Lúcia (bromélias) ================= */
+    /* ================= 7. Lúcia (bromélias) ================= */
 
     /* A bromélia é tratada com água sanitária diluída: a 1ª fala da Lúcia
      * ao eliminar uma bromélia diz isso. Os personagens estão salvos na
@@ -883,14 +640,9 @@ public static class KitDoAgenteBuilder
 
     /* Põe o objeto em 'alvo' (x, z) com a base dos Renderers no primeiro
      * chão abaixo (raio de cima para baixo, sem triggers, sem o próprio
-     * objeto). Devolve o nome do collider achado, para o resumo. */
-    private static string AssentarNoChao(GameObject go, Vector3 alvo)
-    {
-        return AssentarNoChao(go, alvo, out _);
-    }
-
-    /* O mesmo, devolvendo também o collider do chão (null se nenhum). */
-    private static string AssentarNoChao(GameObject go, Vector3 alvo, out Collider colliderDoChao)
+     * objeto). Devolve o nome do collider achado, para o resumo, e o
+     * collider (null se nenhum). */
+    internal static string AssentarNoChao(GameObject go, Vector3 alvo, out Collider colliderDoChao)
     {
         colliderDoChao = null;
         Undo.RecordObject(go.transform, NomeUndo);
@@ -918,7 +670,7 @@ public static class KitDoAgenteBuilder
         return chao;
     }
 
-    private static bool TemColliderSolido(GameObject go)
+    internal static bool TemColliderSolido(GameObject go)
     {
         foreach (Collider c in go.GetComponentsInChildren<Collider>(true))
             if (!c.isTrigger)
@@ -927,7 +679,7 @@ public static class KitDoAgenteBuilder
     }
 
     /* Caixa dos Renderers no mundo (vazia: só a posição do objeto). */
-    private static Bounds LimitesNoMundo(GameObject go)
+    internal static Bounds LimitesNoMundo(GameObject go)
     {
         Renderer[] rends = go.GetComponentsInChildren<Renderer>();
         if (rends.Length == 0)
@@ -939,7 +691,7 @@ public static class KitDoAgenteBuilder
     }
 
     /* Caixa dos Renderers no espaço local do objeto (para um BoxCollider na raiz). */
-    private static Bounds LimitesLocais(GameObject go)
+    internal static Bounds LimitesLocais(GameObject go)
     {
         bool primeiro = true;
         Bounds b = new Bounds(Vector3.zero, Vector3.zero);
@@ -981,7 +733,7 @@ public static class KitDoAgenteBuilder
         so.ApplyModifiedProperties();
     }
 
-    private static float DistanciaNoChao(Vector3 a, Vector3 b)
+    internal static float DistanciaNoChao(Vector3 a, Vector3 b)
     {
         return Vector2.Distance(new Vector2(a.x, a.z), new Vector2(b.x, b.z));
     }

@@ -37,6 +37,9 @@ using UnityEngine;
  *  em que o post é publicado):
  *      {eliminados}  {total}  {restantes}
  *
+ *  Os focos (total e eliminados) vêm do GerenciadorDeFocos (do campo ou,
+ *  vazio, GerenciadorDeFocos.Obter()), pelo OnFocoEliminado dele.
+ *
  *  Quem desenha os posts é o FeedRedeSocial; quem abre e fecha o
  *  celular é o CelularController.
  * ============================================================ */
@@ -53,7 +56,7 @@ public enum PrioridadePost
 {
     Baixa,      // comportamento: parado, pulos, demora sem foco
     Normal,     // abertura, chegar perto, largar pela metade, foco sem dono
-    Alta,       // fala do dono ao eliminar, sequência rápida, marcos de ocupação, saída do hospital
+    Alta,       // fala do dono ao eliminar, sequência rápida, marcos de ocupação, saída do hospital, previsão de chuva
     Maxima      // derrota e finais
 }
 
@@ -107,6 +110,9 @@ public class RedeSocial : MonoBehaviour
 
     [Tooltip("Vazio = procura na cena. Post que chega com o celular aberto já conta como lido.")]
     [SerializeField] private CelularController celular;
+
+    [Tooltip("Focos da partida (total e eliminados). Vazio = GerenciadorDeFocos.Obter().")]
+    [SerializeField] private GerenciadorDeFocos gerenciador;
 
     /* Disparado a cada publicação nova (o feed escuta para criar o card). */
     public event System.Action<PostRedeSocial> OnPostPublicado;
@@ -169,24 +175,31 @@ public class RedeSocial : MonoBehaviour
 
     void Start()
     {
-        // Mesmo padrão do DengueHUD: pega todos os focos da cena, inclusive desativados.
-        foreach (Interactable foco in FindObjectsByType<Interactable>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        // Todos os focos da partida (inclusive desativados), vindos do gerenciador.
+        if (gerenciador == null) gerenciador = GerenciadorDeFocos.Obter();
+        if (gerenciador != null)
         {
-            focos.Add(foco);
-            if (foco.IsComplete)
-                eliminados++;
-            else
-                foco.OnCompleted += HandleFocoEliminado;
+            gerenciador.Garantir();
+            foreach (Interactable foco in gerenciador.Focos)
+            {
+                if (foco == null)
+                    continue;
+                focos.Add(foco);
+                if (foco.IsComplete)
+                    eliminados++;
+            }
+            gerenciador.OnFocoEliminado += HandleFocoEliminado;
         }
 
         focosAteProximoPost = incentivoNoPrimeiroFoco ? 1 : SortearIntervalo();
     }
 
+    /* Só pelo campo: procurar ou criar um gerenciador aqui (fim do Play,
+     * troca de cena) deixaria objeto novo para trás. */
     void OnDestroy()
     {
-        foreach (Interactable foco in focos)
-            if (foco != null)
-                foco.OnCompleted -= HandleFocoEliminado;
+        if (gerenciador != null)
+            gerenciador.OnFocoEliminado -= HandleFocoEliminado;
     }
 
     void Update()
@@ -217,9 +230,9 @@ public class RedeSocial : MonoBehaviour
 
     /* ---------------- Interno ---------------- */
 
+    /* OnFocoEliminado do gerenciador (uma vez por foco). */
     private void HandleFocoEliminado(Interactable foco)
     {
-        foco.OnCompleted -= HandleFocoEliminado;
         eliminados++;
 
         if (NarradorExterno)

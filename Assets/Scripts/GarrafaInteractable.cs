@@ -29,9 +29,15 @@ using UnityEngine;
  *    tamanho do grupo) e guarda a garrafa recolhida no saco
  *    (KitDoAgente.GuardarGarrafa).
  *  - Com o saco cheio o passo é recusado (SacoCheio) e nada muda: é
- *    preciso esvaziar o saco na caçamba para continuar o grupo.
+ *    preciso esvaziar o saco numa lixeira para continuar o grupo.
  *  - ContarGarrafas() diz quantas garrafas (= passos) o grupo tem,
  *    também fora do Play (simulador de balanceamento).
+ *
+ *  Atalho de esvaziar (Parte B, podeEsvaziar no Interactable): com as
+ *  Mãos, a água das garrafas que restam (os filhos "agua"/"água" de cada
+ *  garrafa) some, e as garrafas ficam no lugar; reenchido (a chuva), essa
+ *  água volta (mas não com o recolhimento já começado). Garrafa sem
+ *  filho de água não muda nada visualmente.
  *
  *  Para pendurar este componente num grupo já montado na cena, use o
  *  menu  Dengue > Transformar Selecao em Foco (Garrafas)
@@ -72,12 +78,19 @@ public class GarrafaInteractable : Interactable
 
     private readonly List<Renderer> restantes = new List<Renderer>();
 
+    // A água que o esvaziar escondeu (só ela volta no reencher).
+    private readonly List<GameObject> aguasEscondidas = new List<GameObject>();
+
     /* Quantas garrafas ainda estão na cena. */
     public int GarrafasRestantes => restantes.Count;
 
     /* Um passo = uma garrafa, então o tempo é por garrafa e não um total
      * dividido entre os cliques. */
     public override float SegundosPorPasso => segundosPorGarrafa;
+
+    /* Com o recolhimento já começado, a chuva não reenche: as garrafas que
+     * sobraram vão para o saco de qualquer jeito. */
+    public override bool PodeReencher => base.PodeReencher && CurrentClicks == 0;
 
     /* Quantas garrafas o grupo tem: as mesmas que o OnStart junta (a lista
      * ou, vazia, as achadas nos filhos). Funciona fora do Play, sem o
@@ -109,7 +122,7 @@ public class GarrafaInteractable : Interactable
         base.OnInteract();
     }
 
-    /* Saco cheio: a garrafa não tem para onde ir até esvaziar na caçamba. */
+    /* Saco cheio: a garrafa não tem para onde ir até esvaziar na lixeira. */
     protected override ResultadoDoPasso VerificarExtra(KitDoAgente kit)
     {
         if (kit != null && kit.Estoque.SacoCheio)
@@ -124,6 +137,39 @@ public class GarrafaInteractable : Interactable
     {
         if (kit != null)
             kit.GuardarGarrafa();
+    }
+
+    /* Esvaziado: a água das garrafas que restam some; elas ficam no lugar. */
+    protected override void AoEsvaziar()
+    {
+        foreach (Renderer garrafa in restantes)
+        {
+            if (garrafa == null)
+                continue;
+
+            foreach (Transform filho in garrafa.transform)
+            {
+                if (!EhAgua(filho.gameObject) || !filho.gameObject.activeSelf)
+                    continue;
+                filho.gameObject.SetActive(false);
+                aguasEscondidas.Add(filho.gameObject);
+            }
+        }
+    }
+
+    /* Reenchido (a chuva): volta a água das garrafas que ainda estão aí. */
+    protected override void AoReencher()
+    {
+        foreach (GameObject agua in aguasEscondidas)
+        {
+            if (agua == null)
+                continue;
+
+            Renderer garrafa = agua.transform.parent != null ? agua.transform.parent.GetComponent<Renderer>() : null;
+            if (garrafa != null && restantes.Contains(garrafa))
+                agua.SetActive(true);
+        }
+        aguasEscondidas.Clear();
     }
 
     protected override void OnComplete()
@@ -154,12 +200,18 @@ public class GarrafaInteractable : Interactable
         List<Renderer> achadas = new List<Renderer>();
         foreach (MeshRenderer r in GetComponentsInChildren<MeshRenderer>(true))
         {
-            string nome = r.gameObject.name.TrimStart().ToLowerInvariant();
-            if (nome.StartsWith("agua") || nome.StartsWith("água"))
+            if (EhAgua(r.gameObject))
                 continue;   // água é filha da garrafa: some junto com ela
             achadas.Add(r);
         }
         return achadas.ToArray();
+    }
+
+    /* A água de uma garrafa: objeto cujo nome começa com "agua"/"água". */
+    private static bool EhAgua(GameObject go)
+    {
+        string nome = go.name.TrimStart().ToLowerInvariant();
+        return nome.StartsWith("agua") || nome.StartsWith("água");
     }
 
     private Renderer Proxima()

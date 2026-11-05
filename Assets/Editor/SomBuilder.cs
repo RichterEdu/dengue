@@ -22,7 +22,9 @@ using UnityEngine.SceneManagement;
 /// o tipo que ainda não tem linha.
 ///
 /// LigarKit(SomDoKit) liga os sons do kit do agente (Parte A); fica fora do
-/// Configurar e é chamado por quem monta o kit no Player.
+/// Configurar e é chamado por quem monta o kit no Player. Do mesmo jeito,
+/// LigarSonsDosFocosVivos(Scene) liga os sons da Parte B em quem existir na
+/// cena, e é chamado pelo builder da cena.
 /// </summary>
 public static class SomBuilder
 {
@@ -210,6 +212,50 @@ public static class SomBuilder
         Ref(so, "pneuLargar", Clip("pneu_largar"));
         Ref(so, "segurarLoop", Clip("kit_segurar_loop"));
         so.ApplyModifiedProperties();
+    }
+
+    /* Sons dos focos vivos e da chuva (Parte B), religados pelo nome do
+     * arquivo em quem existir na cena (quem falta é ignorado). */
+    public static void LigarSonsDosFocosVivos(Scene cena)
+    {
+        LigarSonsDosFocosVivos(cena.GetRootGameObjects());
+        EditorSceneManager.MarkSceneDirty(cena);
+    }
+
+    internal static void LigarSonsDosFocosVivos(GameObject[] raizes)
+    {
+        foreach (GameObject raiz in raizes)
+        {
+            LigarEmTodos<ChuvaVisual>(raiz, so =>
+            {
+                Ref(so, "trovao", Clip("trovao"));
+                Ref(so, "chuvaLoop", Clip("chuva_loop"));
+            });
+            LigarEmTodos<SomDosFocos>(raiz, so => Ref(so, "esvaziar", Clip("esvaziar")));
+            LigarEmTodos<Cacamba>(raiz, so =>
+            {
+                Ref(so, "somPneu", Clip("pneu_picape"));
+                Ref(so, "somSuspensao", Clip("suspensao"));
+            });
+            LigarEmTodos<Lixeira>(raiz, so => Ref(so, "somTampa", Clip("lixeira_tampa")));
+            LigarEmTodos<FeedbackDeCarga>(raiz, so =>
+            {
+                Lista(so.FindProperty("esforco"), Clips("esforco", 3));
+                Ref(so, "sacoTilintar", Clip("saco_tilintar"));
+            });
+            LigarEmTodos<SomDoJogador>(raiz, so => Lista(so.FindProperty("passosPesados"), Clips("passo_pesado", 3)));
+        }
+    }
+
+    /* Aplica 'ligar' em cada T da raiz e dos filhos, inativos também. */
+    static void LigarEmTodos<T>(GameObject raiz, System.Action<SerializedObject> ligar) where T : Component
+    {
+        foreach (T c in raiz.GetComponentsInChildren<T>(true))
+        {
+            SerializedObject so = new SerializedObject(c);
+            ligar(so);
+            so.ApplyModifiedProperties();
+        }
     }
 
     /* Também chamado pelo CelularBuilder: recriar o celular não perde os sons. */

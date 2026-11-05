@@ -347,6 +347,9 @@ MonoBehaviour:
   interactionRange: 3
   ferramentaNecessaria: 1
   segundosParaConcluir: 2
+  podeEsvaziar: 1
+  passosParaEsvaziar: 3
+  segundosParaEsvaziar: 1.2
   punchScale: 0.1
   punchDuration: 0.14
   scaleReductionPerClick: 0

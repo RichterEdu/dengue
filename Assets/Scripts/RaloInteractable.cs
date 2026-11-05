@@ -6,6 +6,10 @@ using UnityEngine;
  *  ---------------------------------------------------------------------
  *  Foco do tipo RALO DESTAMPADO — herda Interactable.
  *
+ *  Skill check: em vez de segurar, cada passo é um check acertado (o
+ *  Interactor conduz, SkillCheck.cs tem a regra). Errar devolve a grelha
+ *  ao lado, zera o progresso e gasta a tela.
+ *
  *  Comportamento ("ralo aberto -> interagir -> ralo tampado com tela"):
  *  - O ralo começa ABERTO: a grelha está tirada, encostada ao lado, e a
  *    água parada aparece lá dentro.
@@ -24,6 +28,8 @@ using UnityEngine;
 
 public class RaloInteractable : Interactable
 {
+
+
     [Header("Ralo")]
     [Tooltip("Objeto filho com a grelha do ralo.")]
     [SerializeField] private Transform tampa;
@@ -55,10 +61,31 @@ public class RaloInteractable : Interactable
     [Tooltip("Se marcado, após fechar o ralo segue o fluxo padrão (encolhe e some).")]
     [SerializeField] private bool removeOnComplete = false;
 
+    [Tooltip("Segundos de uma volta do ponteiro no skill check.")]
+    [SerializeField] private float segundosPorVolta = 1.2f;
+
     private Coroutine moveRoutine;
 
     /* 0 = grelha tirada, 1 = ralo fechado. */
     public float Fechamento { get; private set; }
+
+    public override bool UsaSkillCheck => true;
+    public override float SegundosPorVoltaDoCheck => segundosPorVolta;
+
+    /* Errou o check: a tela rasga e o ralo volta ao começo. */
+    public override void ErrarSkillCheck(KitDoAgente kit)
+    {
+        CancelarSkillCheck();
+        if (kit != null)
+            kit.Consumir(FerramentaNecessaria);
+    }
+
+    /* Check interrompido sem culpa do jogador (fim de jogo): só volta ao começo. */
+    public override void CancelarSkillCheck()
+    {
+        currentClicks = 0;
+        MoverTampa(0f);
+    }
 
     protected override void OnStart()
     {

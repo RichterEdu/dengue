@@ -10,8 +10,9 @@ using UnityEngine;
  *  - ERRO: dois bipes graves quando o Interactor recusa um foco ou um
  *    ponto de uso (OnRecusado / OnPontoRecusado), junto do aviso da HUD.
  *  - REABASTECER: zíper + batidas de plástico ao encher o kit (OnReabasteceu).
- *  - DESPEJAR: metal oco + baque da caçamba, ao esvaziar o saco de
- *    garrafas (OnSacoEsvaziado) e ao entregar o pneu (OnPneuEntregue).
+ *  - DESPEJAR: metal oco + baque, ao esvaziar o saco de garrafas
+ *    (OnSacoEsvaziado). A entrega do pneu tem som próprio, no fim do
+ *    arco (pneu_picape + suspensao, na Cacamba).
  *  - PNEU: pegar (OnPneuPego) e largar no chão (OnPneuLargado).
  *  - SEGURAR: farfalhar em loop enquanto o jogador segura com um passo
  *    válido (Interactor.Avancando). Entra e sai com fade (duracaoFade),
@@ -46,9 +47,9 @@ public class SomDoKit : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float volumeReabastecer = 0.5f;
 
-    [Tooltip("Metal oco + baque ao jogar o saco de garrafas ou o pneu na caçamba.")]
+    [Tooltip("Metal oco + baque ao esvaziar o saco de garrafas na lixeira.")]
     [SerializeField] private AudioClip despejar;
-    [Tooltip("Volume do som da caçamba.")]
+    [Tooltip("Volume do som de despejar o saco.")]
     [Range(0f, 1f)]
     [SerializeField] private float volumeDespejar = 0.5f;
 
@@ -107,12 +108,12 @@ public class SomDoKit : MonoBehaviour
             kit.OnSacoEsvaziado += Despejou;
             kit.OnPneuPego += PegouPneu;
             kit.OnPneuLargado += LargouPneu;
-            kit.OnPneuEntregue += EntregouPneu;
         }
         if (interactor != null)
         {
             interactor.OnRecusado += RecusouFoco;
             interactor.OnPontoRecusado += RecusouPonto;
+            interactor.OnErrouSkillCheck += ErrouSkillCheck;
         }
     }
 
@@ -125,12 +126,12 @@ public class SomDoKit : MonoBehaviour
             kit.OnSacoEsvaziado -= Despejou;
             kit.OnPneuPego -= PegouPneu;
             kit.OnPneuLargado -= LargouPneu;
-            kit.OnPneuEntregue -= EntregouPneu;
         }
         if (interactor != null)
         {
             interactor.OnRecusado -= RecusouFoco;
             interactor.OnPontoRecusado -= RecusouPonto;
+            interactor.OnErrouSkillCheck -= ErrouSkillCheck;
         }
 
         // Desligado no meio do segurar: o loop não pode ficar tocando.
@@ -188,7 +189,7 @@ public class SomDoKit : MonoBehaviour
     private void Despejou() => Tocar(despejar, volumeDespejar);
     private void PegouPneu(PneuInteractable pneu) => Tocar(pneuPegar, volumePneuPegar);
     private void LargouPneu(PneuInteractable pneu) => Tocar(pneuLargar, volumePneuLargar);
-    private void EntregouPneu(PneuInteractable pneu) => Tocar(despejar, volumeDespejar);
     private void RecusouFoco(Interactable foco, ResultadoDoPasso resultado) => Tocar(erro, volumeErro);
     private void RecusouPonto(PontoDeUso ponto, string motivo) => Tocar(erro, volumeErro);
+    private void ErrouSkillCheck(Interactable foco) => Tocar(erro, volumeErro);
 }

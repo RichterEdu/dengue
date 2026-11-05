@@ -118,6 +118,6 @@ public class KitDoAgenteTestes
         ControladorJogador jogador = TesteUtil.Com<ControladorJogador>("Jogador (teste)");
 
         Assert.AreEqual(1f, jogador.MultiplicadorVelocidade);
-        Assert.IsTrue(jogador.PodeCorrerEPular);
+        Assert.IsTrue(jogador.PodePular);
     }
 }

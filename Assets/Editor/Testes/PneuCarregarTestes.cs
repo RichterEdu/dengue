@@ -1,16 +1,20 @@
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 /* ============================================================
  *  PneuCarregarTestes.cs
  *  ---------------------------------------------------------------------
  *  Testes EditMode (Parte A) do pneu carregado até a caçamba: com as
- *  Mãos, o último passo põe o pneu nos braços (sem concluir), o agente
+ *  Mãos, o último passo esvazia o pneu no lugar (Parte B) e o passo
+ *  seguinte o põe nos braços (sem concluir), o agente
  *  fica mais lento e sem trocar de ferramenta, largar devolve o foco (do
  *  lado de cá de um muro, ao alcance da mira, fora do corpo do agente) e
  *  pegar de novo é instantâneo, e só a entrega conclui (pela mira ou
- *  largando o pneu em cima da caçamba).
+ *  largando o pneu em cima da caçamba). Na Parte B o agente carregando
+ *  anda a 0,85 da velocidade, e o pneu entregue vai para uma vaga da
+ *  caçamba da picape (fora do Play, na hora).
  *
  *  O Start não roda no EditMode e as corrotinas não andam. Por isso o
  *  pneu de teste tem 2 cliques, sem punch (punchScale 0) e sem animação
@@ -71,9 +75,11 @@ public class PneuCarregarTestes
         TesteUtil.LimparTudo();
     }
 
-    /* Os dois passos com as Mãos: esvazia e põe o pneu nos braços. */
+    /* Os dois passos com as Mãos esvaziam o pneu no lugar; o terceiro o
+     * põe nos braços. */
     private void PegarNasMaos()
     {
+        pneu.AvancarCom(kit);
         pneu.AvancarCom(kit);
         pneu.AvancarCom(kit);
     }
@@ -147,14 +153,15 @@ public class PneuCarregarTestes
         kit.OnPneuPego += p => pegos++;
 
         Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.AvancarCom(kit), "1º passo");
-        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "2º passo: vai para os braços");
+        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.AvancarCom(kit), "2º passo: esvazia no lugar");
+        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "o passo seguinte: vai para os braços");
 
         Assert.AreSame(pneu, kit.PneuCarregado);
         Assert.IsFalse(pneu.IsComplete, "só conclui na caçamba");
         Assert.IsFalse(pneu.CanInteract, "nos braços não é alvo");
         Assert.AreSame(ponto, pneu.transform.parent, "fica no PontoDeCarga");
-        Assert.AreEqual(0.7f, jogador.MultiplicadorVelocidade, 1e-5f);
-        Assert.IsFalse(jogador.PodeCorrerEPular);
+        Assert.AreEqual(0.85f, jogador.MultiplicadorVelocidade, 1e-5f);   // Parte B: era 0,7
+        Assert.IsFalse(jogador.PodePular);
         Assert.AreEqual(1, pegos, "OnPneuPego");
     }
 
@@ -173,7 +180,7 @@ public class PneuCarregarTestes
         Assert.IsTrue(pneu.CanInteract, "largado, continua sendo foco");
         Assert.IsNull(kit.PneuCarregado);
         Assert.AreEqual(1f, jogador.MultiplicadorVelocidade, "movimento restaurado");
-        Assert.IsTrue(jogador.PodeCorrerEPular, "movimento restaurado");
+        Assert.IsTrue(jogador.PodePular, "movimento restaurado");
         Assert.AreEqual(1, largados, "OnPneuLargado");
 
         Assert.IsFalse(kit.LargarPneu(pes, Vector3.forward), "sem pneu nos braços");
@@ -206,6 +213,36 @@ public class PneuCarregarTestes
         Assert.IsTrue(pneu.CanInteract, "largado, continua sendo foco");
     }
 
+    /* Regressão da verificação final da Parte B. Encostado num muro, o pneu
+     * recua para perto do agente, e o raio do chão desce por dentro do
+     * corpo dele, que tem collider fora da camada CorpoJogador: o raio
+     * parava no corpo, e o pneu ficava flutuando acima da cabeça. O corpo
+     * do agente nunca é chão. */
+    [Test]
+    public void Largar_ColadoNoMuro_OCorpoDoAgenteNaoEChao()
+    {
+        Vector3 pes = SemChao;
+        Vector3 frente = Vector3.forward;
+        CriarChao(pes);
+        CorpoComoNaCena();
+        BoxCollider corpo = jogador.gameObject.AddComponent<BoxCollider>();
+        corpo.size = new Vector3(0.6f, 1.4f, 0.6f);
+        corpo.center = new Vector3(0f, 0.7f, 0f);
+        jogador.transform.position = pes;
+
+        BoxCollider muro = TesteUtil.Com<BoxCollider>("Muro (teste)");
+        muro.size = new Vector3(4f, 3f, 0.3f);
+        muro.transform.position = pes + frente * 0.5f + Vector3.up * 1.5f;   // face de cá a 0,35 m
+
+        pneu.transform.position = pes + Vector3.back * 3f + Vector3.up * 0.7f;
+        Physics.SyncTransforms();
+
+        PegarNasMaos();
+        Assert.IsTrue(kit.LargarPneu(pes, frente));
+
+        Assert.AreEqual(0.7f, pneu.transform.position.y - pes.y, 1e-3f, "assentado no chão, não no corpo do agente");
+    }
+
     [Test]
     public void PegarDeNovo_EInstantaneo()
     {
@@ -224,18 +261,19 @@ public class PneuCarregarTestes
         int entregues = 0;
         pneu.OnCompleted += f => concluidos++;
         kit.OnPneuEntregue += p => entregues++;
+        Cacamba cacamba = TesteUtil.Com<Cacamba>("Caçamba (teste)");
         PegarNasMaos();
 
-        Assert.IsTrue(kit.EntregarPneu(Vector3.zero));
+        Assert.IsTrue(kit.EntregarPneu(cacamba));
 
         Assert.IsTrue(pneu.IsComplete);
         Assert.AreEqual(1, concluidos, "OnCompleted");
         Assert.IsNull(kit.PneuCarregado);
         Assert.AreEqual(1f, jogador.MultiplicadorVelocidade, "movimento restaurado");
-        Assert.IsTrue(jogador.PodeCorrerEPular, "movimento restaurado");
+        Assert.IsTrue(jogador.PodePular, "movimento restaurado");
         Assert.AreEqual(1, entregues, "OnPneuEntregue");
 
-        Assert.IsFalse(kit.EntregarPneu(Vector3.zero), "sem pneu nos braços");
+        Assert.IsFalse(kit.EntregarPneu(cacamba), "sem pneu nos braços");
         Assert.AreEqual(1, concluidos, "não conclui de novo");
     }
 
@@ -293,7 +331,8 @@ public class PneuCarregarTestes
 
         for (int i = 1; i <= 4; i++)
             Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.AvancarCom(kit), $"{i}º passo");
-        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "5º passo: vai para os braços");
+        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.AvancarCom(kit), "5º passo: esvazia no lugar");
+        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "o passo seguinte: vai para os braços");
         AssertEscala(escalaInicial, "nos braços");
 
         Assert.IsTrue(kit.LargarPneu(pes, Vector3.forward));
@@ -346,7 +385,17 @@ public class PneuCarregarTestes
         caixa.center = new Vector3(0f, alturaDaCacamba / 2f, 0f);
         caixa.size = new Vector3(2.4f, alturaDaCacamba, 1.4f);
         caixa.transform.position = pes + Vector3.forward * 0.9f;   // de 0,2 m a 1,6 m na frente dos pés
-        caixa.gameObject.AddComponent<Cacamba>();
+        Cacamba cacamba = caixa.gameObject.AddComponent<Cacamba>();
+
+        // Uma vaga na carroceria (Parte B), 1,2 m acima do pivô.
+        Transform vaga = TesteUtil.Novo("Vaga (teste)").transform;
+        vaga.SetParent(caixa.transform, false);
+        vaga.localPosition = Vector3.up * 1.2f;
+        SerializedObject so = new SerializedObject(cacamba);
+        SerializedProperty vagas = so.FindProperty("vagas");
+        vagas.arraySize = 1;
+        vagas.GetArrayElementAtIndex(0).objectReferenceValue = vaga;
+        so.ApplyModifiedPropertiesWithoutUndo();
 
         pneu.transform.position = pes + Vector3.back * 2f + Vector3.up * 0.7f;
         Physics.SyncTransforms();
@@ -363,7 +412,8 @@ public class PneuCarregarTestes
         Assert.IsNull(kit.PneuCarregado, "mãos livres");
         Assert.AreEqual(1, entregues, "OnPneuEntregue");
         Assert.AreEqual(0, largados, "OnPneuLargado");
+        Assert.AreSame(vaga, pneu.VagaNaCacamba, "na vaga da caçamba, como na entrega pela mira");
         Assert.That(Vector3.Distance(caixa.transform.position + Vector3.up * 1.2f, pneu.transform.position),
-                    Is.LessThan(1e-4f), "solto acima da caçamba, como na entrega pela mira");
+                    Is.LessThan(1e-4f), "na vaga, 1,2 m acima do pivô");
     }
 }

@@ -12,9 +12,15 @@ using UnityEngine;
  *    a câmera entrar no peito.
  *  - Balanço ao andar/correr (head bob) sincronizado com a DISTÂNCIA
  *    percorrida, com o mesmo comprimento de passo das animações Walk/Run
- *    do modelo — o balanço e os passos do corpo batem.
+ *    do modelo — o balanço e os passos do corpo batem. Exceção: no
+ *    ModoPesado o passo × 1,25 é de propósito (passadas mais lentas e
+ *    arrastadas), e o balanço e o som dos passos, que seguem a FasePasso,
+ *    deixam de bater com as pernas enquanto carrega.
  *  - "Afundada" amortecida ao aterrissar de um pulo/queda.
  *  - FOV abre um pouco na corrida.
+ *  - ModoPesado (carregando pneu, FeedbackDeCarga): balanço mais forte,
+ *    passo mais longo e mais inclinação lateral — o corpo sente o peso.
+ *    Entra e sai suave (PesoPesado, de 0 a 1), como o balanço.
  *
  *  Roda depois de tudo (LateUpdate + DefaultExecutionOrder alto): o
  *  ControladorJogador já moveu o corpo neste frame.
@@ -41,6 +47,14 @@ public class CameraJogador : MonoBehaviour
     [SerializeField] private Vector2 comprimentoPasso = new Vector2(0.75f, 1.45f);
     [Tooltip("Inclinação lateral máxima no balanço (graus).")]
     [SerializeField] private float rolagemBalanco = 0.6f;
+
+    [Header("Modo pesado (carregando pneu)")]
+    [Tooltip("Multiplica a amplitude do balanço no ModoPesado.")]
+    [SerializeField] private float multiplicadorAmplitudePesado = 1.6f;
+    [Tooltip("Multiplica o comprimento do passo no ModoPesado (passos mais lentos e arrastados).")]
+    [SerializeField] private float multiplicadorPassoPesado = 1.25f;
+    [Tooltip("Graus somados à inclinação lateral máxima no ModoPesado.")]
+    [SerializeField] private float rolagemExtraPesado = 1.5f;
 
     [Header("Aterrissagem")]
     [SerializeField] private float rigidezMola = 110f;
@@ -74,11 +88,19 @@ public class CameraJogador : MonoBehaviour
     /* Desligado = sem head bob nem inclinação ao andar (Configurações). */
     public bool BalancoAtivo { get; set; } = true;
 
+    /* Carregando pneu (FeedbackDeCarga): balanço × multiplicadorAmplitudePesado,
+     * passo × multiplicadorPassoPesado e inclinação + rolagemExtraPesado. */
+    public bool ModoPesado { get; set; }
+
+    /* Quanto do ModoPesado já está valendo, de 0 a 1 (AtualizarPesoPesado). */
+    public float PesoPesado => pesoPesado;
+
     /* Fase do ciclo de passos (rad): cada π é um passo, e o pé bate no chão
      * em π/2 + kπ (câmera no ponto mais baixo). Avança mesmo sem balanço. */
     public float FasePasso => fasePasso;
     private float fasePasso;
     private float pesoBalanco;
+    private float pesoPesado;
     private float afundada;
     private float velocidadeAfundada;
 
@@ -108,6 +130,12 @@ public class CameraJogador : MonoBehaviour
         velocidadeAfundada -= Mathf.Min(velocidadeQueda * forcaAterrissagem, 0.9f);
     }
 
+    /* Leva o PesoPesado até o ModoPesado (1 ligado, 0 desligado), em 1/4 s, como o pesoBalanco. */
+    public void AtualizarPesoPesado(float dt)
+    {
+        pesoPesado = Mathf.MoveTowards(pesoPesado, ModoPesado ? 1f : 0f, dt * 4f);
+    }
+
     void LateUpdate()
     {
         if (jogador == null)
@@ -116,17 +144,21 @@ public class CameraJogador : MonoBehaviour
         float dt = Time.deltaTime;
         float vel = jogador.VelocidadeHorizontal;
         float tCorrida = Mathf.InverseLerp(jogador.VelocidadeAndar, jogador.VelocidadeCorrer, vel);
+        AtualizarPesoPesado(dt);
 
         // --- balanço: fase avança com a distância andada ---
-        float passo = Mathf.Lerp(comprimentoPasso.x, comprimentoPasso.y, tCorrida);
+        float passo = Mathf.Lerp(comprimentoPasso.x, comprimentoPasso.y, tCorrida)
+                      * Mathf.Lerp(1f, multiplicadorPassoPesado, pesoPesado);
         fasePasso += vel * dt / Mathf.Max(passo, 0.01f) * Mathf.PI;
         float pesoAlvo = jogador.NoChao && BalancoAtivo ? Mathf.Clamp01(vel / Mathf.Max(jogador.VelocidadeAndar, 0.01f)) : 0f;
         pesoBalanco = Mathf.MoveTowards(pesoBalanco, pesoAlvo, dt * 4f);
-        float amplitude = Mathf.Lerp(amplitudeAndar, amplitudeCorrer, tCorrida) * pesoBalanco;
+        float amplitude = Mathf.Lerp(amplitudeAndar, amplitudeCorrer, tCorrida) * pesoBalanco
+                          * Mathf.Lerp(1f, multiplicadorAmplitudePesado, pesoPesado);
+        float rolagem = rolagemBalanco + rolagemExtraPesado * pesoPesado;
 
         float bobY = -Mathf.Abs(Mathf.Sin(fasePasso)) * amplitude;           // desce a cada passo
         float bobX = Mathf.Sin(fasePasso) * amplitude * 0.5f;                // balança de lado a cada 2 passos
-        float roll = Mathf.Sin(fasePasso) * rolagemBalanco * pesoBalanco;
+        float roll = Mathf.Sin(fasePasso) * rolagem * pesoBalanco;
 
         // --- afundada ao aterrissar (mola amortecida) ---
         float acel = -rigidezMola * afundada - amortecimentoMola * velocidadeAfundada;

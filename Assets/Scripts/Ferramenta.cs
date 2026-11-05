@@ -16,7 +16,7 @@ using System;
  *    5 Saco de lixo    garrafas                             não gasta: enche
  *
  *  Quanto de cada uma o agente leva fica no EstoqueDoKit.cs. Ferramentas
- *  junta os dados fixos (nome na HUD, se é consumível).
+ *  junta os dados fixos (nome na HUD com e sem artigo, se é consumível).
  *
  *  Os dois enums são salvos como número na cena e nos prefabs: valores
  *  novos sempre no FIM, nunca reordenar (mesma regra do TipoFoco).
@@ -42,7 +42,9 @@ public enum ResultadoDoPasso
     SemCarga,           // a ferramenta certa, mas acabou o estoque dela
     SacoCheio,          // garrafas: o saco não tem mais espaço
     MaosOcupadas,       // carregando pneu: só a caçamba e o largar funcionam
-    Bloqueado           // nada a fazer aqui (já concluído, desligado...), sem aviso
+    Bloqueado,          // nada a fazer aqui (já concluído, desligado...), sem aviso
+    JaVazio,            // Mãos num foco já esvaziado: só a ferramenta certa resolve de vez
+    Esvaziou            // o atalho de esvaziar terminou neste passo (o foco não concluiu)
     // Novos resultados sempre no FIM: o enum é salvo como número.
 }
 
@@ -65,6 +67,28 @@ public static class Ferramentas
         }
     }
 
+    /* Artigo definido do nome da ferramenta ("a" areia, "o" saco de lixo,
+     * "as" mãos), para os textos da HUD concordarem; maiuscula = no começo
+     * da frase. */
+    public static string Artigo(Ferramenta ferramenta, bool maiuscula = false)
+    {
+        string artigo;
+        switch (ferramenta)
+        {
+            case Ferramenta.Maos: artigo = "as"; break;
+            case Ferramenta.SacoDeLixo: artigo = "o"; break;
+            default: artigo = "a"; break;   // areia, tela, água sanitária
+        }
+        return maiuscula ? char.ToUpperInvariant(artigo[0]) + artigo.Substring(1) : artigo;
+    }
+
+    /* O nome com o artigo, em minúsculas no meio da frase: "a areia",
+     * "o saco de lixo", "as mãos" (maiuscula: "A areia"...). */
+    public static string ComArtigo(Ferramenta ferramenta, bool maiuscula = false)
+    {
+        return Artigo(ferramenta, maiuscula) + " " + Nome(ferramenta).ToLowerInvariant();
+    }
+
     /* Gasta uma carga ao concluir um foco (e precisa de reabastecimento). */
     public static bool Consumivel(Ferramenta ferramenta)
     {
@@ -79,6 +103,7 @@ public static class Ferramentas
         return resultado == ResultadoDoPasso.FerramentaErrada
             || resultado == ResultadoDoPasso.SemCarga
             || resultado == ResultadoDoPasso.SacoCheio
-            || resultado == ResultadoDoPasso.MaosOcupadas;
+            || resultado == ResultadoDoPasso.MaosOcupadas
+            || resultado == ResultadoDoPasso.JaVazio;
     }
 }

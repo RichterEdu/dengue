@@ -8,8 +8,8 @@ Uso:
   ex.: python -X utf8 Ferramentas/Audio/gerar_sons.py "Assets/Meus/Assets Gerados/Sons"
 
 Convenções:
-  - WAV 16 bits. Efeitos em 44,1 kHz mono; loops longos (ambiente e
-    trilha) em 32 kHz estéreo, pro repositório não inchar.
+  - WAV 16 bits. Efeitos em 44,1 kHz mono; loops longos (ambiente, chuva
+    e trilha) em 32 kHz estéreo, pro repositório não inchar.
   - Cada som tem semente fixa (crc32 do nome): regerar dá o MESMO arquivo.
     Sobrescrever o .wav mantém o .meta do Unity, então as referências
     da cena não quebram.
@@ -19,7 +19,8 @@ Convenções:
   - As 4 camadas da trilha (trilha_base/pulso/tensao/esperanca) têm
     exatamente o mesmo número de amostras: o Unity toca as 4 juntas.
   - O prefixo do nome decide a importação no Unity (ImportadorDeSons.cs):
-    mosquito_/foco_/passaro_/latido_/passo_ viram mono (som 3D).
+    mosquito_/foco_/passaro_/latido_/passo_/esvaziar/pneu_picape/suspensao/
+    lixeira_ viram mono (som 3D).
 """
 import argparse
 import os
@@ -607,7 +608,7 @@ def s_kit_reabastecer(rng):
 
 
 def s_cacamba_despejar(rng):
-    """Saco de garrafas ou pneu na caçamba: baque grave + metal oco, ~700 ms."""
+    """Saco de garrafas despejado: baque grave + metal oco, ~700 ms."""
     n = amostras(0.7, SR)
     baque = np.sin(fase(varredura(n, SR, 95, 42, 0.0, 0.04), n, SR)) * env_ad(n, SR, 0.003, 0.09)
     baque += 0.4 * ruido_env(rng, n, SR, None, 500, 0.002, 0.05)
@@ -651,6 +652,142 @@ def s_kit_segurar_loop(rng):
     gesto = 1 + 0.25 * np.sin(2 * np.pi * 2 * t / L + rng.uniform(0, 6.28))   # 2 movimentos por volta
     y = (pano + 0.25 * graos) * tremor * gesto
     return nivelar(filtrar(y, SR, lo=200, hi=5000, circular=True), pico_db=-3)
+
+
+# ================================================================ CHUVA, CARGA E DESTINOS (Parte B)
+# Mesma regra do kit: batida tardia no seu próprio buffer curto, somada no
+# lugar (o modos() apaga os últimos 30% do buffer).
+
+def gota(rng, sr):
+    """Uma gota no chão: 'tic' curtíssimo, de bolha mínima que sobe."""
+    f0 = np.exp(rng.uniform(np.log(1700), np.log(5200)))
+    tau = rng.uniform(0.002, 0.006)
+    n = amostras(tau * 6, sr)
+    t = tempo(n, sr)
+    return np.sin(fase(f0 * (1 + 0.3 * t / tau), n, sr)) * np.exp(-t / tau) * np.clip(t / 0.0004, 0, 1)
+
+
+def s_chuva_loop(rng):
+    """Chuva forte no bairro: ruído rosa (o chiado da chuva e o corpo grave
+    dela no chão) com gotas soltas, estéreo. Loop circular de 8 s: filtros por
+    FFT, gotas que passam do fim voltam pro começo, onda lenta com ciclos inteiros."""
+    L = 8.0
+    sr = SR_LONGO
+    n = amostras(L, sr)
+    t = tempo(n, sr)
+    chiado = filtrar(ruido(rng, n, "rosa", 2), sr, 600, 9000, circular=True)
+    corpo = filtrar(ruido(rng, n, "rosa", 2), sr, 120, 900, circular=True)
+    onda = 1 + 0.1 * np.sin(2 * np.pi * 2 * t / L + rng.uniform(0, 6.28)) + 0.06 * np.sin(2 * np.pi * 5 * t / L + rng.uniform(0, 6.28))
+    y = (chiado / np.std(chiado) + 0.55 * corpo / np.std(corpo)) * onda
+    gotas = np.zeros((2, n))
+    for _ in range(int(90 * L)):
+        somar(gotas, panear(gota(rng, sr) * rng.uniform(0.2, 1.0), rng.uniform(-0.9, 0.9)), int(rng.integers(n)), circular=True)
+    y += 1.6 * gotas
+    return nivelar(filtrar(y, sr, lo=80, hi=11000, circular=True), rms_db=-21)
+
+
+def s_trovao(rng):
+    """Trovão longe: ruído grave com envelope longo e dois roncos, 3 s, estéreo pelo reverb."""
+    n = amostras(3.0, SR)
+    grave = filtrar(ruido(rng, n, "marrom"), SR, 25, 240)
+    grave /= np.std(grave) + 1e-12
+    medio = filtrar(ruido(rng, n), SR, 150, 700)
+    medio /= np.std(medio) + 1e-12
+    tremor = filtrar(ruido(rng, n), SR, hi=9, ordem=1)
+    tremor = np.clip(0.8 + 0.35 * tremor / (np.std(tremor) + 1e-12), 0.25, 1.5)
+    ronco = env_ad(n, SR, 0.08, 0.75) + 0.7 * env_ad(n, SR, 0.25, 0.5, 0.7)
+    y = (grave + 0.18 * medio * env_ad(n, SR, 0.02, 0.35)) * ronco * tremor * suave((3.0 - tempo(n, SR)) / 0.9)
+    return efeito(reverb(y, SR, rng, 0.5, 0.25, 900))
+
+
+def s_esvaziar(rng):
+    """Água jogada fora com as mãos: respingo largo + bolhas + 'glub', 0,5 s."""
+    dur = 0.3
+    n = amostras(0.42, SR)
+    y = np.zeros(n)
+    for _ in range(42):
+        f0 = np.exp(rng.uniform(np.log(400), np.log(2000)))
+        tau = float(np.clip(9.0 / f0 * rng.uniform(0.8, 1.6), 0.004, 0.025))
+        somar(y, bolha(rng, f0, tau) * rng.uniform(0.2, 1.0), amostras(dur * rng.beta(1.2, 2.2), SR))
+    y += 0.9 * ruido_env(rng, n, SR, 700, 6000, 0.012, 0.085)     # respingo
+    y += 0.6 * ruido_env(rng, n, SR, 110, 520, 0.012, 0.1)        # "glub" grave
+    return efeito(mono(reverb(y, SR, rng, 0.2, 0.1, 5000)))
+
+
+def s_pneu_picape(rng):
+    """Pneu caindo na carroceria: baque de borracha + metal da chapa + um quique, 0,6 s."""
+    n = amostras(0.6, SR)
+    y = np.zeros(n)
+    somar(y, baque_borracha(rng, 1.2, 0.85), 0)
+    somar(y, baque_borracha(rng, 0.35, 0.95), amostras(0.2, SR))
+    b = rng.uniform(190, 215)
+    fs = [b, 2.45 * b, 4.1 * b, 6.3 * b, 9.2 * b]
+    y += 0.75 * modos(n, SR, rng, fs, [0.2, 0.15, 0.1, 0.06, 0.035], [1, .75, .5, .3, .15], 0.004)
+    y += 0.3 * ruido_env(rng, n, SR, 900, 4500, 0.001, 0.016, 0.004)
+    return efeito(filtrar(y, SR, lo=35, hi=6000))
+
+
+def s_suspensao(rng):
+    """Mola da suspensão: dois rangidos curtos, descendo e subindo, 0,45 s."""
+    y = np.zeros(amostras(0.45, SR))
+    for atraso, f_ini, f_fim, dur, forca in ((0.0, 420, 300, 0.18, 1.0), (0.2, 300, 390, 0.2, 0.65)):
+        n = amostras(dur, SR)
+        t = tempo(n, SR)
+        f = (f_ini + (f_fim - f_ini) * t / dur) * (1 + 0.04 * np.sin(2 * np.pi * 34 * t))
+        atrito = 0.75 + 0.25 * np.sign(np.sin(2 * np.pi * 62 * t))   # a mola "trava" e solta
+        r = harmonicos(f, n, SR, [1, .7, .5, .4, .3, .22, .15, .1]) * atrito * np.sin(np.pi * t / dur) ** 0.8
+        somar(y, forca * r, amostras(atraso, SR))
+    return efeito(mono(reverb(filtrar(y, SR, lo=250, hi=3800), SR, rng, 0.15, 0.08, 3500)))
+
+
+def s_passo_pesado(rng, v):
+    """Passo com o pneu nos braços: o mesmo tênis no chão, mais grave, e o baque do peso."""
+    n = amostras(0.38, SR)
+    esc = rng.uniform(0.94, 1.06)
+    baque = np.sin(fase(varredura(n, SR, 80 * esc, 44 * esc, 0.0, 0.03), n, SR)) * env_ad(n, SR, 0.003, 0.065)
+    y = 1.1 * baque + pisada_rua(rng, n, 0.0, 1.0, 0.8) + pisada_rua(rng, n, rng.uniform(0.07, 0.095), rng.uniform(0.45, 0.6), 0.9)
+    return efeito(filtrar(y, SR, lo=30, hi=1500))
+
+
+def s_esforco(rng, v):
+    """Esforço de carregar peso: só a expiração filtrada (ar pela boca, sem voz)."""
+    dur = (0.42, 0.52, 0.36)[v]
+    n = amostras(dur + 0.12, SR)
+    ar = ruido(rng, n)
+    f1, f2 = rng.uniform(520, 680), rng.uniform(1250, 1600)
+    y = banda(ar, SR, f1, 2.5) + 0.6 * banda(ar, SR, f2, 3.0) + 0.12 * filtrar(ar, SR, 2500, 5500)
+    tremor = filtrar(ruido(rng, n), SR, hi=14, ordem=1)
+    tremor = np.clip(0.85 + 0.2 * tremor / (np.std(tremor) + 1e-12), 0.4, 1.3)
+    return efeito(y * tremor * env_ad(n, SR, 0.05, dur * 0.4) * suave((dur + 0.12 - tempo(n, SR)) / 0.12))
+
+
+def batida_vidro(rng, forca):
+    """Garrafa batendo em garrafa dentro do saco: vidro curto, abafado pelo plástico."""
+    n = amostras(0.2, SR)
+    b = rng.uniform(1700, 2500)
+    y = modos(n, SR, rng, [b, 1.72 * b, 2.51 * b, 3.3 * b], [0.06, 0.04, 0.03, 0.02], [1, .55, .4, .2])
+    y += 0.25 * ruido_env(rng, n, SR, 3000, None, 0.0003, 0.002)
+    return forca * y
+
+
+def s_saco_tilintar(rng):
+    """Garrafas chacoalhando no saco a cada passo: 3 batidas de vidro, 0,35 s."""
+    y = np.zeros(amostras(0.35, SR))
+    for atraso, forca in ((0.0, 1.0), (rng.uniform(0.06, 0.08), 0.6), (rng.uniform(0.13, 0.16), 0.4)):
+        somar(y, batida_vidro(rng, forca), amostras(atraso, SR))
+    return efeito(filtrar(y, SR, lo=500, hi=9000))
+
+
+def s_lixeira_tampa(rng):
+    """Tampa de plástico da lixeira: dobradiça abrindo e o baque oco, 0,4 s."""
+    y = np.zeros(amostras(0.4, SR))
+    n = amostras(0.14, SR)
+    dobradica = filtrar(ruido(rng, n), SR, 900, 3200) * env_trapezio(n, SR, 0.02, 0.09, 0.03)
+    somar(y, 0.3 * dobradica, 0)
+    somar(y, batida_plastico(rng, 0.55, 0.55), amostras(0.1, SR))
+    somar(y, batida_plastico(rng, 1.0, 0.42), amostras(0.24, SR))
+    somar(y, 0.5 * baque_borracha(rng, 0.8, 1.5), amostras(0.24, SR))
+    return efeito(filtrar(y, SR, lo=70, hi=6500))
 
 
 # ================================================================ AMBIENTE (avulsos 3D)
@@ -958,6 +1095,13 @@ SONS = {
     "pneu_pegar": (s_pneu_pegar, SR),
     "pneu_largar": (s_pneu_largar, SR),
     "kit_segurar_loop": (s_kit_segurar_loop, SR),
+    "chuva_loop": (s_chuva_loop, SR_LONGO),
+    "trovao": (s_trovao, SR),
+    "esvaziar": (s_esvaziar, SR),
+    "pneu_picape": (s_pneu_picape, SR),
+    "suspensao": (s_suspensao, SR),
+    "saco_tilintar": (s_saco_tilintar, SR),
+    "lixeira_tampa": (s_lixeira_tampa, SR),
     "ambiente_bairro_loop": (s_bairro, SR_LONGO),
     "ambiente_hospital_loop": (s_hospital, SR_LONGO),
     "trilha_base": (s_trilha_base, SR_LONGO),
@@ -969,6 +1113,7 @@ SONS = {
 for _nome, _func, _qtd in (("foco_agua", s_agua, 3), ("foco_areia", s_areia, 2), ("foco_tampa", s_tampa, 2),
                            ("foco_garrafa", s_garrafa, 3), ("foco_metal", s_metal, 2),
                            ("passo_rua", s_passo_rua, 4), ("passo_piso", s_passo_piso, 4),
+                           ("passo_pesado", s_passo_pesado, 3), ("esforco", s_esforco, 3),
                            ("passaro", s_passaro, 3), ("latido", s_latido, 2)):
     for _v in range(_qtd):
         SONS[f"{_nome}_{_v + 1}"] = ((lambda f, v: (lambda r: f(r, v)))(_func, _v), SR)

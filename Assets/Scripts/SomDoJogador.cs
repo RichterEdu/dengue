@@ -13,6 +13,10 @@ using UnityEngine;
  *  - Pulo: OnPulou. Aterrissagem: OnAterrissou (só dispara acima de 3 m/s);
  *    quedas menores (degrau, pulinho) viram um passo ao tocar o chão.
  *
+ *  - PassoPesado (carregando pneu, FeedbackDeCarga): os passosPesados no
+ *    lugar dos normais, mais altos. Sem esses clipes, o passo normal mais
+ *    alto e mais grave.
+ *
  *  Som 2D: o corpo está colado no AudioListener (câmera).
  * ============================================================ */
 
@@ -30,6 +34,14 @@ public class SomDoJogador : MonoBehaviour
     [SerializeField] private float variacaoPitch = 0.08f;
     [Tooltip("Abaixo desta velocidade (m/s) não toca passo.")]
     [SerializeField] private float velocidadeMinima = 0.3f;
+
+    [Header("Passo pesado (carregando pneu)")]
+    [Tooltip("Passos com o pneu nos braços, no lugar dos normais. Vazio = os normais, mais graves (multiplicadorPitchPesado).")]
+    [SerializeField] private AudioClip[] passosPesados;
+    [Tooltip("Multiplica o volume de cada passo com o PassoPesado.")]
+    [SerializeField] private float multiplicadorVolumePesado = 1.3f;
+    [Tooltip("Multiplica o pitch do passo normal com o PassoPesado, sem clipes pesados (abaixo de 1 = mais grave).")]
+    [SerializeField] private float multiplicadorPitchPesado = 0.85f;
 
     [Header("Pulo e aterrissagem")]
     [SerializeField] private AudioClip pulo;
@@ -53,6 +65,11 @@ public class SomDoJogador : MonoBehaviour
     private bool estavaNoChao = true;
     private float tempoNoArAntes;
     private bool aterrissouForte;
+
+    /* Carregando pneu (FeedbackDeCarga): os passosPesados, com volume ×
+     * multiplicadorVolumePesado (sem eles, o passo normal com pitch ×
+     * multiplicadorPitchPesado). */
+    public bool PassoPesado { get; set; }
 
     void Awake()
     {
@@ -109,10 +126,19 @@ public class SomDoJogador : MonoBehaviour
         }
     }
 
+    /* Os passos de agora: pesados, de rua ou de piso. */
+    internal AudioClip[] ListaDePassos()
+    {
+        if (PassoPesado && passosPesados != null && passosPesados.Length > 0)
+            return passosPesados;
+
+        bool naRua = fluxo == null || fluxo.PartidaIniciada;
+        return naRua || passosPiso == null || passosPiso.Length == 0 ? passosRua : passosPiso;
+    }
+
     private void TocarPasso(float volume)
     {
-        bool naRua = fluxo == null || fluxo.PartidaIniciada;
-        AudioClip[] lista = naRua || passosPiso == null || passosPiso.Length == 0 ? passosRua : passosPiso;
+        AudioClip[] lista = ListaDePassos();
         if (lista == null || lista.Length == 0)
             return;
 
@@ -121,8 +147,9 @@ public class SomDoJogador : MonoBehaviour
             i = (i + 1) % lista.Length;
         ultimoPasso = i;
 
-        fontePassos.Fonte.pitch = 1f + Random.Range(-variacaoPitch, variacaoPitch);
-        fontePassos.Fonte.PlayOneShot(lista[i], volume);
+        fontePassos.Fonte.pitch = (1f + Random.Range(-variacaoPitch, variacaoPitch))
+                                  * (PassoPesado && lista != passosPesados ? multiplicadorPitchPesado : 1f);
+        fontePassos.Fonte.PlayOneShot(lista[i], volume * (PassoPesado ? multiplicadorVolumePesado : 1f));
     }
 
     private void Pulou()

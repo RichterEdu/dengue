@@ -9,6 +9,13 @@ using UnityEngine;
  *  compartilhado (asset) — mesma técnica já usada em Interactor.cs e
  *  Interactable.cs, extraída aqui para não triplicar a lógica no
  *  FocoProximityGlow.cs.
+ *
+ *  Destacavel diz quais Renderer entram no brilho (aqui, no Interactor e
+ *  no flash do Interactable): o ParticleSystemRenderer fica de fora (o
+ *  enxame de mosquitos e os estouros). O material de partícula não tem
+ *  _EmissionColor (o GetColor logaria erro no Console) e o rend.material
+ *  criaria uma cópia do material compartilhado do enxame que nunca é
+ *  destruída.
  * ============================================================ */
 
 public static class EmissionHighlightUtil
@@ -21,14 +28,23 @@ public static class EmissionHighlightUtil
         public bool emissionEnabled;
     }
 
-    /* Instancia o material de cada Renderer e guarda o estado original da emissão. */
+    /* Entra no brilho de emissão: tem material e não é partícula (o
+     * enxame e os estouros não têm emissão nem devem ganhar cópia do
+     * material). */
+    public static bool Destacavel(Renderer rend)
+    {
+        return rend != null && rend.sharedMaterial != null && !(rend is ParticleSystemRenderer);
+    }
+
+    /* Instancia o material de cada Renderer destacável e guarda o estado
+     * original da emissão. */
     public static List<HighlightEntry> Capture(IEnumerable<Renderer> renderers)
     {
         List<HighlightEntry> entries = new List<HighlightEntry>();
 
         foreach (Renderer rend in renderers)
         {
-            if (rend == null || rend.sharedMaterial == null)
+            if (!Destacavel(rend))
                 continue;
 
             Material mat = rend.material;

@@ -11,7 +11,8 @@ using UnityEngine;
  *    *_loop e trilha_*   Compressed In Memory, Vorbis — loops longos
  *                        (exceto o zumbido, que é curto e fica em PCM)
  *    o resto             Decompress On Load, PCM — curtos, sem atraso
- *    mosquito_ foco_ passaro_ latido_ passo_   mono (são tocados em 3D)
+ *    mosquito_ foco_ passaro_ latido_ passo_ esvaziar pneu_picape
+ *    suspensao lixeira_                        mono (são tocados em 3D)
  *
  *  Roda a cada (re)importação: mudança feita à mão no Inspector desses
  *  arquivos volta ao padrão quando o arquivo for regerado.
@@ -21,7 +22,11 @@ public class ImportadorDeSons : AssetPostprocessor
 {
     public const string Pasta = "Assets/Meus/Assets Gerados/Sons/";
 
-    private static readonly string[] Prefixos3D = { "mosquito_", "foco_", "passaro_", "latido_", "passo_" };
+    private static readonly string[] Prefixos3D =
+    {
+        "mosquito_", "foco_", "passaro_", "latido_", "passo_",
+        "esvaziar", "pneu_picape", "suspensao", "lixeira_"
+    };
 
     void OnPreprocessAudio()
     {

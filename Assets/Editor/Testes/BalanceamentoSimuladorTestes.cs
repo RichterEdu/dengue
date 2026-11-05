@@ -197,6 +197,25 @@ public class BalanceamentoSimuladorTestes
         StringAssert.StartsWith("PERDE", linha);
     }
 
+    /* ================= Nota (Parte C) ================= */
+
+    [Test, Category("ParteC")]
+    public void NotaDaLinha_Vitoria()
+    {
+        string s = BalanceamentoSimulador.NotaDaLinha(true, 1320f, 0.84f, 30, 30, new RegrasDaNota());
+
+        StringAssert.Contains("nota 6.280", s);
+        StringAssert.Contains("2 estrelas", s);
+    }
+
+    [Test, Category("ParteC")]
+    public void Resumir_SemRegras_NaoMostraNota() =>
+        StringAssert.DoesNotContain("nota", BalanceamentoSimulador.Resumir(new[] { Vitoria(1, 0.8f) }, Total));
+
+    [Test, Category("ParteC")]
+    public void Resumir_ComRegras_MostraNota() =>
+        StringAssert.Contains("nota", BalanceamentoSimulador.Resumir(new[] { Vitoria(1, 0.8f) }, Total, new RegrasDaNota()));
+
     [Test]
     public void Resumir_NinguemTermina_Avisa()
     {

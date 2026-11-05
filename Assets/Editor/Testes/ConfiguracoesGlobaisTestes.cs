@@ -133,6 +133,7 @@ public class ConfiguracoesGlobaisTestes
      * a única fonte destes valores. */
     [TestCase("Assets/Editor/KitDoAgenteBuilder.cs")]
     [TestCase("Assets/Editor/FocosVivosBuilder.cs")]
+    [TestCase("Assets/Editor/NotaBuilder.cs")]
     public void Builders_NaoGravamOsCamposDaJanela(string caminho)
     {
         string codigo = File.ReadAllText(caminho);

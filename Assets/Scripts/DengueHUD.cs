@@ -141,6 +141,10 @@ public class DengueHUD : MonoBehaviour
     [Header("Mensagem final")]
     [SerializeField] private CanvasGroup completeGroup;
     [SerializeField] private TextMeshProUGUI completeText;
+    [Tooltip("Vazio = o FluxoDeJogoHUD da cena. A faixa some quando a tela final aparece.")]
+    [SerializeField] private FluxoDeJogoHUD telaFinal;
+    [Tooltip("Vazio = o AvisoDeMeta da cena. O aviso de foco desce enquanto a faixa de meta perdida está visível.")]
+    [SerializeField] private AvisoDeMeta avisoDeMeta;
 
     [Header("Animação")]
     [Tooltip("Velocidade das transições (mira, fade, barra).")]
@@ -254,6 +258,9 @@ public class DengueHUD : MonoBehaviour
         foreach (Cacamba cacamba in cacambas)
             cacamba.OnPneuRecebido += HandlePneuRecebido;
 
+        if (telaFinal == null) telaFinal = FindAnyObjectByType<FluxoDeJogoHUD>();
+        if (avisoDeMeta == null) avisoDeMeta = FindAnyObjectByType<AvisoDeMeta>();
+
         if (targetGroup != null) targetGroup.alpha = 0f;
         if (completeGroup != null) completeGroup.alpha = 0f;
         if (toastGroup != null)
@@ -356,10 +363,15 @@ public class DengueHUD : MonoBehaviour
 
         if (completeGroup != null)
         {
-            float goal = focos.Count > 0 && eliminated >= focos.Count ? 1f : 0f;
+            float goal = AlvoDaFaixaFinal(eliminated, focos.Count, telaFinal != null && telaFinal.TelaFinalVisivel);
             completeGroup.alpha = Mathf.Lerp(completeGroup.alpha, goal, k * 0.5f);
         }
     }
+
+    /* Alvo do fade da faixa "Todos os focos foram eliminados!": acesa com
+     * todos eliminados, e apagada quando a tela final aparece. */
+    internal static float AlvoDaFaixaFinal(int eliminados, int total, bool telaFinalVisivel) =>
+        total > 0 && eliminados >= total && !telaFinalVisivel ? 1f : 0f;
 
     /* ---------------- Textos fixos ---------------- */
 
@@ -607,8 +619,13 @@ public class DengueHUD : MonoBehaviour
         toastGroup.alpha = alpha;
 
         float rise = toastTimer < 0.2f ? (1f - toastTimer / 0.2f) * 20f : 0f;
-        ((RectTransform)toastGroup.transform).anchoredPosition = toastBasePos + new Vector2(0f, rise);
+        float desce = DeslocamentoDoToast(avisoDeMeta != null && avisoDeMeta.Visivel);
+        ((RectTransform)toastGroup.transform).anchoredPosition = toastBasePos + new Vector2(0f, rise + desce);
     }
+
+    /* A faixa de meta perdida ocupa o mesmo ponto do aviso de foco: com ela
+     * visível, o aviso desce a altura dela (46) mais uma folga (8). */
+    internal static float DeslocamentoDoToast(bool avisoVisivel) => avisoVisivel ? -54f : 0f;
 
     /* ---------------- Recusas do kit ---------------- */
 

@@ -37,14 +37,20 @@ public class FluxoDeJogoHUD : MonoBehaviour
     [SerializeField] private Color corOcupacaoBaixa = new Color(0.25f, 1f, 0.8f, 1f);
     [SerializeField] private Color corOcupacaoAlta = new Color(1f, 0.25f, 0.25f, 1f);
 
+    [Header("Nota (vazio = telas finais só com as estatísticas em texto)")]
+    [Tooltip("Vazio = o PlacarDaPartida da cena.")]
+    [SerializeField] private PlacarDaPartida placar;
+
     [Header("Vitória")]
     [SerializeField] private CanvasGroup vitoriaGrupo;
     [SerializeField] private TextMeshProUGUI vitoriaTexto;
+    [SerializeField] private TelaDaNota telaVitoria;
     [SerializeField] private string tituloVitoria = "MISSÃO CUMPRIDA!";
 
     [Header("Derrota")]
     [SerializeField] private CanvasGroup derrotaGrupo;
     [SerializeField] private TextMeshProUGUI derrotaTexto;
+    [SerializeField] private TelaDaNota telaDerrota;
     [SerializeField] private string tituloDerrota = "HOSPITAL EM COLAPSO";
 
     private float displayedOcupacao;
@@ -57,11 +63,17 @@ public class FluxoDeJogoHUD : MonoBehaviour
      * tocar o epílogo antes das estatísticas. */
     public bool SegurarTelaFinal { get; set; }
 
+    /* A caixa final está (ou está entrando) na tela: fim de partida e sem o
+     * epílogo segurando. O DengueHUD usa isto para apagar a faixa antiga
+     * "Todos os focos foram eliminados!" de trás da caixa. */
+    internal bool TelaFinalVisivel => (vitoriaAtiva || derrotaAtiva) && !SegurarTelaFinal;
+
     void Start()
     {
         if (fluxo == null) fluxo = FindFirstObjectByType<FluxoDeJogo>();
         if (interactor == null) interactor = FindFirstObjectByType<Interactor>();
         if (jogador == null) jogador = FindFirstObjectByType<ControladorJogador>();
+        if (placar == null) placar = FindAnyObjectByType<PlacarDaPartida>();
 
         if (fluxo != null)
         {
@@ -162,8 +174,7 @@ public class FluxoDeJogoHUD : MonoBehaviour
         if (interactor != null) interactor.Bloqueado = true;
         if (jogador != null) jogador.ControleAtivo = false; // fica parado na tela final
         vitoriaAtiva = true;
-        if (vitoriaTexto != null)
-            vitoriaTexto.text = MontarEstatisticas(tituloVitoria);
+        PreencherFim(true);
     }
 
     private void HandleDerrota()
@@ -171,8 +182,28 @@ public class FluxoDeJogoHUD : MonoBehaviour
         if (interactor != null) interactor.Bloqueado = true;
         if (jogador != null) jogador.ControleAtivo = false; // fica parado na tela final
         derrotaAtiva = true;
-        if (derrotaTexto != null)
-            derrotaTexto.text = MontarEstatisticas(tituloDerrota);
+        PreencherFim(false);
+    }
+
+    /* Com o placar e a tela da nota ligados, a caixa mostra a nota; sem
+     * eles, continua o texto de estatísticas de antes. O Fechar do placar
+     * só calcula na primeira chamada, então a ordem dos ouvintes não importa. */
+    internal void PreencherFim(bool venceu)
+    {
+        TelaDaNota tela = venceu ? telaVitoria : telaDerrota;
+        TextMeshProUGUI texto = venceu ? vitoriaTexto : derrotaTexto;
+
+        if (placar != null && tela != null)
+        {
+            ResultadoDaNota resultado = placar.Fechar(venceu);
+            tela.Mostrar(resultado, placar.Dados, placar.Regras, placar.RecordeNovo, placar.Recorde.Pontos);
+            if (texto != null)
+                texto.text = "";
+            return;
+        }
+
+        if (texto != null && fluxo != null)
+            texto.text = MontarEstatisticas(venceu ? tituloVitoria : tituloDerrota);
     }
 
     private string MontarEstatisticas(string titulo)

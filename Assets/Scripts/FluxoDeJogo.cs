@@ -83,6 +83,10 @@ public class FluxoDeJogo : MonoBehaviour
     public event Action OnDerrota;
 
     public float Ocupacao { get; private set; }
+
+    /* O maior valor que a ocupação já teve na partida (começa em
+     * OcupacaoInicial no Ligar e nunca desce). Lido pelo PlacarDaPartida. */
+    public float OcupacaoPico { get; private set; }
     public bool PartidaIniciada { get; private set; }
     public bool PartidaEncerrada { get; private set; }
     public float TempoDecorrido { get; private set; }
@@ -108,6 +112,7 @@ public class FluxoDeJogo : MonoBehaviour
     internal void Ligar()
     {
         Ocupacao = OcupacaoInicial;
+        OcupacaoPico = Ocupacao;
         if (celular == null) celular = FindAnyObjectByType<CelularController>();
         if (gerenciador == null) gerenciador = GerenciadorDeFocos.Obter();
         else if (Application.isPlaying) gerenciador.Garantir();
@@ -150,14 +155,22 @@ public class FluxoDeJogo : MonoBehaviour
         if (!PartidaIniciada || PartidaEncerrada)
             return;
 
-        TempoDecorrido += Time.deltaTime;
+        AvancarOcupacao(Time.deltaTime);
+    }
+
+    /* O corpo do Update depois da guarda: tempo, taxa, ocupação, pico e
+     * derrota. Interno para os testes avançarem a partida sem o Update. */
+    internal void AvancarOcupacao(float dt)
+    {
+        TempoDecorrido += dt;
 
         // Sem gerenciador não há focos para pesar: a barra fica parada.
         if (gerenciador == null)
             return;
 
         float taxa = TaxaPara(TempoDecorrido, gerenciador.Pressao(), celular != null && celular.Aberto);
-        Ocupacao = Mathf.Clamp(Ocupacao + taxa * Time.deltaTime, ocupacaoMinima, 1f);
+        Ocupacao = Mathf.Clamp(Ocupacao + taxa * dt, ocupacaoMinima, 1f);
+        OcupacaoPico = Mathf.Max(OcupacaoPico, Ocupacao);
 
         if (Ocupacao >= 1f)
         {

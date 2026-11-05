@@ -2929,3 +2929,128 @@ Ritmo + custo do kit (s/foco; os últimos levam até 1,6x; custo do kit 11,2 s/f
 - Calibração que estava no comentário removido do `FocosVivosBuilder` (taxa 0,0013 e alívio 0,055, com o custo de rota da Parte B): 30 s/foco vence com pico de 87%, 35 s/foco vence, 40 s/foco perde nas 10 sementes e o parado perde aos 3:21. Com a taxa em 0,0011, o parado leva 4:02.
 - Conferido: suíte EditMode 266/266; na `SampleScene`, Aplicar e Ctrl+Z nos vasos, com cena e prefab voltando idênticos. Os testes de cena rodam só na cena temporária do Test Runner.
 - Não conferido: partida em Play com valores alterados, inclusive pneu com 10 passos (pela leitura do código, o punch pode acumular escala com passo curto). Os dois menus também não foram rodados na cena real, porque salvam a cena e regravam HUD e textos; a garantia vem do teste acima.
+
+
+### 2026-11-05 — Parte B na main (PR #2)
+
+**Objetivo (pedido do usuário):** abrir uma PR e fazer o merge na `main`.
+
+**O que entrou:** [PR #2](https://github.com/RichterEdu/dengue/pull/2), com merge commit `1b8af39`. Ela levou 4 commits: Beta 0.3, Parte A, barra de ocupação no topo e Parte B (com a janela Configurações Globais). A PR #1 (Beta 0.3) ficou como merged junto, porque o commit dela entrou na `main`.
+
+**Nenhum script, cena ou asset foi alterado nesta entrada.** Esta entrada ficou sem commit, na branch `parte-b/focos-vivos-e-chuva`.
+
+**NÃO verificado antes do merge:** build exportada, sons de ouvido e a dificuldade com 30 focos jogada.
+
+
+### 2026-11-05 — Spec da Parte C (nota, estrelas e recorde)
+
+**Objetivo (pedido do usuário):** seguir o roteiro com a Parte C. O brainstorming terminou com o design aprovado seção por seção, e a spec aguarda a revisão do usuário.
+
+**Decisões do usuário:**
+- motor da repetição: bater a própria nota;
+- pontos para o recorde e 3 metas com nome, todas exigindo vencer: Resposta rápida, Sem retrabalho e Hospital sob controle;
+- os 30 focos continuam fixos: o sorteio de lugares entre cerca de 40 pontos saiu do roteiro;
+- muletas: lista fechada no início e brilho de 3,5 m;
+- nota no fim, com metas na pausa e aviso curto, sem pontos ao vivo na HUD.
+
+**Arquivo novo:** `docs/superpowers/specs/2026-11-05-parte-c-nota-e-recorde-design.md`.
+
+**Nenhum script, cena ou asset foi alterado nesta entrada.** O preview da interface rodou só em Play, sem salvar a cena.
+
+**Observações técnicas:**
+- A fonte LiberationSans SDF não tem ★ nem ☆: as estrelas serão sprites.
+- Canvas em Screen Space Overlay não aparece no `screenshot`. Para o preview, os canvases passaram a Screen Space Camera, só em Play, com captura de 1920×1080 por RenderTexture.
+- Limites de 20:00 e 85% são pontos de partida, a calibrar no simulador.
+
+
+### 2026-11-05 — Plano da Parte C
+
+**Objetivo (pedido do usuário):** escrever o plano de implementação da spec da Parte C.
+
+**Arquivo novo:** `docs/superpowers/plans/2026-11-05-parte-c-nota-e-recorde.md`, com 7 tarefas: conta da nota, recorde, placar, telas, montagem da cena, simulador e calibragem, e verificação com build.
+
+**Nenhum script, cena ou asset foi alterado nesta entrada.** O plano aguarda a revisão do usuário e a escolha da forma de execução.
+
+**Observações técnicas:** `FluxoDeJogo.Update` passa a chamar `AvancarOcupacao(dt)`, que fica testável no EditMode. `NotaBuilder` reaproveita as peças `internal` do `MenuPausaBuilder`, e rodar de novo `Criar Menu de Pausa` ou `Criar Menu Inicial` exigirá rodar `Configurar Nota e Recorde`.
+
+
+### 2026-11-05 — Parte C: verificação no jogo e na build, com a calibragem
+
+**Objetivo (pedido do usuário):** executar a Parte C (nota, estrelas e recorde) e fechar com a verificação da Task 7: suíte inteira, vitória e derrota em Play, metas em Play, build e registro.
+
+**Arquivos da Parte C:**
+- Novos em `Assets/Scripts/`: `AvaliacaoDaPartida.cs`, `RecordeDoJogo.cs`, `PlacarDaPartida.cs`, `AvisoDeMeta.cs`, `TelaDaNota.cs`, `CartaoDeMetas.cs`, `RecordeNoMenu.cs`.
+- Alterados em `Assets/Scripts/`: `FluxoDeJogo.cs` (`OcupacaoPico`, `AvancarOcupacao`), `FluxoDeJogoHUD.cs` (`placar`, `telaVitoria`, `telaDerrota`), `MenuPausa.cs` (`cartaoDeMetas`).
+- Editor: `Assets/Editor/NotaBuilder.cs` (novo, menu `Dengue > Configurar Nota e Recorde`), `BalanceamentoSimulador.cs` (nota por ritmo) e `ConfiguracoesGlobais.cs` (grupo "Nota").
+- Testes em `Assets/Editor/Testes/`: `NotaTestes.cs`, `RecordeTestes.cs`, `PlacarTestes.cs`, `InterfaceDaNotaTestes.cs`, `NotaBuilderTestes.cs` (novos); `BalanceamentoSimuladorTestes.cs` e `ConfiguracoesGlobaisTestes.cs` (alterados).
+- Cenas: `Assets/Scenes/SampleScene.unity` e `Assets/Scenes/MenuInicial.unity`.
+- Sprites: `Assets/Meus/Assets Gerados/Interface/Estrela Cheia.png` e `Estrela Vazia.png`.
+- A verificação (Task 7) só alterou este arquivo. Sem commit.
+
+**Configurações aplicadas (valores finais de `RegrasDaNota`, os padrões):** `limiteDeSegundos` 1200, `limiteDePico` 85, `pontosPorFoco` 100, `pontosPorVitoria` 1000, `tetoDeSegundos` 1800, `pontosPorSegundo` 2, `pontosPorPercentual` 20, `pontosPorEstrela` 500, `penalidadePorReenchido` 100. Na cena: `FocoListaHUD.comecarAberto` falso e `FocoProximityGlow.raioProximidade` 3,5 m. `CartaoMetas` é filho do `Cartao` do menu de pausa, para encolher junto.
+
+**Calibragem (`Dengue > Simular Balanceamento`, regras padrão, 30 focos, 10 sementes). Nenhum limite mudou:**
+
+| Ritmo | Resultado | Nota |
+|---|---|---|
+| 15 s + 10,6 s | vence em 16:30, pico 70% (70%-71%) | 7.720, 3 estrelas |
+| 20 s + 10,6 s | vence em 19:44, pico 71% (71%-71%) | 7.312, 3 estrelas |
+| 25 s + 10,6 s | vence em 22:57, pico 74% (73%-74%) | 6.366, 2 estrelas |
+| 30 s + 10,6 s | vence em 26:11, pico 83% (82%-84%) | 5.798, 2 estrelas |
+| 35 s + 10,6 s | vence em 29:24, pico 94% (93%-94%) | 4.692, 1 estrela |
+| 40 s + 10,6 s | perde aos 8:48, com 9/30 focos | 900, 0 estrelas |
+| 45 s + 10,6 s | perde aos 6:46, com 6/30 focos | 600, 0 estrelas |
+| 50 s + 10,6 s | perde aos 6:05, com 5/30 focos | 500, 0 estrelas |
+| parado | perde aos 3:21, com 0/30 focos | 0, 0 estrelas |
+
+A referência foi cumprida: a 30 s por foco ganha a estrela do hospital e não a do tempo. A margem é curta: o pico máximo dessa linha é 84%, contra o limite de 85%.
+
+**Testes:** suíte EditMode inteira 324/324, `failed="0"`.
+
+**Play (Editor, entrando pela `MenuInicial`):**
+- Vitória forçada: 22:16, pico 71%, tela com 6.508, 2 estrelas e "NOVO RECORDE"; `new RecordeDoJogo().Pontos` = 6508. A conta bate: 3.000 + 1.000 + 928 + 580 + 1.000.
+- R recomeçou pela tecla real (simulada no Input System), e o recorde continuou. Voltar ao menu mostrou a linha do recorde, alinhada à assinatura (x 120). Sair do Play e entrar de novo manteve o recorde.
+- Derrota real: 400 pontos (500 − 100 de um reenchido), "exige vencer" nas três metas, "Faltaram 25 focos" e "Recorde: 6.508".
+- Metas: aviso abaixo da barra para Resposta rápida, Sem retrabalho e Hospital sob controle; esvaziar não derrubou a meta e reencher derrubou. A pausa real mostrou "perdida: 1 reenchido" e `20:17 de 20:00` em vermelho, além do recorde.
+- Lista fechada ao entrar, Tab abre e fecha. Brilho de proximidade com 3,5 m.
+- Janela baixa de verdade (1900×300, canvas 572 de altura): pausa aberta pelo Esc, os dois cartões com a mesma escala (0,386) e dentro da tela.
+- Console sem erros durante o Play. Os canvases passaram a Screen Space Camera só nas capturas.
+- O recorde de teste foi apagado (`Pontos` = 0) e `runInBackground` voltou a falso. `ProjectSettings` ficou igual ao `HEAD`.
+
+**Build:** `Builds/Foco Zero/Foco Zero.exe` (fora do git), `BuildResult.Succeeded`, 2 cenas, cerca de 230 MB. Conferido na tela, pela janela do executável, com teclas e mouse enviados por script:
+- destaque da mira: mira amarela e painel "Vaso de flor", com a areia eliminando o foco;
+- névoa da chuva: chuva visível na captura; névoa não distinguida com certeza, conferir jogando;
+- derrota com 1 foco: epílogo inteiro sem Esc, 100 pontos e "NOVO RECORDE";
+- recorde gravado: depois de fechar e reabrir o executável, o menu mostrou "RECORDE 100";
+- R recomeçou a partida.
+
+Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do Editor.
+
+**Observações técnicas:**
+- A build registra `Shader error in 'Universal Render Pipeline/Terrain/Lit': Lost connection with shader compiler process. Suspected crash in FXC` num programa de fragmento do passe ForwardLit (d3d11), repetido na segunda build. O resultado segue `Succeeded`, o terreno apareceu normal nas capturas e o executável rodou em Direct3D 12 sem erro no log. Repetiu nas duas builds. Não foi investigado se ocorria antes da Parte C (primeira build na branch); o terreno apareceu normal.
+- Os outros erros contados no resumo da build (4 na primeira, 2 na segunda, contando o do shader) são `Failed to handle /api/exec request`, os timeouts do CLI com o Editor ocupado na build.
+- `eval_file` com a build estoura o timeout de 5 s do CLI, mas a build continua. O resumo foi gravado em arquivo.
+- A faixa antiga "Todos os focos foram eliminados!" (`CompletePanel`, y 140 a 230, no canvas `DengueHUD`) fica visível atrás da tela de vitória, e a caixa nova (topo em 225) cobre 5 px dela. Não aparece no preview aprovado. Corrigido depois (Correção 1): a faixa apaga quando a tela final fica visível.
+- "NOVO RECORDE" sai sem negrito no jogo; no preview aprovado estava em negrito. Corrigido depois (Correção 1): agora sai em negrito com recorde novo.
+- A pausa sem recorde mantém a linha divisória e o espaço vazio embaixo no cartão de metas.
+- `FluxoDeJogoHUD.jogador` continua vazio na cena e é achado em runtime, como antes.
+- A build grava `LiberationSans SDF - Fallback.asset` com os glifos gerados no Play. O arquivo foi restaurado com `git checkout`, e isso volta a acontecer em toda build depois de jogar.
+
+**Não verificado:** vitória na build; "Sem retrabalho" derrubado por chuva real, tanto no Play quanto na build (no Play foi pelo `ReencherEsvaziados`, e o tempo foi avançado por `AvancarOcupacao`); controle; sons; e se as metas parecem alcançáveis jogando de verdade. O brilho de emissão no foco mirado não foi medido na build: só a mira amarela e o painel foram confirmados.
+
+**Correção 1 da tela final (2026-11-05):** (1) a faixa antiga "Todos os focos foram eliminados!" continua acesa durante o epílogo, mas apaga quando a tela final fica visível: `FluxoDeJogoHUD.TelaFinalVisivel` (`internal`; vitória ou derrota ativa e `SegurarTelaFinal` falso) e `DengueHUD.AlvoDaFaixaFinal`, com o campo opcional `telaFinal` achado por `FindAnyObjectByType` no `Start` (sem ele, o comportamento de antes). (2) "NOVO RECORDE" em negrito em `TelaDaNota`; "Recorde: N" fica normal. Só código, cena intacta. Testes novos em `InterfaceDaNotaTestes`: ParteC 63/63 e suíte inteira 330/330. Em Play, com os 30 focos concluídos: faixa em 1,00 durante o epílogo e 0,00 com a tela final visível e a vitória em alpha 1. Na build foi jogada só uma partida curta, terminada em derrota, e o recorde foi provado pela tela depois de reabrir o executável, não pelo Registro.
+
+- **Onda final de correções da revisão (2026-11-05):** (1) `AvisoDeMeta.Visivel` (`internal`, `Restante > 0`) e `DengueHUD.DeslocamentoDoToast(bool)` (−54): o aviso de foco e dica desce abaixo da faixa de meta perdida, que ocupava o mesmo ponto (0, −126); campo opcional `avisoDeMeta` achado por `FindAnyObjectByType` no `Start` (sem ele, como antes), só código, cena intacta. (2) Testes novos: pico que sobe com pressão, reenchido fora da partida (não iniciada e encerrada), `CartaoDeMetas` com partida vencida com meta perdida e com derrota, `Cartao_SemPlacarENulos_NaoQuebra` agora sem placar de verdade, `Toast_Desce...` e `Aviso_Visivel...`. Nenhum defeito achado no cartão. Mutações conferidas e restauradas.
+
+
+### 2026-11-05 — Parte C na main local
+
+**Objetivo (pedido do usuário):** mesclar a Parte C na `main` localmente, sem push.
+
+**O que entrou:** o trabalho da branch `parte-c/nota-e-recorde`, num único commit, porque a execução usou o índice do git, sem commits por tarefa. A branch foi removida depois do merge.
+
+**Nenhum script, cena ou asset foi alterado nesta entrada.**
+
+**Observações técnicas:** a suíte de 336 testes rodou na mesma árvore antes do commit. Não rodou de novo depois do merge, porque o Editor estava fechado e o merge só avança a `main` para esse commit.
+
+**NÃO verificado antes do merge:** vitória na build, erro de shader do terreno (repetido em duas builds), névoa da chuva e destaque do foco mirado na build, chuva real derrubando "Sem retrabalho", deslocamento do toast em Play, sons e controle.

@@ -144,6 +144,16 @@ public static class ConfiguracoesGlobais
                 "segundosDeCorrida", "segundosParaRecuperar", "fracaoParaVoltarACorrer",
             },
         },
+        new GrupoDaPartida
+        {
+            Titulo = "Nota", Tipo = typeof(PlacarDaPartida),
+            Campos = new[]
+            {
+                "regras.limiteDeSegundos", "regras.limiteDePico", "regras.pontosPorFoco", "regras.pontosPorVitoria",
+                "regras.tetoDeSegundos", "regras.pontosPorSegundo", "regras.pontosPorPercentual",
+                "regras.pontosPorEstrela", "regras.penalidadePorReenchido",
+            },
+        },
     };
 
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");

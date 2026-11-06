@@ -3076,3 +3076,53 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - Ao menos um ralo da cena tem escala 1,21 × 2,11: uma peça nova filha do prefab herda esse esticamento.
 - Olhar para o chão ainda não foi testado com o braço real. A spec prevê o braço acompanhar o olhar.
 - `PlayerSettings.runInBackground` foi restaurado para falso depois das prévias (conferido em `ProjectSettings.asset`).
+
+
+### 2026-11-06 — Itens do kit na mão
+
+**Objetivo (pedido do usuário):** dar modelo 3D, pose e gesto ao balde de areia, à tela com moldura e ao borrifador, como o saco de lixo, e mostrar a mesma tela sob a grelha do ralo concluído.
+
+**Arquivos novos:**
+- `Assets/Scripts/RegraDoItemNaMao.cs` — regra pura: qual item, quando há gesto, estado do Animator e giro do ombro.
+- `Assets/Scripts/ItensNaMao.cs` — componente no Player.
+- `Assets/Editor/ItensNaMaoBuilder.cs` — menu **Dengue > Configurar Itens na Mão**.
+- `Ferramentas/Blender/gerar_itens.py` e `Assets/Meus/Assets Gerados/Itens/` — modelos, texturas e materiais.
+- `Assets/Editor/Testes/RegraDoItemNaMaoTestes.cs`, `ItensNaMaoTestes.cs` e `ItensNaMaoAssetsTestes.cs`.
+
+**Arquivos alterados:** `Ferramentas/Blender/gerar_agente.py`, `AgenteSaude.fbx`, `Agente_AnimController.controller`, `Ralo.prefab`, `Assets/Scenes/SampleScene.unity`, `Assets/Editor/FocosBlenderBuilder.cs`, `Assets/Editor/PoseDeCarga.cs` e `Assets/Editor/PlayerBuilder.cs`.
+
+**Configurações aplicadas:**
+- Tela: 29 × 29 cm, escala 0,67 na mão, escala local 1 e centro a 2,9 cm no ralo, sob a grelha.
+- Sem carga: balde vazio, borrifador na mão e tela fora da mão.
+- Camada `ItemNaMao` com 6 estados: peso em 0,15 s e troca de estado em 0,12 s.
+- `fatorDoOlhar` 1: o ombro acompanha o olhar.
+- Gesto do balde: 28° e 8 cm de subida.
+- Névoa: alfa 0,6 e tamanho de 0,05 a 0,12.
+
+**Testes:** suíte EditMode verde (detalhe no commit).
+
+**Verificado em Play, com mouse virtual segurando o clique real (`SampleScene`):**
+- vaso e bromélia: gesto, partículas e parada ao soltar, com o foco concluindo;
+- ralo: gesto no skill check, e a tela some da mão quando o erro gasta a última;
+- sem carga: "Acabou: Areia" e "Acabou: Água sanitária", sem gesto;
+- pausa no meio do gesto: não prende a pose;
+- pneu e saco: pesos das camadas certos depois da reexportação;
+- os quatro ralos concluídos: `TelaInstalada` ativa, herdando a escala 1,21 × 2,11;
+- olhar a +80° e -60°: o braço não entra na câmera.
+
+**O que NÃO foi verificado:**
+- partida inteira com teclado e mouse de verdade;
+- build exportada;
+- movimento dos gestos visto em tempo real: as capturas são quadros isolados;
+- andar e correr com a animação reexportada, em movimento (só os clipes e os pesos foram conferidos);
+- controle (gamepad).
+
+**Observações técnicas:**
+- **Partículas em espaço local:** o sistema lê o emissor antes do `LateUpdate`, onde o ombro gira. Em espaço de mundo, a névoa nascia longe do bico ao olhar para baixo.
+- **Cena suja trava o Test Runner:** o Unity recalcula o layout da UI ao abrir a `SampleScene`, a cena fica suja e o Test Runner abre a janela "Scene(s) Have Been Modified". Sem foco, o Editor não avança. Antes de testar por CLI, abrir uma cena vazia.
+- **`run_tests` responde `success: true` com 0 testes** quando a compilação falha. Conferir o total.
+- **`Temp/` é apagada ao reabrir o Editor,** inclusive as capturas.
+- **`UsandoBalde` e o alcance do braço:** a pose do balde está perto do limite do braço. Subir a mão funciona; avançar, não.
+- **`Saco_Plastico.mat` e os `Item_*.mat`:** o Unity regrava `_Color` com arredondamento. Não tem efeito visual.
+- Em `eval_file`, membros `internal` não são acessíveis: usar reflexão.
+- Depois de **Dengue > Configurar Player**, rodar também **Dengue > Configurar Itens na Mão**.

@@ -50,6 +50,8 @@ using Object = UnityEngine.Object;
  *  controller do zero e destrói o "Modelo" (com o PontoDeCarga e o
  *  SacoNaMao, que são filhos dos ossos). Depois dele, rodar o
  *  GarantirAssets E o Aplicar.
+ *  Os itens do kit também somem: rodar ainda Dengue > Configurar Itens
+ *  na Mão (ItensNaMaoBuilder), que refaz a camada "ItemNaMao".
  *
  *  Poses e saco: gerados por Ferramentas/Blender/gerar_agente.py (ações
  *  Carregando e CarregandoSaco) e gerar_saco.py.

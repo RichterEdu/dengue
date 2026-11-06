@@ -261,11 +261,11 @@ public static class ItensNaMaoBuilder
     private static ParticleSystem GarantirNevoa(Transform borrifador)
     {
         Color cor = Color.white;
-        cor.a = 0.35f;
+        cor.a = 0.6f;
         ParticleSystem particulas = GarantirParticulas(borrifador, NomeNevoa, PosicaoDaNevoa,
                                                        cor, 40, 50f, 0.35f, 1.2f, 0f);
         ParticleSystem.MainModule principal = particulas.main;
-        principal.startSize = 0.03f;
+        principal.startSize = 0.05f;
 
         ParticleSystem.ShapeModule forma = particulas.shape;
         forma.shapeType = ParticleSystemShapeType.Cone;
@@ -274,7 +274,7 @@ public static class ItensNaMaoBuilder
 
         ParticleSystem.SizeOverLifetimeModule tamanho = particulas.sizeOverLifetime;
         tamanho.enabled = true;
-        tamanho.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 2.67f));
+        tamanho.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 2.4f));
 
         ParticleSystem.ColorOverLifetimeModule desbotar = particulas.colorOverLifetime;
         desbotar.enabled = true;
@@ -285,8 +285,10 @@ public static class ItensNaMaoBuilder
         return particulas;
     }
 
-    /* Partículas em espaço de mundo (os grãos no ar não seguem a mão), sem
-     * sombra e com a emissão desligada: o ItensNaMao liga durante o gesto. */
+    /* Partículas em espaço local do item: o sistema lê o emissor antes do
+     * LateUpdate, onde o ombro gira com o olhar. Em espaço de mundo, elas
+     * nasceriam longe do bico ao olhar para baixo. Sem sombra e com a emissão
+     * desligada: o ItensNaMao liga durante o gesto. */
     private static ParticleSystem GarantirParticulas(Transform item, string nome, Vector3 posicao, Color cor,
                                                      int maximo, float porSegundo, float vida,
                                                      float velocidade, float gravidade)
@@ -309,7 +311,7 @@ public static class ItensNaMaoBuilder
         principal.startColor = cor;
         principal.gravityModifier = gravidade;
         principal.maxParticles = maximo;
-        principal.simulationSpace = ParticleSystemSimulationSpace.World;
+        principal.simulationSpace = ParticleSystemSimulationSpace.Local;
 
         ParticleSystem.EmissionModule emissao = particulas.emission;
         emissao.enabled = false;

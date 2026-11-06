@@ -277,11 +277,24 @@ public class ItensNaMaoAssetsTestes
         {
             var particulas = (ParticleSystem)Campo(itens, campo);
             Assert.IsFalse(particulas.emission.enabled, campo);
-            Assert.AreEqual(ParticleSystemSimulationSpace.World, particulas.main.simulationSpace, campo);
+            // Local: o ombro gira no LateUpdate, depois de as partículas lerem o emissor.
+            Assert.AreEqual(ParticleSystemSimulationSpace.Local, particulas.main.simulationSpace, campo);
             var render = particulas.GetComponent<ParticleSystemRenderer>();
             Assert.AreEqual(UnityEngine.Rendering.ShadowCastingMode.Off, render.shadowCastingMode, campo);
             Assert.AreEqual("Itens_Particula", render.sharedMaterial.name, campo);
         }
+    }
+
+    [Test]
+    public void Nevoa_DaParaVer()
+    {
+        GameObject player = NovoPlayer();
+
+        ItensNaMaoBuilder.AplicarNoPlayer(player);
+
+        ParticleSystem.MainModule principal = ((ParticleSystem)Campo(player.GetComponent<ItensNaMao>(), "nevoa")).main;
+        Assert.GreaterOrEqual(principal.startColor.color.a, 0.6f, "com alfa baixo, a névoa some contra o chão");
+        Assert.GreaterOrEqual(principal.startSize.constant, 0.05f);
     }
 
     [Test]

@@ -204,7 +204,7 @@ public static class PoseDeCarga
     }
 
     /* Osso pelo nome, em qualquer profundidade (o primeiro achado). */
-    private static Transform AcharOsso(Transform raiz, string nome)
+    internal static Transform AcharOsso(Transform raiz, string nome)
     {
         return raiz.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == nome);
     }

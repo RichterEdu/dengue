@@ -1,7 +1,9 @@
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Animations;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 /* ============================================================
  *  ItensNaMaoBuilder.cs  (Editor)
@@ -21,6 +23,14 @@ using UnityEngine;
  *  GarantirCamadaDosItens() — idempotente, rodar depois de reexportar o
  *  agente: clipes dos itens no AgenteSaude.fbx e a camada "ItemNaMao"
  *  (máscara do braço direito, a mesma do saco).
+ *
+ *  AplicarNoPlayer(player) — idempotente: BaldeNaMao, TelaNaMao e
+ *  BorrifadorNaMao filhos do osso RightHand, inativos, com as partículas
+ *  do gesto, e o componente ItensNaMao ligado.
+ *
+ *  Menu  Dengue > Configurar Itens na Mão  roda tudo e salva a cena.
+ *  Rodar de novo depois do Dengue > Configurar Player, que destrói o
+ *  "Modelo" e recria o controller.
  * ============================================================ */
 
 public static class ItensNaMaoBuilder
@@ -49,6 +59,217 @@ public static class ItensNaMaoBuilder
         ("Borrifador", new[] { ("Frasco", "#EDF0EB", 0.55f), ("Rotulo", "#1C54AD", 0.3f), ("Faixa", "#F5CC33", 0.3f),
                                ("Cabeca", "#17805F", 0.45f), ("Gatilho", "#0D4D3D", 0.35f) }),
     };
+
+    // Itens no referencial do osso RightHand, com a mão nas poses Carregando*.
+    private const string NomeBalde = "BaldeNaMao";
+    private const string NomeTela = "TelaNaMao";
+    private const string NomeBorrifador = "BorrifadorNaMao";
+    private const string NomeAreiaCaindo = "AreiaCaindo";
+    private const string NomeNevoa = "Nevoa";
+    private const string NomeOssoOmbro = "RightUpperArm";
+
+    private const float EscalaDaTelaNaMao = 0.67f;
+
+    private static readonly Vector3 PosicaoDoBalde = new Vector3(0f, 0.070f, 0f);
+    private static readonly Vector3 GiroDoBalde = new Vector3(302.3f, 170.8f, 190.7f);
+    private static readonly Vector3 PosicaoDaTela = new Vector3(-0.066f, 0.093f, -0.090f);
+    private static readonly Vector3 GiroDaTela = new Vector3(4.2f, 172.9f, 208.1f);
+    private static readonly Vector3 PosicaoDoBorrifador = new Vector3(-0.010f, 0.067f, -0.050f);
+    private static readonly Vector3 GiroDoBorrifador = new Vector3(274.7f, 106.7f, 257.9f);
+
+    // Partículas no referencial de cada item.
+    private static readonly Vector3 PosicaoDaAreiaCaindo = new Vector3(0f, -0.16f, 0.10f);
+    private static readonly Vector3 PosicaoDaNevoa = new Vector3(0f, 0.034f, 0.088f);
+
+    [MenuItem("Dengue/Configurar Itens na Mão")]
+    public static void Configurar()
+    {
+        ControladorJogador jogador = Object.FindFirstObjectByType<ControladorJogador>();
+        if (jogador == null)
+        {
+            Debug.LogError("[Itens] Abra a cena do jogo: não achei o Player.");
+            return;
+        }
+
+        string importacao = GarantirImportacaoDosItens();
+        string camada = GarantirCamadaDosItens();
+        if (importacao.Contains("ERRO") || camada.Contains("ERRO"))
+        {
+            Debug.LogError(importacao + "\n" + camada);
+            return;
+        }
+
+        AplicarNoPlayer(jogador.gameObject);
+        EditorSceneManager.SaveScene(jogador.gameObject.scene);
+        Debug.Log(importacao + "\n" + camada + "\n[Itens] Player montado.");
+    }
+
+    /* Os itens na mão direita, as partículas e o ItensNaMao (idempotente).
+     * Não salva a cena: quem chama decide. */
+    public static void AplicarNoPlayer(GameObject player)
+    {
+        if (player == null)
+        {
+            Debug.LogError("[Itens] AplicarNoPlayer: player nulo.");
+            return;
+        }
+
+        Transform corpo = player.transform.Find("Modelo");
+        if (corpo == null)
+            corpo = player.transform;
+        Transform mao = PoseDeCarga.AcharOsso(corpo, PoseDeCarga.NomeOssoMao);
+        Transform ombro = PoseDeCarga.AcharOsso(corpo, NomeOssoOmbro);
+        KitDoAgente kit = player.GetComponent<KitDoAgente>();
+        if (mao == null || ombro == null || kit == null)
+        {
+            Debug.LogError("[Itens] " + player.name + " sem mão, ombro ou KitDoAgente: rode Dengue > Configurar Player e o kit.");
+            return;
+        }
+
+        Transform balde = GarantirItem(mao, NomeBalde, "Balde", PosicaoDoBalde, GiroDoBalde, 1f);
+        Transform tela = GarantirItem(mao, NomeTela, "Tela", PosicaoDaTela, GiroDaTela, EscalaDaTelaNaMao);
+        Transform borrifador = GarantirItem(mao, NomeBorrifador, "Borrifador",
+                                            PosicaoDoBorrifador, GiroDoBorrifador, 1f);
+        if (balde == null || tela == null || borrifador == null)
+            return;
+
+        ParticleSystem areiaCaindo = GarantirAreiaCaindo(balde);
+        ParticleSystem nevoa = GarantirNevoa(borrifador);
+        foreach (Transform item in new[] { balde, tela, borrifador })
+            foreach (Transform t in item.GetComponentsInChildren<Transform>(true))
+                t.gameObject.layer = mao.gameObject.layer;   // CorpoJogador: a mira não pega
+
+        ItensNaMao itens = player.GetComponent<ItensNaMao>();
+        if (itens == null)
+            itens = player.AddComponent<ItensNaMao>();
+
+        SerializedObject so = new SerializedObject(itens);
+        so.FindProperty("kit").objectReferenceValue = kit;
+        so.FindProperty("interactor").objectReferenceValue = Object.FindFirstObjectByType<Interactor>();
+        so.FindProperty("jogador").objectReferenceValue = player.GetComponent<ControladorJogador>();
+        so.FindProperty("animator").objectReferenceValue = player.GetComponentInChildren<Animator>(true);
+        so.FindProperty("baldeNaMao").objectReferenceValue = balde;
+        so.FindProperty("areiaDoBalde").objectReferenceValue = balde.Find("Areia").gameObject;
+        so.FindProperty("telaNaMao").objectReferenceValue = tela;
+        so.FindProperty("borrifadorNaMao").objectReferenceValue = borrifador;
+        so.FindProperty("areiaCaindo").objectReferenceValue = areiaCaindo;
+        so.FindProperty("nevoa").objectReferenceValue = nevoa;
+        so.FindProperty("ombroDireito").objectReferenceValue = ombro;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        if (!Application.isPlaying && player.scene.IsValid())
+            EditorSceneManager.MarkSceneDirty(player.scene);
+    }
+
+    /* Instância do FBX filha da mão, inativa (o ItensNaMao mostra). */
+    private static Transform GarantirItem(Transform mao, string nome, string fbx,
+                                          Vector3 posicao, Vector3 giro, float escala)
+    {
+        Transform item = mao.Find(nome);
+        if (item == null)
+        {
+            string caminho = Pasta + "/" + fbx + ".fbx";
+            GameObject modelo = AssetDatabase.LoadAssetAtPath<GameObject>(caminho);
+            if (modelo == null)
+            {
+                Debug.LogError("[Itens] Não achei " + caminho + ": rode o gerar_itens.py.");
+                return null;
+            }
+
+            GameObject instancia = (GameObject)PrefabUtility.InstantiatePrefab(modelo, mao);
+            instancia.name = nome;
+            item = instancia.transform;
+        }
+
+        item.localPosition = posicao;
+        item.localEulerAngles = giro;
+        item.localScale = Vector3.one * escala;
+        item.gameObject.SetActive(false);
+        return item;
+    }
+
+    private static ParticleSystem GarantirAreiaCaindo(Transform balde)
+    {
+        ParticleSystem particulas = GarantirParticulas(balde, NomeAreiaCaindo, PosicaoDaAreiaCaindo,
+                                                       Hexa("#D6B87A"), 60, 40f, 0.5f, 0.2f, 1f);
+        ParticleSystem.MainModule principal = particulas.main;
+        principal.startSize = new ParticleSystem.MinMaxCurve(0.012f, 0.02f);
+
+        ParticleSystem.ShapeModule forma = particulas.shape;
+        forma.shapeType = ParticleSystemShapeType.Circle;
+        forma.radius = 0.04f;
+        return particulas;
+    }
+
+    private static ParticleSystem GarantirNevoa(Transform borrifador)
+    {
+        Color cor = Color.white;
+        cor.a = 0.35f;
+        ParticleSystem particulas = GarantirParticulas(borrifador, NomeNevoa, PosicaoDaNevoa,
+                                                       cor, 40, 50f, 0.35f, 1.2f, 0f);
+        ParticleSystem.MainModule principal = particulas.main;
+        principal.startSize = 0.03f;
+
+        ParticleSystem.ShapeModule forma = particulas.shape;
+        forma.shapeType = ParticleSystemShapeType.Cone;
+        forma.angle = 14f;
+        forma.radius = 0.002f;
+
+        ParticleSystem.SizeOverLifetimeModule tamanho = particulas.sizeOverLifetime;
+        tamanho.enabled = true;
+        tamanho.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 2.67f));
+
+        ParticleSystem.ColorOverLifetimeModule desbotar = particulas.colorOverLifetime;
+        desbotar.enabled = true;
+        Gradient gradiente = new Gradient();
+        gradiente.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                          new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+        desbotar.color = gradiente;
+        return particulas;
+    }
+
+    /* Partículas em espaço de mundo (os grãos no ar não seguem a mão), sem
+     * sombra e com a emissão desligada: o ItensNaMao liga durante o gesto. */
+    private static ParticleSystem GarantirParticulas(Transform item, string nome, Vector3 posicao, Color cor,
+                                                     int maximo, float porSegundo, float vida,
+                                                     float velocidade, float gravidade)
+    {
+        Transform existente = item.Find(nome);
+        GameObject objeto = existente != null ? existente.gameObject : new GameObject(nome);
+        objeto.transform.SetParent(item, false);
+        objeto.transform.localPosition = posicao;
+        objeto.transform.localRotation = Quaternion.identity;
+
+        ParticleSystem particulas = objeto.GetComponent<ParticleSystem>();
+        if (particulas == null)
+            particulas = objeto.AddComponent<ParticleSystem>();
+
+        ParticleSystem.MainModule principal = particulas.main;
+        principal.loop = true;
+        principal.playOnAwake = true;
+        principal.startLifetime = vida;
+        principal.startSpeed = velocidade;
+        principal.startColor = cor;
+        principal.gravityModifier = gravidade;
+        principal.maxParticles = maximo;
+        principal.simulationSpace = ParticleSystemSimulationSpace.World;
+
+        ParticleSystem.EmissionModule emissao = particulas.emission;
+        emissao.enabled = false;
+        emissao.rateOverTime = porSegundo;
+
+        ParticleSystemRenderer render = objeto.GetComponent<ParticleSystemRenderer>();
+        render.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>(CaminhoMaterialParticula);
+        render.shadowCastingMode = ShadowCastingMode.Off;
+        render.receiveShadows = false;
+        return particulas;
+    }
+
+    private static Color Hexa(string hex)
+    {
+        ColorUtility.TryParseHtmlString(hex, out Color cor);
+        return cor;
+    }
 
     /* FBX, texturas e materiais dos itens. */
     public static string GarantirImportacaoDosItens()

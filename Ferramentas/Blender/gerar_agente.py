@@ -945,10 +945,10 @@ def acao_do_braco(nome, n, palma, dedos, normal, gesto=None):
         ps.update(braco_ik(-1, p, d, m, SACO_POLO))
         aplicar(f, ps, Vector((0, 0, -0.004)))
 
-BALDE_PALMA = Vector((-0.30, -0.50, 1.62))
+BALDE_PALMA = Vector((-0.25, -0.55, 1.70))
 BALDE_DEDOS = Vector((0.10, -0.85, -0.50))
 BALDE_NORMAL = Vector((1.0, 0.0, 0.0))
-TELA_PALMA = Vector((-0.30, -0.60, 1.42))
+TELA_PALMA = Vector((-0.30, -0.60, 1.46))
 BORRIFADOR_PALMA = Vector((-0.30, -0.60, 1.545))
 ITEM_DEDOS = Vector((0.35, -0.90, 0.0))
 ITEM_NORMAL = Vector((0.9, -0.3, 0.0))
@@ -957,9 +957,11 @@ acao_do_braco('CarregandoBalde', 1, BALDE_PALMA, BALDE_DEDOS, BALDE_NORMAL)
 acao_do_braco('CarregandoTela', 1, TELA_PALMA, ITEM_DEDOS, ITEM_NORMAL)
 acao_do_braco('CarregandoBorrifador', 1, BORRIFADOR_PALMA, ITEM_DEDOS, ITEM_NORMAL)
 
-# Despejar: a mão gira 45° para a frente e para baixo, e o balde vai junto.
+# Despejar: a mão gira 28° para a frente e para baixo, e o balde vai junto. Ela sobe
+# enquanto gira: o fundo do balde vem para o agente e, sem subir, sairia da tela.
 acao_do_braco('UsandoBalde', 24, None, None, None, lambda k: (
-    BALDE_PALMA, girar_em_x(BALDE_DEDOS, 45.0 * k), girar_em_x(BALDE_NORMAL, 45.0 * k)))
+    BALDE_PALMA + Vector((0.03, 0.0, 0.08)) * k,
+    girar_em_x(BALDE_DEDOS, 28.0 * k), girar_em_x(BALDE_NORMAL, 28.0 * k)))
 # Encaixar: empurra a tela para a frente e para baixo.
 acao_do_braco('UsandoTela', 20, None, None, None, lambda k: (
     TELA_PALMA + Vector((0.0, -0.10, -0.06)) * k, ITEM_DEDOS, ITEM_NORMAL))

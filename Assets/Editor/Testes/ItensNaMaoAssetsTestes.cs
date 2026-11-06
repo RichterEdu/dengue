@@ -190,4 +190,120 @@ public class ItensNaMaoAssetsTestes
         foreach (string antigo in new[] { "Idle", "Walk", "Run", "Air", "Carregando", "CarregandoSaco" })
             CollectionAssert.Contains(nomes, antigo);
     }
+
+    /* ---- Montagem no Player ---- */
+
+    private const int CamadaDoCorpo = 8;
+
+    private Transform mao;
+    private Transform ombro;
+
+    [TearDown]
+    public void Limpar()
+    {
+        TesteUtil.LimparTudo();
+    }
+
+    /* Player mínimo: Modelo > RightUpperArm > RightHand, com o kit. */
+    private GameObject NovoPlayer()
+    {
+        ControladorJogador jogador = TesteUtil.Com<ControladorJogador>("Player (teste)");
+        jogador.gameObject.AddComponent<KitDoAgente>();
+
+        Transform modelo = new GameObject("Modelo").transform;
+        modelo.SetParent(jogador.transform, false);
+        ombro = new GameObject("RightUpperArm").transform;
+        ombro.SetParent(modelo, false);
+        mao = new GameObject("RightHand").transform;
+        mao.SetParent(ombro, false);
+        mao.gameObject.layer = CamadaDoCorpo;
+        return jogador.gameObject;
+    }
+
+    private static Object Campo(ItensNaMao itens, string nome)
+    {
+        return new SerializedObject(itens).FindProperty(nome).objectReferenceValue;
+    }
+
+    [TestCase("BaldeNaMao")]
+    [TestCase("TelaNaMao")]
+    [TestCase("BorrifadorNaMao")]
+    public void Aplicar_CriaOItemInativo(string nome)
+    {
+        ItensNaMaoBuilder.AplicarNoPlayer(NovoPlayer());
+
+        Transform item = mao.Find(nome);
+        Assert.IsNotNull(item, nome);
+        Assert.IsFalse(item.gameObject.activeSelf);
+    }
+
+    [Test]
+    public void Aplicar_DiminuiATelaNaMao()
+    {
+        ItensNaMaoBuilder.AplicarNoPlayer(NovoPlayer());
+
+        Assert.AreEqual(0.67f, mao.Find("TelaNaMao").localScale.x, 0.001f);
+    }
+
+    [Test]
+    public void Aplicar_LigaOComponente()
+    {
+        GameObject player = NovoPlayer();
+
+        ItensNaMaoBuilder.AplicarNoPlayer(player);
+
+        ItensNaMao itens = player.GetComponent<ItensNaMao>();
+        Assert.IsNotNull(itens);
+        Assert.AreEqual(player.GetComponent<KitDoAgente>(), Campo(itens, "kit"));
+        Assert.AreEqual(player.GetComponent<ControladorJogador>(), Campo(itens, "jogador"));
+        Assert.AreEqual(mao.Find("BaldeNaMao"), Campo(itens, "baldeNaMao"));
+        Assert.AreEqual(mao.Find("BaldeNaMao").Find("Areia").gameObject, Campo(itens, "areiaDoBalde"));
+        Assert.AreEqual(mao.Find("TelaNaMao"), Campo(itens, "telaNaMao"));
+        Assert.AreEqual(mao.Find("BorrifadorNaMao"), Campo(itens, "borrifadorNaMao"));
+        Assert.AreEqual(ombro, Campo(itens, "ombroDireito"));
+        Assert.IsNotNull(Campo(itens, "areiaCaindo"));
+        Assert.IsNotNull(Campo(itens, "nevoa"));
+    }
+
+    [Test]
+    public void Aplicar_CriaParticulasDesligadas()
+    {
+        GameObject player = NovoPlayer();
+
+        ItensNaMaoBuilder.AplicarNoPlayer(player);
+
+        ItensNaMao itens = player.GetComponent<ItensNaMao>();
+        foreach (string campo in new[] { "areiaCaindo", "nevoa" })
+        {
+            var particulas = (ParticleSystem)Campo(itens, campo);
+            Assert.IsFalse(particulas.emission.enabled, campo);
+            Assert.AreEqual(ParticleSystemSimulationSpace.World, particulas.main.simulationSpace, campo);
+            var render = particulas.GetComponent<ParticleSystemRenderer>();
+            Assert.AreEqual(UnityEngine.Rendering.ShadowCastingMode.Off, render.shadowCastingMode, campo);
+            Assert.AreEqual("Itens_Particula", render.sharedMaterial.name, campo);
+        }
+    }
+
+    [Test]
+    public void Aplicar_DuasVezesNaoDuplica()
+    {
+        GameObject player = NovoPlayer();
+
+        ItensNaMaoBuilder.AplicarNoPlayer(player);
+        ItensNaMaoBuilder.AplicarNoPlayer(player);
+
+        Assert.AreEqual(3, mao.childCount);
+        Assert.AreEqual(1, player.GetComponents<ItensNaMao>().Length);
+        Assert.AreEqual(1, player.GetComponentsInChildren<ParticleSystem>(true)
+                                 .Count(p => p.name == "AreiaCaindo"));
+    }
+
+    [Test]
+    public void Itens_FicamNaCamadaDoCorpo()
+    {
+        ItensNaMaoBuilder.AplicarNoPlayer(NovoPlayer());
+
+        foreach (Transform t in mao.GetComponentsInChildren<Transform>(true))
+            Assert.AreEqual(CamadaDoCorpo, t.gameObject.layer, t.name);
+    }
 }

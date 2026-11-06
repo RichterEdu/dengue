@@ -306,4 +306,66 @@ public class ItensNaMaoAssetsTestes
         foreach (Transform t in mao.GetComponentsInChildren<Transform>(true))
             Assert.AreEqual(CamadaDoCorpo, t.gameObject.layer, t.name);
     }
+
+    /* ---- Tela instalada no ralo ---- */
+
+    private const string CaminhoRalo = "Assets/Meus/Assets Gerados/Focos/Ralo.prefab";
+    private const float MeiaLarguraDaGrelha = 0.15f;   // G do gerar_focos.py
+
+    private static SerializedObject RaloSerializado()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoRalo);
+        return new SerializedObject(prefab.GetComponent<RaloInteractable>());
+    }
+
+    private static GameObject TelaDoRalo()
+    {
+        return (GameObject)RaloSerializado().FindProperty("tela").objectReferenceValue;
+    }
+
+    [Test]
+    public void Ralo_TelaApontaParaATelaInstalada()
+    {
+        GameObject tela = TelaDoRalo();
+
+        Assert.AreEqual("TelaInstalada", tela.name);
+        Assert.IsFalse(tela.activeSelf, "a tela só aparece com o ralo concluído");
+    }
+
+    [Test]
+    public void Ralo_TelaFicaAjustadaSobAGrelha()
+    {
+        SerializedObject ralo = RaloSerializado();
+        var tampa = (Transform)ralo.FindProperty("tampa").objectReferenceValue;
+        Transform tela = TelaDoRalo().transform;
+        Bounds moldura = tela.GetComponentsInChildren<MeshFilter>(true)
+            .First(f => f.name == "Moldura").sharedMesh.bounds;
+
+        Assert.AreEqual(tampa.parent, tela.parent, "herda a escala do ralo, ao lado da grelha");
+        Assert.AreEqual(Vector3.one, tela.localScale);
+        Assert.AreEqual(0.029f, tela.localPosition.y, 0.0001f);
+        Assert.LessOrEqual(moldura.extents.x, MeiaLarguraDaGrelha);
+        Assert.LessOrEqual(moldura.extents.z, MeiaLarguraDaGrelha);
+        Assert.Less(tela.localPosition.y + moldura.extents.y,
+                    ralo.FindProperty("posFechada").vector3Value.y, "abaixo da grelha fechada");
+    }
+
+    [Test]
+    public void Ralo_ObjetoAntigoSegueInativo()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoRalo);
+        Transform antigo = prefab.GetComponentsInChildren<Transform>(true).First(t => t.name == "Tela");
+
+        Assert.IsFalse(antigo.gameObject.activeSelf);
+    }
+
+    [Test]
+    public void Ralo_RodarDuasVezesNaoDuplica()
+    {
+        ItensNaMaoBuilder.AdicionarTelaAoRalo();
+        ItensNaMaoBuilder.AdicionarTelaAoRalo();
+
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoRalo);
+        Assert.AreEqual(1, prefab.GetComponentsInChildren<Transform>(true).Count(t => t.name == "TelaInstalada"));
+    }
 }

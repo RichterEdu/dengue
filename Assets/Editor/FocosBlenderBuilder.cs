@@ -80,6 +80,7 @@ public static class FocosBlenderBuilder
             info.dica = "Ralo aberto junta água parada. Mantenha fechado ou com tela e limpe toda semana.";
 
             SalvarPrefab(root, "Ralo", "3 cliques recolocam a grelha e põem a tela.");
+            ItensNaMaoBuilder.AdicionarTelaAoRalo();
         }
         finally
         {

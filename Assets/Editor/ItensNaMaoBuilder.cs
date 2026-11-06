@@ -28,6 +28,10 @@ using UnityEngine.Rendering;
  *  BorrifadorNaMao filhos do osso RightHand, inativos, com as partículas
  *  do gesto, e o componente ItensNaMao ligado.
  *
+ *  AdicionarTelaAoRalo() — idempotente: a mesma tela no Ralo.prefab, sob a
+ *  grelha fechada, em escala local 1. Por ser filha do prefab, acompanha a
+ *  escala de cada ralo da cena.
+ *
  *  Menu  Dengue > Configurar Itens na Mão  roda tudo e salva a cena.
  *  Rodar de novo depois do Dengue > Configurar Player, que destrói o
  *  "Modelo" e recria o controller.
@@ -77,6 +81,12 @@ public static class ItensNaMaoBuilder
     private static readonly Vector3 PosicaoDoBorrifador = new Vector3(-0.010f, 0.067f, -0.050f);
     private static readonly Vector3 GiroDoBorrifador = new Vector3(274.7f, 106.7f, 257.9f);
 
+    // Tela no ralo: filha do prefab, ao lado da Tampa, para herdar a escala de cada
+    // ralo. O centro fica logo abaixo da grelha fechada (3,4 cm, no FocosBlenderBuilder).
+    private const string CaminhoRalo = "Assets/Meus/Assets Gerados/Focos/Ralo.prefab";
+    private const string NomeTelaInstalada = "TelaInstalada";
+    private const float AlturaDaTelaNoRalo = 0.029f;
+
     // Partículas no referencial de cada item.
     private static readonly Vector3 PosicaoDaAreiaCaindo = new Vector3(0f, -0.16f, 0.10f);
     private static readonly Vector3 PosicaoDaNevoa = new Vector3(0f, 0.034f, 0.088f);
@@ -100,6 +110,7 @@ public static class ItensNaMaoBuilder
         }
 
         AplicarNoPlayer(jogador.gameObject);
+        AdicionarTelaAoRalo();
         EditorSceneManager.SaveScene(jogador.gameObject.scene);
         Debug.Log(importacao + "\n" + camada + "\n[Itens] Player montado.");
     }
@@ -159,6 +170,52 @@ public static class ItensNaMaoBuilder
 
         if (!Application.isPlaying && player.scene.IsValid())
             EditorSceneManager.MarkSceneDirty(player.scene);
+    }
+
+    /* A tela com moldura no Ralo.prefab, sob a grelha fechada e inativa: o
+     * RaloInteractable a mostra ao concluir. Edita o prefab sem recriá-lo,
+     * para não perder os valores gravados pelo kit. O objeto "Tela" do
+     * Ralo.fbx fica no prefab, inativo e sem referência (idempotente). */
+    public static void AdicionarTelaAoRalo()
+    {
+        string caminhoTela = Pasta + "/Tela.fbx";
+        GameObject modelo = AssetDatabase.LoadAssetAtPath<GameObject>(caminhoTela);
+        if (modelo == null)
+        {
+            Debug.LogError("[Itens] Não achei " + caminhoTela + ": rode o gerar_itens.py.");
+            return;
+        }
+
+        GameObject raiz = PrefabUtility.LoadPrefabContents(CaminhoRalo);
+        try
+        {
+            SerializedObject ralo = new SerializedObject(raiz.GetComponent<RaloInteractable>());
+            Transform tampa = (Transform)ralo.FindProperty("tampa").objectReferenceValue;
+            Transform pai = tampa.parent;
+
+            Transform tela = pai.Find(NomeTelaInstalada);
+            if (tela == null)
+            {
+                GameObject instancia = (GameObject)PrefabUtility.InstantiatePrefab(modelo, pai);
+                instancia.name = NomeTelaInstalada;
+                tela = instancia.transform;
+            }
+
+            foreach (Transform t in tela.GetComponentsInChildren<Transform>(true))
+                t.gameObject.layer = tampa.gameObject.layer;
+            tela.localPosition = new Vector3(0f, AlturaDaTelaNoRalo, 0f);
+            tela.localRotation = Quaternion.identity;
+            tela.localScale = Vector3.one;
+            tela.gameObject.SetActive(false);
+
+            ralo.FindProperty("tela").objectReferenceValue = tela.gameObject;
+            ralo.ApplyModifiedPropertiesWithoutUndo();
+            PrefabUtility.SaveAsPrefabAsset(raiz, CaminhoRalo);
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(raiz);
+        }
     }
 
     /* Instância do FBX filha da mão, inativa (o ItensNaMao mostra). */

@@ -3108,13 +3108,14 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - pausa no meio do gesto: não prende a pose;
 - pneu e saco: pesos das camadas certos depois da reexportação;
 - os quatro ralos concluídos: `TelaInstalada` ativa, herdando a escala 1,21 × 2,11;
-- olhar a +80° e -60°: o braço não entra na câmera.
+- olhar a +80° e -60°: o braço não entra na câmera;
+- andar (2,80 m/s) e correr (5,80 m/s) com teclado virtual, depois da reexportação;
+- pausa com a Tela olhando para baixo: o ombro ficou parado por milhares de quadros, porque o Animator reescreve a pose com `timeScale` 0. A revisão final levantou a dúvida e a medição a descartou.
 
 **O que NÃO foi verificado:**
 - partida inteira com teclado e mouse de verdade;
 - build exportada;
-- movimento dos gestos visto em tempo real: as capturas são quadros isolados;
-- andar e correr com a animação reexportada, em movimento (só os clipes e os pesos foram conferidos);
+- movimento dos gestos e da locomoção visto em tempo real: as capturas são quadros isolados;
 - controle (gamepad).
 
 **Observações técnicas:**

@@ -3054,3 +3054,25 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 **Observações técnicas:** a suíte de 336 testes rodou na mesma árvore antes do commit. Não rodou de novo depois do merge, porque o Editor estava fechado e o merge só avança a `main` para esse commit.
 
 **NÃO verificado antes do merge:** vitória na build, erro de shader do terreno (repetido em duas builds), névoa da chuva e destaque do foco mirado na build, chuva real derrubando "Sem retrabalho", deslocamento do toast em Play, sons e controle.
+
+
+### 2026-11-06 — Spec dos itens do kit na mão
+
+**Objetivo (pedido do usuário):** dar modelo 3D aos itens do kit, como o saco de lixo. O brainstorming terminou com o design aprovado, e a spec foi aprovada pelo usuário.
+
+**Decisões do usuário:**
+- balde de areia, tela com moldura e borrifador na mão direita, com gesto ao usar;
+- depois de concluído, o ralo mostra a mesma tela com moldura, sob a grelha fechada e ajustada ao tamanho do ralo;
+- sem carga: balde vazio, borrifador na mão e tela fora da mão; ao tentar usar, só o aviso que já existe.
+
+**Arquivos novos:** `docs/superpowers/specs/2026-11-06-itens-do-kit-na-mao-design.md` e `docs/superpowers/plans/2026-11-06-itens-do-kit-na-mao.md`.
+
+**Nenhum script, cena ou asset foi alterado nesta entrada.** As prévias rodaram só em Play, sem salvar a cena.
+
+**Observações técnicas:**
+- A cena aberta no Editor pode ser a `MenuInicial`: para a prévia, carregar a `SampleScene` em Play antes de procurar o Player.
+- Com o Animator desligado em Play, dá para posar o braço por IK via `eval_file`, sem criar clipe. Valeu para a prévia, não para o jogo.
+- Sob a grelha fechada, a moldura da tela quase some, e o que aparece é a malha entre as barras. Foi escolha do usuário, depois de comparar com a tela sobre a grelha.
+- Ao menos um ralo da cena tem escala 1,21 × 2,11: uma peça nova filha do prefab herda esse esticamento.
+- Olhar para o chão ainda não foi testado com o braço real. A spec prevê o braço acompanhar o olhar.
+- `PlayerSettings.runInBackground` foi restaurado para falso depois das prévias (conferido em `ProjectSettings.asset`).

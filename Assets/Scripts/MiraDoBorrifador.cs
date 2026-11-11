@@ -20,6 +20,8 @@ using UnityEngine;
  *    secar a ceil(Total·k/passos)-ésima. No máximo um Passo por Atualizar; os
  *    que ficarem devidos saem um por chamada nas seguintes. Sem pocinhas, todos
  *    os passos já são devidos.
+ *  - Agindo = segurando (no último quadro com dt válido): a névoa do bico
+ *    e o som de ação seguem o botão, acertando pocinha ou não.
  *  - Ir mal só custa tempo: nada aqui gasta carga nem reinicia o foco.
  *
  *  Quem conduz é o Interactor.cs; o BromeliaInteractable cria esta sessão.
@@ -46,6 +48,10 @@ public class MiraDoBorrifador : IMinigame, IMinigameComMira
     public int Secas { get; private set; }
     public int PocaSecandoAgora { get; private set; } = -1;
     public bool PodeSair => true;
+
+    /* Segurando no último quadro válido: a névoa sai do bico (mesmo fora
+     * das pocinhas). Falso antes do primeiro e depois de um dt inválido. */
+    public bool Agindo { get; private set; }
 
     public float FracaoDoPasso
     {
@@ -103,6 +109,7 @@ public class MiraDoBorrifador : IMinigame, IMinigameComMira
     public EstadoDoMinigame Atualizar(float dt, EntradaDoMinigame entrada)
     {
         /* !(dt > 0f) também pega NaN: nada muda, só sai um Passo que já seja devido. */
+        Agindo = dt > 0f && entrada.Segurando;
         if (dt > 0f)
         {
             MoverAMira(entrada.Olhar);

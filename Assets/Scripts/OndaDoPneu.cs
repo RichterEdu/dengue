@@ -42,6 +42,8 @@ public class OndaDoPneu : IMinigame
     public float Nivel { get; private set; } = 1f;
     public bool Derramando { get; private set; }
     public bool PodeSair => true;
+    /* Balançando o pneu o tempo todo: som de ação e gesto das Mãos. */
+    public bool Agindo => true;
 
     public float FracaoDoPasso
     {

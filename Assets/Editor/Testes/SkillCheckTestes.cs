@@ -129,6 +129,7 @@ public class SkillCheckTestes
         Assert.AreEqual(1, minigame.Sessao.Acertos);
         Assert.IsFalse(minigame.PodeSair);
         Assert.AreEqual(0f, minigame.FracaoDoPasso);
+        Assert.IsFalse(minigame.Agindo, "o skill check não tem som de ação");
     }
 
     [Test]

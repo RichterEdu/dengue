@@ -15,6 +15,8 @@ using UnityEngine;
  *  - Errou chama Interactable.AoErrarMinigame (só o ralo gasta carga).
  *  - FracaoDoPasso (0..1) é o quanto do passo atual já foi feito, para a
  *    barra da HUD. PodeSair = o botão de largar sai do minigame.
+ *  - Agindo = a sessão faz a sua ação neste quadro (o Avancando do
+ *    Interactor: som de ação e o item na mão).
  *  - IMinigameComMira: sessão que mexe no olhar do jogador. Mira é em
  *    graus (yaw, pitch), a partir do olhar do começo do minigame.
  *
@@ -46,6 +48,11 @@ public interface IMinigame
 
     /* O botão de largar sai do minigame (ralo: false). */
     bool PodeSair { get; }
+
+    /* A sessão está fazendo a sua ação neste quadro: vira o Avancando do
+     * Interactor (som de ação no SomDoKit, gesto e partículas do item na
+     * mão no ItensNaMao). */
+    bool Agindo { get; }
 }
 
 /* Sessão que aponta o olhar do jogador enquanto está ativa. */

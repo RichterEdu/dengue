@@ -14,8 +14,9 @@ using System;
  *  - MinigameDeSkillCheck: o adaptador para a base comum (IMinigame, em
  *    Minigame.cs). O aperto é um Apertar, senão o ponteiro anda; acerto
  *    vira Passo e erro vira Errou. Não dá para sair (PodeSair false) e a
- *    barra não enche dentro do check (FracaoDoPasso 0). Quem aplica o
- *    resultado no foco é o Interactor.cs.
+ *    barra não enche dentro do check (FracaoDoPasso 0), nem há som de
+ *    ação (Agindo false). Quem aplica o resultado no foco é o
+ *    Interactor.cs.
  * ============================================================ */
 
 public enum ResultadoDoCheck
@@ -137,4 +138,7 @@ public class MinigameDeSkillCheck : IMinigame
 
     /* O botão de largar não sai do ralo: a regra do anel não muda. */
     public bool PodeSair => false;
+
+    /* Dentro do check não há som de ação nem gesto do item na mão. */
+    public bool Agindo => false;
 }

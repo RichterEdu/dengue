@@ -168,7 +168,7 @@ public class Interactor : MonoBehaviour
     public float ProgressoContinuo { get; private set; }
 
     /* Segurando num alvo liberado (passo válido) neste quadro, ou num
-     * minigame que não seja o skill check: som de ação. */
+     * minigame cuja sessão está Agindo: som de ação e item na mão. */
     public bool Avancando { get; private set; }
 
     /* Quando true, o jogador não mira nem interage com nada (usado, por
@@ -361,7 +361,7 @@ public class Interactor : MonoBehaviour
             OnErrouSkillCheck?.Invoke(foco);
         }
 
-        Avancando = minigame != null && !(minigame is MinigameDeSkillCheck);
+        Avancando = minigame != null && minigame.Agindo;
     }
 
     /* Fim do minigame: o jogador volta a andar. Segurar só vale de novo

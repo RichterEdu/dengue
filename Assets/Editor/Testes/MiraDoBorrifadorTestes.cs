@@ -299,6 +299,24 @@ public class MiraDoBorrifadorTestes
     }
 
     [Test]
+    public void AgindoSoSegurando()
+    {
+        MiraDoBorrifador m = Padrao();
+        Assert.IsFalse(m.Agindo, "antes do primeiro quadro");
+
+        Ir(m, 20f, 20f);
+        Frame(m, Vector2.zero, true);
+        Assert.IsTrue(m.Agindo, "segurando, mesmo fora das pocinhas");
+
+        Frame(m, Vector2.zero, false);
+        Assert.IsFalse(m.Agindo, "soltou");
+
+        Frame(m, Vector2.zero, true);
+        Frame(m, Vector2.zero, true, float.NaN);
+        Assert.IsFalse(m.Agindo, "dt inválido");
+    }
+
+    [Test]
     public void ArraysSaoCopiados()
     {
         Vector2[] pos = { new Vector2(0f, 0f) };

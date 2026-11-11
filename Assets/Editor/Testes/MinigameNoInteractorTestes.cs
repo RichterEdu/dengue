@@ -41,6 +41,8 @@ public class MinigameNoInteractorTestes
 
         public float FracaoDoPasso => 0f;
         public bool PodeSair => Sai;
+        public bool Age;
+        public bool Agindo => Age;
     }
 
     /* Sessão falsa que mira sempre no mesmo ponto. */
@@ -192,6 +194,20 @@ public class MinigameNoInteractorTestes
 
         Assert.AreEqual(yaw + 10f, jogador.Yaw, 0.001f);
         Assert.AreEqual(pitch - 5f, jogador.Pitch, 0.001f);
+    }
+
+    [Test]
+    public void AvancandoSegueOAgindoDaSessao()
+    {
+        interactor.IniciarMinigame(foco);
+
+        foco.Sessao.Age = false;
+        Quadro();
+        Assert.IsFalse(interactor.Avancando, "a sessão não está agindo");
+
+        foco.Sessao.Age = true;
+        Quadro();
+        Assert.IsTrue(interactor.Avancando, "a sessão está agindo");
     }
 
     [Test]

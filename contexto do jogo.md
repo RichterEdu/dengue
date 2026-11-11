@@ -3255,3 +3255,23 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 
 **Observações técnicas:**
 - Entradas ruins: `dt` <= 0 ou NaN não muda nada (só pode sair um Passo já devido); `Olhar` não finito conta como 0; `dt` enorme seca no máximo a pocinha sob a mira. Construtor: `pocas` null = vazio; arrays de tamanhos diferentes usam só as primeiras `min` entradas; tempo para secar <= 0 ou não finito vale 0,01 s; `passos` < 1 vale 1; coordenada de pocinha não finita vira 0; os arrays são copiados.
+
+
+### 2026-11-11 — Minigames: bromélia de mirar o borrifador
+
+**Objetivo:** Tarefa 5 do plano dos minigames (leva 1). A bromélia troca o "segurar enquanto a barra enche" pela `MiraDoBorrifador`: com a água sanitária, o jogador aponta o borrifador para cada pocinha entre as folhas e segura até ela secar.
+
+**Arquivos alterados:**
+- `Assets/Scripts/BromeliaInteractable.cs` — campos `segundosPorPoca` (0,5), `segundosDoCopoCentral` (1,2; a última de `pocas`) e `raioDeAcerto` (4°). `CriarMira(olho, visao)` (internal) monta a sessão com as pocinhas ATIVAS, na ordem de `pocas`: `local = Inverse(visao)·(posição − olho)`, yaw `atan2(x, z)`, pitch `atan2(−y, √(x²+z²))` (positivo = abaixo, como o `ControladorJogador.Pitch`), e `passos = RequiredClicks − CurrentClicks` (mín. 1: retomar cobre só o que falta). `CriarMinigame` (fábrica pura) usa o olho do `Camera.main` e a visão `Euler(jogador.Pitch, jogador.Yaw, 0)` do `ControladorJogador` do kit (sem ele, a rotação da câmera); null sem kit, com ferramenta não aceita, concluída, sem pocinha ativa ou sem câmera. `AoIniciarMinigame` guarda a sessão, o mapa índice da sessão → índice em `pocas` e a escala local original de cada uma; `AoAtualizarMinigame` escala X e Z por `Umidade(i)` e, em 0, desativa com a escala original de volta; `AoSairDoMinigame` devolve as meio secas à escala original (as secas ficam secas). `OnInteract`: com sessão, não seca na ordem fixa, e o passo que conclui desativa o que sobrou e encerra a sessão; sem sessão, ordem fixa pulando as já secas (`secas` conta o que está mesmo sem água; fora do Play a pocinha some na hora). `AvancarCom` recusado no meio da sessão também a encerra. `ConviteDoMinigame` = "Clique para borrifar as pocinhas"; `DicaDoMinigame` = "Segure para borrifar as pocinhas   |   Botão direito: sair"; `SegundosEstimados` = (n − 1)·0,5 + 1,2 + 0,4·n (n = 0: o da base).
+- `Assets/Scripts/Minigame.cs` — `IMinigame.Agindo` (a sessão faz a sua ação neste quadro).
+- `Assets/Scripts/Interactor.cs` — `Avancando = minigame != null && minigame.Agindo` no `AvancarMinigame` (no lugar do `is MinigameDeSkillCheck`): som de ação (`SomDoKit`) e gesto/partículas do item na mão (`ItensNaMao`) seguem a sessão. O `ItensNaMao.cs` não mudou.
+- `Assets/Scripts/SkillCheck.cs` (`MinigameDeSkillCheck.Agindo` = false), `Assets/Scripts/OndaDoPneu.cs` (true), `Assets/Scripts/MiraDoBorrifador.cs` (`Agindo` = o `Segurando` do último `Atualizar` com `dt` válido; false antes do primeiro e depois de um `dt` inválido).
+- `Assets/Editor/Testes/BromeliaBorrifarTestes.cs` (novo, categoria `Minigames`); asserts novos em `MinigameNoInteractorTestes`, `MiraDoBorrifadorTestes`, `SkillCheckTestes` e `OndaDoPneuTestes`.
+
+**Configurações aplicadas:** nenhuma. Nenhuma cena ou prefab foi editado; campos novos com valor padrão no código. No prefab real (5 pocinhas): `SegundosEstimados` = 4·0,5 + 1,2 + 0,4·5 = 5,2 s.
+
+**Testes:** `BromeliaBorrifarTestes` (17): CriaAMiraComAsPocinhasAtivas, AngulosDaPocinha, SemPocinhasNaoTemMinigame, SemFerramentaOuSemCameraNaoTemMinigame, NascidaSecaNaoTemMinigame, PocinhaAtingidaEAQueSeca, AvancandoSoSegurando, VisualSegueAUmidade, UltimoPassoSecaOQueSobrou, SairGuardaAsSecasEDevolveAMeia, RetomarUsaSoOQueFalta, CaminhoAntigoMantemAOrdemFixa, CaminhoAntigoPulaAsJaSecas, DoseSoNoFim, ConviteEDica, SegundosEstimadosSomaOsTempos, GanchosForaDeOrdemNaoLancam; mais AvancandoSegueOAgindoDaSessao e AgindoSoSegurando. Suíte EditMode completa em batch mode: **502/502**.
+
+**Observações técnicas:**
+- A cena aberta no modo batch tem a sua "Main Camera": os testes pelo Interactor usam o `Camera.main` que houver como olho (e criam uma pelo `TesteUtil` só se não houver nenhuma), com as pocinhas em volta dele.
+- Pendente no Editor: tratar uma bromélia com mouse e com controle; conferir que toda pocinha é alcançável dentro do cone e que a névoa sai do bico só enquanto segura.

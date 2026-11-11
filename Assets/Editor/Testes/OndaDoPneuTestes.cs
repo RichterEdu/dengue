@@ -46,6 +46,7 @@ public class OndaDoPneuTestes
         int passos = Simular(onda, 10f, o => 0f);
         Assert.AreEqual(0, passos);
         Assert.AreEqual(1f, onda.Nivel);
+        Assert.IsTrue(onda.Agindo, "a onda está sempre agindo");
     }
 
     [Test]

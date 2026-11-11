@@ -32,6 +32,10 @@ public class BromeliaInteractable : Interactable
 
     private int secas;
 
+    /* Sem secar pela metade, a chuva enche de novo (nasceu seco e o
+     * jogador não começou a secar: o resto secaria por cima da água). */
+    public override bool PodeReencher => base.PodeReencher && CurrentClicks == 0;
+
     protected override void OnStart()
     {
         secas = 0;
@@ -58,6 +62,23 @@ public class BromeliaInteractable : Interactable
         if (removeOnComplete)
             base.OnComplete();
         // Caso contrário, a bromélia fica na cena, seca.
+    }
+
+    /* Nasce seco: sem poça nenhuma, com o contador já no fim (o OnInteract
+     * não secaria poça que não existe). */
+    protected override void AoNascerVazio()
+    {
+        secas = pocas.Length;
+        foreach (GameObject p in pocas)
+            if (p != null) p.SetActive(false);
+    }
+
+    /* Reenchido (a chuva): as poças voltam inteiras (nasceu seco). */
+    protected override void AoReencher()
+    {
+        secas = 0;
+        foreach (GameObject p in pocas)
+            if (p != null) p.SetActive(true);
     }
 
     private IEnumerator Secar(GameObject poca)

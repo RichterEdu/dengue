@@ -69,6 +69,10 @@ public class RaloInteractable : Interactable
     /* 0 = grelha tirada, 1 = ralo fechado. */
     public float Fechamento { get; private set; }
 
+    /* O ralo nasce sempre com água: fica fora do sorteio do nascimento
+     * seco do começo da partida. */
+    public override bool SempreNasceComAgua => true;
+
     public override bool UsaSkillCheck => true;
     public override float SegundosPorVoltaDoCheck => segundosPorVolta;
 

@@ -147,6 +147,14 @@ public class PneuInteractable : Interactable
         currentClicks = 0;
     }
 
+    /* Nasce seco: o pneu já aparece sem água (pegável na hora, como o
+     * esvaziado — a chuva o enche, e as Mãos o esvaziam de novo). */
+    protected override void AoNascerVazio()
+    {
+        if (water != null)
+            water.SetActive(false);
+    }
+
     /* Vai para os braços: guarda de onde veio, desliga os colliders (não
      * empurra o agente nem bloqueia a mira) e vira filho do ponto. */
     internal void PrenderEm(Transform ponto)

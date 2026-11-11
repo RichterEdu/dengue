@@ -45,7 +45,7 @@ public class FocoHUDInfo : MonoBehaviour
     [Header("Visual (opcional)")]
     [Tooltip("Troca a cor da barra de progresso para este foco.")]
     public bool usarCorPropria = false;
-    public Color corDaBarra = new Color(0.25f, 1f, 0.8f, 1f);
+    public Color corDaBarra = new Color(0f, 0f, 0f, 0f);
 
     [Tooltip("Esconde a barra e o 3/5 deste foco (ex.: interação de 1 clique).")]
     public bool esconderProgresso = false;

@@ -3127,3 +3127,57 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - **`Saco_Plastico.mat` e os `Item_*.mat`:** o Unity regrava `_Color` com arredondamento. Não tem efeito visual.
 - Em `eval_file`, membros `internal` não são acessíveis: usar reflexão.
 - Depois de **Dengue > Configurar Player**, rodar também **Dengue > Configurar Itens na Mão**.
+
+
+### 2026-11-10 — Nascimento seco (a maioria dos focos já nasce esvaziada)
+
+**Objetivo (pedido do usuário):** ~90% dos focos de criadouro nascerem JÁ esvaziados (secos), como se a comunidade tivesse cuidado da vizinhança antes do agente chegar; só uma contagem fixa sorteada nasce com água. A chuva ficou COMO ESTÁ: reenche todos os esvaziados (o pedido original de "50% na chuva" foi descartado).
+
+**Decisões do usuário:**
+- **10% com água / 90% secos**, com **contagem fixa sorteada** (não chance por foco, nunca 0 com água);
+- **os ralos ficam sempre com água** (pedido posterior do usuário, na mesma rodada): ficam fora do sorteio, até com a fração em 0;
+- a chuva reenche tudo, como antes (`ReencherEsvaziados()` não mudou).
+
+**Arquivos alterados em `Assets/Scripts/`:**
+- `Interactable.cs` — `Start()` chama `NascerVazio()` em Play quando o sorteio não deu água ao foco (guard `Application.isPlaying`: fora do Play ou sem gerenciador, nasce cheio, e os testes EditMode continuam determinísticos); `NasceComAgua()` privado pergunta ao gerenciador; novo `public virtual bool SempreNasceComAgua => false` (o ralo sobrescreve para true); `NascerVazio()` (`internal`) só marca `Esvaziado = true` e chama o hook `AoNascerVazio()` — **sem `OnEsvaziado`** (não houve esvaziamento: sem splash, sem post de rede social, sem zumbido, nasce parado em ovo pesando 0, as Mãos dão `JaVazio` e a ferramenta certa conclui de vez).
+- `GerenciadorDeFocos.cs` — campo `[Range(0,1)] fracaoNascendoComAgua = 0,1`; `ComAguaNoNascimento(total)` = `Clamp(RoundToInt(fracao × total), 1, total)` (0 se total ou fração ≤ 0); `SortearNascimento(rng)` com Fisher-Yates sobre os focos de pé (`!IsComplete` **e `!SempreNasceComAgua`** — o ralo não entra no pool), definindo quem nasce seco (HashSet `nascidosSecos`); `NasceComAgua(foco)` com sorteio lazy na 1ª consulta (`new System.Random()` se rng null) e `true` para `SempreNasceComAgua`. Foco registrado DEPOIS do sorteio nasce com água, como sempre.
+- `VasoInteractable`, `GarrafaInteractable`, `PneuInteractable`, `BromeliaInteractable`, `CaixaDaguaInteractable`, `PiscinaInteractable` — cada um com `AoNascerVazio()` escondendo o visual de água (água do pneu/vaso/caixa/piscina, filhos "agua" das garrafas, poças da bromélia com `secas` já no fim). Bromélia, caixa d'água e piscina ganharam `PodeReencher => base.PodeReencher && CurrentClicks == 0` e `AoReencher()` (chuva não enche por cima de secagem/fechamento começado pela metade) — vaso, garrafa e pneu já tinham guards equivalentes.
+- `RaloInteractable.cs` — só `SempreNasceComAgua => true` (o ralo nasce sempre molhado e nunca entra no sorteio). Os overrides de água desta mesma rodada (`AoNascerVazio`, `AoReencher`, `PodeReencher`) foram removidos: com `podeEsvaziar` desligado no prefab, `Esvaziado` nunca fica verdadeiro no ralo, então eram inalcançáveis.
+
+**Arquivo novo:** `Assets/Editor/Testes/NascimentoTestes.cs` (categoria ParteB): contagem fixa (18→2, 10→1, 1→1, 0→0; fração 0/0,5/1), sorteio determinístico por semente, foco fora do sorteio nasce com água, `NascerVazio` sem evento/zumbido/peso, água some e a chuva devolve (com escala e estágio Larva), ferramenta certa conclui, pneu seco pega na hora e nos braços a chuva não reenche, `Start` fora do Play não sorteia, ralo sempre com água e fora da conta do sorteio (fração 0,4: 1 de 3 comuns, não 2 de 4), e o visual de cada tipo (garrafas, bromélia com guard de secagem, caixa, piscina).
+
+**Configurações aplicadas:** `fracaoNascendoComAgua = 0,1` (default; os objetos já serializados herdam o valor). O sorteio conta só os focos que podem nascer secos (a cena tem **4 ralos**, que ficam sempre molhados, fora da conta). Nenhuma cena ou prefab foi editado.
+
+**Testes:** compilação verificada fora do Editor com o Roslyn do VS, usando refs e defines extraídos dos `.csproj` gerados pelo Unity (o `Assembly-CSharp-Editor.csproj`, regenerado às 00:18, já inclui o teste novo): Assembly-CSharp (110 fontes) e Assembly-CSharp-Editor (76 fontes) compilam sem erros. Depois, pelo **CLI oficial do Unity** (`unity command` no Editor aberto): `recompile` OK e Test Runner > EditMode **ParteB 195/195 verdes** e **suíte EditMode completa 427/427 verdes** (0 falhas, 0 pulados), sem regressões.
+
+**Observações técnicas:**
+- `SortearInicio` já filtra `Esvaziado`, então focos nascidos secos não ganham estágio no começo; o epílogo da rede social classifica por eliminação, não por `Esvaziado` (focos secos restantes ficam "pendentes", coerente).
+- **O ralo (4 na cena) fica sempre molhado:** `SempreNasceComAgua` o tira do pool do sorteio — a fração de 10% vale só para os focos que podem nascer secos. No prefab do ralo, `podeEsvaziar` é 0: ele nunca fica `Esvaziado`, e por isso não precisa de visual de água no nascimento seco nem de `AoReencher`.
+- Com isso ficam ~7 focos molhados no começo: os 4 ralos + 3 sorteados dos ~28 que podem nascer secos. `focosComMosquitoNoInicio = 3` sorteia os mosquitos entre esses molhados, então ralos podem zumbar desde o início (ajustável no Inspector).
+- O BalanceamentoSimulador simula todos os focos molhados (pior caso), sem mudança.
+- Para validar compilação sem abrir mão do Editor ocupado: `csc.exe` do VS (`MSBuild\Current\Bin\Roslyn`) + rsp montado dos `.csproj` do Unity (`/noconfig /nostdlib+ /langversion:9.0`, refs por HintPath e o `ProjectReference` trocado pelo DLL recém-compilado). O `csc` do `MonoBleedingEdge` não roda aqui (falha em `System.Text.Encoding.CodePages`).
+
+### 2026-11-11 — Spec dos minigames dos focos (leva 1)
+
+**Objetivo:** dar a cada foco uma ação própria, diferente do skill check do ralo. Leva 1: base comum de minigame, pneu (balançar no ritmo até a água transbordar), bromélia (mirar o borrifador nas pocinhas) e caixa d'água (carregar a tampa e tampar). Vaso, garrafas e piscina ficam para a leva 2.
+
+**Arquivos alterados:** `docs/superpowers/specs/2026-11-11-minigames-leva-1-design.md` (novo). Nenhum script, cena ou prefab foi editado.
+
+**Configurações aplicadas:** nenhuma.
+
+**Observações técnicas:**
+- Decisões do usuário: formato depende do foco (os três desta leva são na cena 3D); ir mal só perde tempo (sem gastar carga); a tampa da caixa d'água continua encostada na caixa.
+- O skill check do ralo passa para a interface comum `IMinigame`, com a regra do anel intacta.
+- Próximo passo: plano de implementação, depois da revisão do spec pelo usuário.
+
+### 2026-11-11 — Plano dos minigames dos focos (leva 1)
+
+**Objetivo:** plano de implementação do spec dos minigames (leva 1), em 8 tarefas (0 a 7).
+
+**Arquivos alterados:** `docs/superpowers/plans/2026-11-11-minigames-leva-1.md` (novo); `docs/superpowers/specs/2026-11-11-minigames-leva-1-design.md` (dois ajustes: tampar não depende do `requiredClicks` da cena; os passos do pneu são o `RequiredClicks` dele). Nenhum script, cena ou prefab foi editado.
+
+**Configurações aplicadas:** nenhuma.
+
+**Observações técnicas:**
+- A Tarefa 0 pede a decisão do usuário sobre commitar o nascimento seco, pendente nos mesmos arquivos que o plano edita.
+- Testes novos na categoria `Minigames`.

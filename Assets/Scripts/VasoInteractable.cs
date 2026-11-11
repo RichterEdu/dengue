@@ -104,6 +104,13 @@ public class VasoInteractable : Interactable
         water.SetActive(false);
     }
 
+    /* Nasce seco: o mesmo do esvaziar (a escala da água fica guardada para
+     * o reencher da chuva devolver na altura certa). */
+    protected override void AoNascerVazio()
+    {
+        AoEsvaziar();
+    }
+
     /* Reenchido (a chuva): a água volta, na altura original. */
     protected override void AoReencher()
     {

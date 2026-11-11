@@ -48,7 +48,10 @@ using UnityEngine;
  *    Esvaziou: o foco fica no lugar, sem água (Esvaziado), não zumbe e
  *    NÃO conclui (nada de OnCompleted). A ferramenta certa ainda resolve
  *    de vez, e Reencher() (a chuva) devolve a água.
- *  - Esvaziado não é serializado: todo foco nasce cheio.
+ *  - Esvaziado não é serializado: em Play, o sorteio do começo do
+ *    GerenciadorDeFocos decide quem nasce seco (NascerVazio, contagem
+ *    fixa, sem o OnEsvaziado: a água nunca esteve lá); fora do Play ou
+ *    sem gerenciador, todo foco nasce cheio, como antes.
  *
  *  Para focos com comportamento próprio, herde esta classe e sobrescreva
  *  OnInteract()/OnComplete() (ver PneuInteractable.cs como exemplo) e,
@@ -204,6 +207,34 @@ public class Interactable : MonoBehaviour
         currentClicks = 0;
         initialScale = transform.localScale;
         OnStart();
+
+        // Nascimento seco (em Play): quem o sorteio do gerenciador não deu
+        // água nasce Esvaziado, como se já tivesse sido esvaziado antes de
+        // o agente chegar. Fora do Play (testes EditMode) não sorteia, e
+        // sem gerenciador na cena nasce cheio, como antes.
+        if (Application.isPlaying && !NasceComAgua())
+            NascerVazio();
+    }
+
+    /* Este foco nasce sempre com água, fora do sorteio do começo (o ralo). */
+    public virtual bool SempreNasceComAgua => false;
+
+    /* Nasce com água? Em Play, o gerenciador da cena responde (sorteio do
+     * começo); sem gerenciador ou fora do Play, sim. */
+    private bool NasceComAgua()
+    {
+        GerenciadorDeFocos gerenciador = GerenciadorDeFocos.Obter();
+        return gerenciador == null || gerenciador.NasceComAgua(this);
+    }
+
+    /* Nasce seco: o foco já existe sem água, como se tivesse sido esvaziado
+     * antes do agente chegar. Sem OnEsvaziado (não houve esvaziamento, e a
+     * rede social não posta) e sem tocar no ciclo (já nasce parado em ovo,
+     * pesando 0). */
+    internal void NascerVazio()
+    {
+        Esvaziado = true;
+        AoNascerVazio();
     }
 
     /* Caminho antigo (clique sem kit): um passo, sem conferir ferramenta nem carga. */
@@ -432,6 +463,10 @@ public class Interactable : MonoBehaviour
 
     /* Hook do Esvaziar(), antes do OnEsvaziado: esconder a água. */
     protected virtual void AoEsvaziar() { }
+
+    /* Hook do nascimento seco (NascerVazio): esconder a água. É o mesmo
+     * visual do esvaziado, mas sem o evento (a água nunca esteve lá). */
+    protected virtual void AoNascerVazio() { }
 
     /* Hook do Reencher(), antes do OnReenchido: devolver a água. */
     protected virtual void AoReencher() { }

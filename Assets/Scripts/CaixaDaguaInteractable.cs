@@ -57,6 +57,10 @@ public class CaixaDaguaInteractable : Interactable
     /* 0 = tampa encostada na lateral, 1 = caixa fechada. */
     public float Fechamento { get; private set; }
 
+    /* Com a tampa já em movimento, a chuva não reenche: a água voltaria
+     * numa caixa que está sendo fechada. */
+    public override bool PodeReencher => base.PodeReencher && CurrentClicks == 0;
+
     protected override void OnStart()
     {
         Fechamento = 0f;
@@ -80,6 +84,20 @@ public class CaixaDaguaInteractable : Interactable
         if (removeOnComplete)
             base.OnComplete();
         // Caso contrário, a caixa fica na cena, fechada.
+    }
+
+    /* Nasce seco: a caixa destampada já aparece sem água parada. */
+    protected override void AoNascerVazio()
+    {
+        if (agua != null)
+            agua.SetActive(false);
+    }
+
+    /* Reenchido (a chuva): a água volta na caixa aberta (nasceu seco). */
+    protected override void AoReencher()
+    {
+        if (agua != null && Fechamento < 0.999f)
+            agua.SetActive(true);
     }
 
     private void MoverTampa(float alvo)

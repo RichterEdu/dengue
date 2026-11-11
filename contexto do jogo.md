@@ -3240,3 +3240,18 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - `SegundosEstimados` do pneu (6 s) passa a valer na rota do `BalanceamentoSimulador`; nenhum teste fixava o tempo do pneu.
 - Pendente no Editor: balançar um pneu com mouse e com controle, conferir cerca de 5 s no ritmo e a onda morrendo parado, e ajustar `ganho`/`taxa` da `OndaDoPneu` se preciso (anotar os valores finais).
 - Retomada: `OndaDoPneu` ganhou o parâmetro opcional `nivelInicial` (último; limitado a 0..1, não finito = 1; os passos que o nível implica contam como dados). O pneu o cria com `1 − CurrentClicks/RequiredClicks`, então, depois de sair com passos fechados, a nova sessão continua do nível guardado (a água não volta a cheia) e esvazia junto com o `CurrentClicks`. Testes novos: `ComecaDoNivelInicial`, `NivelInicialForaDaFaixaEhLimitado`, `RetomarContinuaDoNivelGuardado`; suíte completa 465/465.
+
+### 2026-11-11 — Minigames: mira do borrifador
+
+**Objetivo:** Tarefa 4 do plano dos minigames (leva 1). Lógica pura do minigame de mirar o borrifador e secar as pocinhas da bromélia (a `BromeliaInteractable` a usa numa tarefa seguinte; aqui não há cena, prefab nem MonoBehaviour).
+
+**Arquivos alterados:**
+- `Assets/Scripts/MiraDoBorrifador.cs` (novo) — `MiraDoBorrifador : IMinigame, IMinigameComMira`. `Mira` (yaw, pitch em graus; `Mira.x += Olhar.x`, `Mira.y -= Olhar.y`) presa a um cone de raio `max(cone, maior |pocinha| + raio + 2)`. Segurando, seca a pocinha molhada mais próxima (distância euclidiana em graus) a até `raio` da mira; `Umidade(i)` (1 cheia .. 0 seca) fica guardada ao soltar; `PocaSecandoAgora` (-1 = nenhuma), `Total`, `Secas`. O k-ésimo `Passo` sai ao secar a `ceil(Total·k/passos)`-ésima pocinha, no máximo um por `Atualizar` (os devidos saem um por chamada nas seguintes; sem pocinhas todos são devidos desde o início). `FracaoDoPasso` (0..1) = secas desde o último passo mais a umidade já tirada da pocinha em andamento, sobre as que faltam para o próximo; 0 logo após um Passo.
+- `Assets/Editor/Testes/MiraDoBorrifadorTestes.cs` (novo, categoria `Minigames`) e os `.meta` dos dois.
+
+**Configurações aplicadas:** nenhuma. Padrões do construtor: `cone` 30, `raio` 4.
+
+**Testes:** `MiraDoBorrifadorTestes` (18): MiraPresaAoCone, ConeCrescePraAlcancarTodasAsPocinhas, ConvencaoDaMira_YInvertido, SegurarForaNaoSeca, SemSegurarNaoSeca, SecaAMaisProxima, EscolheAMaisProximaDentroDoRaio, SoltarNoMeioGuardaAUmidade, PassosNasContagensCertas, MaisPassosQuePocinhas, SemPocinhasTodosOsPassosSaem, FracaoDoPasso_FicaEmZeroAUm, DtInvalidoNaoMudaNada, DtEnorme_SecaNoMaximoUmaPocinha, OlharNaoFinitoContaComoParado, ArraysDeTamanhosDiferentes, ArgumentosRuins_ViramPadrao, ArraysSaoCopiados. Pelo CLI do Unity em batch mode: 18/18 e suíte EditMode completa 483/483 (0 falhas).
+
+**Observações técnicas:**
+- Entradas ruins: `dt` <= 0 ou NaN não muda nada (só pode sair um Passo já devido); `Olhar` não finito conta como 0; `dt` enorme seca no máximo a pocinha sob a mira. Construtor: `pocas` null = vazio; arrays de tamanhos diferentes usam só as primeiras `min` entradas; tempo para secar <= 0 ou não finito vale 0,01 s; `passos` < 1 vale 1; coordenada de pocinha não finita vira 0; os arrays são copiados.

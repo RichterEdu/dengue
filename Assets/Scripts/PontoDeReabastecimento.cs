@@ -10,7 +10,8 @@ using UnityEngine;
  *    - picape da UPA: areia, tela e água sanitária (o padrão);
  *    - monte de areia do terreno baldio: só a areia.
  *
- *  Recusa, nesta ordem: com o pneu nas mãos ("Largue o pneu antes.") e
+ *  Recusa, nesta ordem: com o pneu ou a tampa da caixa d'água nas mãos
+ *  ("Largue o pneu antes." / CaixaDaguaInteractable.RecusaComATampa) e
  *  com tudo o que ele oferece já cheio ("Seu kit já está cheio."). Usar
  *  passa pelo KitDoAgente.Reabastecer, que só dispara o OnReabasteceu
  *  (som, aviso e post) quando alguma carga encheu de verdade, levando
@@ -71,9 +72,9 @@ public class PontoDeReabastecimento : PontoDeUso
         if (cacamba != null)
             return cacamba.PodeUsar(kit, out motivo);
 
-        if (kit.PneuCarregado != null)
+        if (kit.MaosOcupadas)
         {
-            motivo = "Largue o pneu antes.";
+            motivo = kit.PneuCarregado != null ? "Largue o pneu antes." : CaixaDaguaInteractable.RecusaComATampa;
             return false;
         }
         if (kit.Estoque.Cheio(recarrega))

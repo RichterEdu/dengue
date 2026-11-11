@@ -140,7 +140,7 @@ public class ItensNaMao : MonoBehaviour
             return;
 
         Ferramenta selecionada = kit.Selecionada;
-        ItemAtual = RegraDoItemNaMao.Qual(selecionada, kit.Estoque.Quantidade(selecionada), kit.PneuCarregado != null);
+        ItemAtual = RegraDoItemNaMao.Qual(selecionada, kit.Estoque.Quantidade(selecionada), kit.MaosOcupadas);
 
         bool balde = ItemAtual == ItemNaMao.BaldeCheio || ItemAtual == ItemNaMao.BaldeVazio;
         Ativar(baldeNaMao, balde);

@@ -27,7 +27,10 @@ using UnityEngine.InputSystem;
  *    Recusa de ponto com motivo vazio passa em silêncio.
  *  - Kit do agente: as teclas 1–5, a roda do mouse e LB/RB trocam a
  *    ferramenta; o botão direito (G; no controle, botão Norte) larga o
- *    pneu. Com o pneu nas mãos, só ponto de uso é alvo (a caçamba). Sem
+ *    pneu ou devolve a tampa da caixa d'água à lateral dela. Com o pneu
+ *    nas mãos, só ponto de uso é alvo (a caçamba); com a tampa, os pontos
+ *    de uso e a caixa dona dela (tampar). Pegou exige soltar o botão antes
+ *    do próximo passo: um aperto pega a tampa, outro segurado tampa. Sem
  *    KitDoAgente no player, segurar avança o foco sem ferramenta (como o
  *    clique antigo) e os pontos de uso recusam sem aviso.
  *  - Atalho de esvaziar (Parte B): com as Mãos num vaso ou grupo de
@@ -220,8 +223,8 @@ public class Interactor : MonoBehaviour
             return;
         }
 
-        // 2) Troca de ferramenta, só com as mãos livres.
-        if (kit != null && kit.PneuCarregado == null && entrada != null)
+        // 2) Troca de ferramenta, só com as mãos livres (sem pneu nem tampa).
+        if (kit != null && !kit.MaosOcupadas && entrada != null)
         {
             int pedida = entrada.FerramentaPedida;
             if (pedida >= 0 && pedida < Ferramentas.Todas.Length)
@@ -234,13 +237,20 @@ public class Interactor : MonoBehaviour
                 kit.Anterior();
         }
 
-        // 3) Largar o pneu no chão, na frente do agente.
-        if (kit != null && kit.PneuCarregado != null && entrada != null && entrada.LargarPressionado)
-            kit.LargarPneu(transform.position, transform.forward);
+        // 3) Largar o pneu no chão, na frente do agente, ou devolver a
+        //    tampa à lateral da caixa.
+        if (kit != null && entrada != null && entrada.LargarPressionado)
+        {
+            if (kit.PneuCarregado != null)
+                kit.LargarPneu(transform.position, transform.forward);
+            else if (kit.TampaCarregada != null)
+                kit.DevolverTampa();
+        }
 
         // 4) Alvo da mira: se mudou, desfaz o destaque no antigo e aplica no novo.
-        bool comPneu = kit != null && kit.PneuCarregado != null;
-        RaycastTarget(comPneu, out Interactable foco, out PontoDeUso ponto);
+        bool maosOcupadas = kit != null && kit.MaosOcupadas;
+        Interactable focoPermitido = kit != null ? kit.TampaCarregada : null;
+        RaycastTarget(maosOcupadas, focoPermitido, out Interactable foco, out PontoDeUso ponto);
         TrocarAlvo(foco, ponto);
 
         UpdateHighlightPulse();
@@ -493,9 +503,16 @@ public class Interactor : MonoBehaviour
                     return true;
 
                 case ResultadoDoPasso.Concluiu:
-                case ResultadoDoPasso.Pegou:
-                    // O foco saiu da mira (concluído ou nos braços).
+                    // O foco saiu da mira (concluído).
                     sessao.Zerar();
+                    return false;
+
+                case ResultadoDoPasso.Pegou:
+                    // Nos braços. O pneu sai da mira; a caixa da tampa
+                    // continua nela, e tampar só vale depois de soltar o
+                    // botão (um aperto longo não pega e tampa de uma vez).
+                    sessao.Zerar();
+                    liberado = false;
                     return false;
 
                 case ResultadoDoPasso.Esvaziou:
@@ -580,12 +597,14 @@ public class Interactor : MonoBehaviour
     }
 
     /* Dispara um raio do centro da tela e acha o primeiro alvo válido, do
-     * mais perto para o mais longe: um foco que ainda aceita passos (só com
-     * as mãos livres) ou um ponto de uso. Foco concluído ou que não pode ser
-     * alvo agora (ex.: vaso já com areia, pneu entregue encolhendo, qualquer
-     * foco com o pneu nas mãos) é atravessado; qualquer outro collider
+     * mais perto para o mais longe: um foco que ainda aceita passos (com as
+     * mãos ocupadas, só o focoPermitido: a caixa dona da tampa nos braços)
+     * ou um ponto de uso. Foco concluído ou que não pode ser alvo agora (ex.:
+     * vaso já com areia, pneu entregue encolhendo, qualquer outro foco com o
+     * pneu ou a tampa nas mãos) é atravessado; qualquer outro collider
      * (parede, chão, muro) tapa a mira. */
-    private void RaycastTarget(bool comPneu, out Interactable foco, out PontoDeUso ponto)
+    private void RaycastTarget(bool maosOcupadas, Interactable focoPermitido,
+                               out Interactable foco, out PontoDeUso ponto)
     {
         foco = null;
         ponto = null;
@@ -606,7 +625,8 @@ public class Interactor : MonoBehaviour
             Interactable achado = atingido.GetComponentInParent<Interactable>();
             if (achado != null)
             {
-                if (!comPneu && achado.CanInteract)
+                bool podeSerAlvo = !maosOcupadas || (focoPermitido != null && achado == focoPermitido);
+                if (podeSerAlvo && achado.CanInteract)
                 {
                     foco = achado;
                     return;

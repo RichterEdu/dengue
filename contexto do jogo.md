@@ -3275,3 +3275,25 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 **Observações técnicas:**
 - A cena aberta no modo batch tem a sua "Main Camera": os testes pelo Interactor usam o `Camera.main` que houver como olho (e criam uma pelo `TesteUtil` só se não houver nenhuma), com as pocinhas em volta dele.
 - Pendente no Editor: tratar uma bromélia com mouse e com controle; conferir que toda pocinha é alcançável dentro do cone e que a névoa sai do bico só enquanto segura.
+
+### 2026-11-11 — Minigames: caixa d'água com tampa carregável
+
+**Objetivo:** Tarefa 6 do plano dos minigames (leva 1). A caixa d'água deixa de fechar segurando enquanto a tampa desliza: o agente pega a tampa encostada na lateral (um aperto), carrega nos braços como o pneu e, com um segundo aperto segurado na caixa, tampa. Não é `IMinigame`: a tampa é o segundo objeto carregável do `KitDoAgente`, ao lado do `PneuCarregado`.
+
+**Arquivos alterados:**
+- `Assets/Scripts/KitDoAgente.cs` — `TampaCarregada` (a caixa dona da tampa), `MaosOcupadas` (pneu ou tampa), `PegarTampa(caixa)` (false com as mãos ocupadas; mesmos limites do pneu: `multiplicadorCarregando`, sem pular, stamina de corrida), `DevolverTampa()` (volta à lateral, movimento restaurado), `SoltarTampaColocada()` (internal, a caixa chama ao tampar, antes do `OnCompleted`), eventos `OnTampaPega`, `OnTampaDevolvida`, `OnTampaColocada`; `OnMudou` em cada mudança. `Selecionar`, `Pegar(pneu)` e a stamina passam a usar `MaosOcupadas`.
+- `Assets/Scripts/CaixaDaguaInteractable.cs` — campos `segundosParaTampar` (0,8), `posNosBracos` e `rotNosBracos` (zero). `TampaNosBracos`; `AceitaComMaosOcupadas(kit) => kit.TampaCarregada == this`; `AvancarCom` com kit: tampa encostada → `PegarTampa` → `Pegou`; tampa nos braços deste kit → solta do kit, a tampa volta a ser filha da caixa (no lugar de mundo) e `currentClicks = requiredClicks − 1` antes do passo da base, que conclui (`Concluiu`, eventos e conta da carga normais) e faz o arco do `MoveRoutine` até a boca. `PrenderTampaEm`/`DevolverTampaALateral` (internal) guardam e devolvem o pai e a escala local e desligam/religam só os colliders que estavam ligados. `SegundosPorPasso => TampaNosBracos ? segundosParaTampar : 0`, `ProgressoCom` = só a fração, `PodeReencher` falso com a tampa nos braços, `SegundosEstimados` = 1,5. Fora do Play (ou objeto inativo) `MoverTampa` aplica a pose na hora. O caminho antigo `Interact()` (sem kit) continua clique a clique. `RecusaComATampa` (aviso dos pontos de uso).
+- `Assets/Scripts/Interactable.cs` — `protected virtual bool AceitaComMaosOcupadas(kit) => false`; `Verificar` recusa com `kit.MaosOcupadas && !AceitaComMaosOcupadas(kit)`.
+- `Assets/Scripts/Interactor.cs` — troca de ferramenta só com `!kit.MaosOcupadas`; o botão de largar devolve a tampa (o pneu segue igual); `RaycastTarget(maosOcupadas, focoPermitido, ...)`: com a tampa, o único foco alvo é a caixa dona dela (os outros são atravessados; pontos de uso como com o pneu); `Pegou` em `DarPasso` também põe `liberado = false` (é preciso soltar o botão antes de tampar). `AoBloquear` não mudou: pausa/cutscene deixam a tampa nos braços.
+- `Assets/Scripts/DengueHUD.cs` — linha de ação "Pegar a tampa" (encostada, Mãos) e "Tampar a caixa" (nos braços); barra escondida com a tampa encostada (pegar é na hora); contagem 0/1 com a tampa nos braços; recusa `MaosOcupadas` com a tampa tem texto próprio.
+- Leitores de `PneuCarregado`: `Lixeira` e `PontoDeReabastecimento` (recusa) → `MaosOcupadas`, com aviso da tampa; `FeedbackDeCarga.SacoEmMaos` e `Aplicar` (pose de carga, câmera e passos pesados) → `MaosOcupadas`; `ItensNaMao` (esconder o item) → `MaosOcupadas`. Continuam só com o pneu: `PontoDeReabastecimento.CacambaParaOPneu`, `Cacamba`, `FeedbackDeCarga.AvancarEsforco` (som de esforço), `KitHUD` (linha "carregando pneu" com a stamina) e `SomDoKit` (sons de borracha; a tampa não ganhou som de pegar/devolver).
+- `Assets/Editor/Testes/TampaTestes.cs` (novo, categoria `Minigames`, e `.meta`); `NascimentoTestes.CaixaDagua_NasceSeca_E_AChuvaDevolve` agora pega a tampa com as Mãos (Pegou) em vez de dar um passo de areia.
+
+**Configurações aplicadas:** nenhuma. Nenhuma cena ou prefab foi editado; campos novos com valor padrão no código.
+
+**Testes:** `TampaTestes` (13): PegarPoeATampaNosBracos, TamparConclui, DevolverVoltaALateral, OutroFocoRecusaComATampa, OutraCaixaRecusaComATampa, PneuETampaNaoCoexistem, NaoTrocaDeFerramentaComATampa, FerramentaErradaNaoPega, ChuvaNaoReencheComATampaNosBracos, BloqueioMantemATampaNosBracos, TampaColocadaReligaOsColliders, TampaDevolvidaReligaOsColliders, CaminhoAntigoSemKitContinuaCliqueAClique. Suíte EditMode completa em batch mode: **515/515**.
+
+**Observações técnicas:**
+- "Soltar antes de tampar" depende da entrada do jogador (o `DarPasso` lê o botão): coberto por leitura, sem teste.
+- Com a tampa nos braços a stamina limita a corrida, mas a `KitHUD` só mostra a barra de stamina na linha do pneu.
+- Pendente no Editor: pegar, andar, devolver, pegar de novo e tampar; chuva e celular com a tampa nos braços; ajustar `posNosBracos`/`rotNosBracos` para a tampa não tapar a visão.

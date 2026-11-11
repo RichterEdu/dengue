@@ -380,7 +380,6 @@ public class NascimentoTestes
     public void CaixaDagua_NasceSeca_E_AChuvaDevolve()
     {
         CaixaDaguaInteractable caixa = TesteUtil.Com<CaixaDaguaInteractable>("Caixa d'água (teste)");
-        TesteUtil.Setar(caixa, "ferramentaNecessaria", Ferramenta.Areia);
         TesteUtil.Setar(caixa, "requiredClicks", 2);
         TesteUtil.Setar(caixa, "punchScale", 0f);
         TesteUtil.Setar(caixa, "shrinkDuration", 0f);
@@ -395,10 +394,9 @@ public class NascimentoTestes
         Assert.AreEqual(1, gerenciador.ReencherEsvaziados());
         Assert.IsTrue(agua.activeSelf, "a chuva devolve a água da caixa aberta");
 
-        // Fechamento pela metade: a chuva não enche (a tampa nem existe no
-        // foco de teste: só o CurrentClicks importa).
-        kit.Selecionar(Ferramenta.Areia);
-        Assert.AreEqual(ResultadoDoPasso.Avancou, caixa.AvancarCom(kit), "1º passo da areia");
+        // Tampa nos braços: a chuva não enche (a tampa nem existe no foco
+        // de teste: só o estado da caixa importa).
+        Assert.AreEqual(ResultadoDoPasso.Pegou, caixa.AvancarCom(kit), "as Mãos pegam a tampa");
 
         Assert.IsFalse(caixa.PodeReencher);
         Assert.AreEqual(0, gerenciador.ReencherEsvaziados());

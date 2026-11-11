@@ -19,8 +19,9 @@ using UnityEngine;
  *  SegundosPorPasso (segundosParaConcluir dividido entre os cliques) e é
  *  um AvancarCom(kit):
  *  - Verificar(kit) confere SEM avançar nem gastar nada, nesta ordem:
- *    foco que não aceita mais passos (Bloqueado), pneu nas mãos
- *    (MaosOcupadas), ferramenta errada, sem carga e a regra extra de
+ *    foco que não aceita mais passos (Bloqueado), pneu ou tampa nas
+ *    mãos (MaosOcupadas, menos onde AceitaComMaosOcupadas: a caixa dona
+ *    da tampa), ferramenta errada, sem carga e a regra extra de
  *    cada foco (VerificarExtra). Ferramenta errada vem antes de sem
  *    carga porque é a mensagem que ensina.
  *  - Se deu Avancou, o passo é igual a um clique antigo; a carga da
@@ -299,7 +300,7 @@ public class Interactable : MonoBehaviour
         if (kit == null)
             return ResultadoDoPasso.Avancou;
 
-        if (kit.PneuCarregado != null)
+        if (kit.MaosOcupadas && !AceitaComMaosOcupadas(kit))
             return ResultadoDoPasso.MaosOcupadas;
         // Atalho de esvaziar: as Mãos, que aqui seriam a ferramenta errada.
         // Não passa pelo VerificarExtra (o saco cheio não impede esvaziar).
@@ -314,6 +315,10 @@ public class Interactable : MonoBehaviour
 
         return VerificarExtra(kit);
     }
+
+    /* Este foco aceita o passo com as mãos ocupadas? Por padrão, não; a
+     * caixa d'água aceita quando o que está nos braços é a tampa dela. */
+    protected virtual bool AceitaComMaosOcupadas(KitDoAgente kit) => false;
 
     /* Regra a mais de cada foco (ex.: garrafas com o saco cheio). Só é
      * chamada com kit, depois de ferramenta e carga aprovadas. */

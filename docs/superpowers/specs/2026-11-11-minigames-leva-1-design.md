@@ -95,7 +95,9 @@ Ralo: `MinigameDeSkillCheck` embrulha a `SessaoDeSkillCheck` (aperto → `Aperta
 Lógica pura em `Assets/Scripts/OndaDoPneu.cs` (`IMinigame`):
 - A água é um oscilador amortecido: `a = -ω²·x − 2ζω·v + ganho·u`, com `u = clamp(Olhar.x × sensibilidade, −1, 1)`.
 - `|x|` acima de `limiarDaBorda` derrama: `nivel −= taxa × (|x| − limiarDaBorda) × dt`. `nivel` vai de 1 a 0.
-- Devolve `Passo` cada vez que `nivel` cruza `1 − k/passos`. `FracaoDoPasso` é o quanto do terço atual já saiu.
+- Devolve `Passo` cada vez que `nivel` cruza `1 − k/passos`, com `passos = RequiredClicks` do pneu na cena.
+  `FracaoDoPasso` é o quanto da fatia atual já saiu.
+- `u` usa a velocidade do gesto (`Olhar.x / dt`), para não depender do FPS.
 - Expõe `Inclinacao` (x) e `Nivel` para o visual.
 
 Valores iniciais (Inspector do `PneuInteractable`, calibrados jogando): período de 0,9 s, `ζ = 0,12`, e ganho e taxa
@@ -158,7 +160,8 @@ Não usa `IMinigame`: é carregar, como o pneu.
 - Com as Mãos e a tampa encostada: o aperto pega a tampa (`ResultadoDoPasso.Pegou`), sem tempo de segurar.
 - Com a tampa nos braços, só a caixa dona é alvo. Segurar `segundosParaTampar` (0,8 s) nela: a tampa sai dos braços,
   faz o arco até a boca (o `MoveRoutine` de hoje, partindo da posição de mundo) e o foco conclui.
-- `requiredClicks` passa a 1 (o passo de tampar). `Fechamento` vai de 0 a 1 só nesse passo.
+- Tampar é um passo único, que não depende do `requiredClicks` salvo na cena (nenhuma cena ou prefab é editado).
+  `Fechamento` vai de 0 a 1 só nesse passo.
 - Botão de largar com a tampa nos braços: `DevolverTampa`. Vale a qualquer distância; a tampa volta à caixa.
 - Tampa nos braços: a chuva não reenche (`PodeReencher`), como hoje com a tampa em movimento.
 - `SegundosEstimados` = 1,5 s.

@@ -66,6 +66,35 @@ public class OndaDoPneuTestes
     }
 
     [Test]
+    public void ComecaDoNivelInicial()
+    {
+        OndaDoPneu onda = new OndaDoPneu(5, nivelInicial: 0.6f);
+        Assert.AreEqual(0.6f, onda.Nivel);
+        Assert.AreEqual(0f, onda.FracaoDoPasso);
+
+        int passos = 0;
+        float nivelNoPrimeiro = -1f;
+        Simular(onda, 20f, EmFase, (o, estado) =>
+        {
+            if (estado != EstadoDoMinigame.Passo) return;
+            if (passos == 0) nivelNoPrimeiro = o.Nivel;
+            passos++;
+        });
+
+        Assert.AreEqual(3, passos);
+        Assert.AreEqual(0.4f, nivelNoPrimeiro, 1e-4f);
+        Assert.AreEqual(0f, onda.Nivel);
+    }
+
+    [Test]
+    public void NivelInicialForaDaFaixaEhLimitado()
+    {
+        Assert.AreEqual(1f, new OndaDoPneu(5, nivelInicial: 2f).Nivel);
+        Assert.AreEqual(0f, new OndaDoPneu(5, nivelInicial: -1f).Nivel);
+        Assert.AreEqual(1f, new OndaDoPneu(5, nivelInicial: float.NaN).Nivel);
+    }
+
+    [Test]
     public void ContraFase_NaoPassaDaBorda()
     {
         OndaDoPneu onda = new OndaDoPneu(3);

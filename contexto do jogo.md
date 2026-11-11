@@ -3239,3 +3239,4 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 **Observações técnicas:**
 - `SegundosEstimados` do pneu (6 s) passa a valer na rota do `BalanceamentoSimulador`; nenhum teste fixava o tempo do pneu.
 - Pendente no Editor: balançar um pneu com mouse e com controle, conferir cerca de 5 s no ritmo e a onda morrendo parado, e ajustar `ganho`/`taxa` da `OndaDoPneu` se preciso (anotar os valores finais).
+- Retomada: `OndaDoPneu` ganhou o parâmetro opcional `nivelInicial` (último; limitado a 0..1, não finito = 1; os passos que o nível implica contam como dados). O pneu o cria com `1 − CurrentClicks/RequiredClicks`, então, depois de sair com passos fechados, a nova sessão continua do nível guardado (a água não volta a cheia) e esvazia junto com o `CurrentClicks`. Testes novos: `ComecaDoNivelInicial`, `NivelInicialForaDaFaixaEhLimitado`, `RetomarContinuaDoNivelGuardado`; suíte completa 465/465.

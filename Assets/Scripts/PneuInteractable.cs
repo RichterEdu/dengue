@@ -166,7 +166,12 @@ public class PneuInteractable : Interactable
     /* Minigame de balançar: as Mãos num pneu cheio. Fábrica pura. */
     public override IMinigame CriarMinigame(KitDoAgente kit, int semente)
     {
-        return TemMinigame(kit) ? new OndaDoPneu(RequiredClicks, periodoDaOnda) : null;
+        if (!TemMinigame(kit))
+            return null;
+
+        // Retomada: continua do nível dos passos já fechados.
+        float nivel = RequiredClicks > 0 ? 1f - (float)CurrentClicks / RequiredClicks : 1f;
+        return new OndaDoPneu(RequiredClicks, periodoDaOnda, nivelInicial: nivel);
     }
 
     public override string ConviteDoMinigame(KitDoAgente kit) => TemMinigame(kit) ? ConviteDeBalancar : null;

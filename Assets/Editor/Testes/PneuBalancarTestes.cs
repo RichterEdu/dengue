@@ -196,6 +196,36 @@ public class PneuBalancarTestes
     }
 
     [Test]
+    public void RetomarContinuaDoNivelGuardado()
+    {
+        TesteUtil.Setar(pneu, "requiredClicks", 4);
+        interactor.IniciarMinigame(pneu);
+        for (int i = 0; i < 1200 && pneu.CurrentClicks < 1; i++)
+            QuadroEmFase();
+        Assert.AreEqual(1, pneu.CurrentClicks, "um passo fechado");
+        QuadroEmFase(sair: true);
+        Assert.IsNull(interactor.MinigameAtivo);
+
+        Assert.IsTrue(interactor.IniciarMinigame(pneu));
+        OndaDoPneu onda = (OndaDoPneu)interactor.MinigameAtivo;
+        Assert.AreEqual(0.75f, onda.Nivel, 1e-4f);
+
+        QuadroEmFase();
+        Assert.AreEqual(escalaDaAgua.y * 0.75f, agua.transform.localScale.y, 0.05f * escalaDaAgua.y, "a água não volta a cheia");
+
+        int passos = 0;
+        for (int i = 0; i < 2400 && interactor.MinigameAtivo != null; i++)
+        {
+            int antes = pneu.CurrentClicks;
+            QuadroEmFase();
+            if (pneu.CurrentClicks > antes) passos++;
+        }
+        Assert.AreEqual(3, passos, "mais três passos");
+        Assert.IsTrue(pneu.Esvaziado);
+        Assert.AreEqual(0f, onda.Nivel, "esvaziou junto com o Nivel da sessão");
+    }
+
+    [Test]
     public void ReenchidoRecomecaDoZero()
     {
         EsvaziarPeloMinigame();

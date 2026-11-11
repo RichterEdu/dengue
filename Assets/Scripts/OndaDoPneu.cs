@@ -23,6 +23,9 @@ using UnityEngine;
 public class OndaDoPneu : IMinigame
 {
     private const float PassoMaximoDeSimulacao = 1f / 120f;
+    /* Quadro maior que isto (pausa, engasgo) é simulado só até aqui: o estado
+     * fica finito e o custo por quadro limitado. */
+    private const float DtMaximo = 0.25f;
 
     private readonly int passos;
     private readonly float omega;
@@ -63,10 +66,13 @@ public class OndaDoPneu : IMinigame
 
     public EstadoDoMinigame Atualizar(float dt, EntradaDoMinigame entrada)
     {
-        if (dt <= 0f || passosFeitos >= passos)
+        /* !(dt > 0f) também pega NaN. */
+        if (!(dt > 0f) || passosFeitos >= passos)
             return EstadoDoMinigame.EmAndamento;
 
         float u = Mathf.Clamp(entrada.Olhar.x / dt / grausPorSegundoCheio, -1f, 1f);
+        if (!float.IsFinite(u)) u = 0f;
+        dt = Mathf.Min(dt, DtMaximo);
         float limite = passosFeitos + 1 >= passos ? 0f : 1f - (float)(passosFeitos + 1) / passos;
 
         int subpassos = Mathf.Max(1, Mathf.CeilToInt(dt / PassoMaximoDeSimulacao));

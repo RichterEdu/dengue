@@ -3219,3 +3219,4 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - Euler semi-implícito em subpassos de no máximo 1/120 s; `passos` < 1 vale 1; `dt <= 0` não muda nada.
 - O `Nivel` nunca passa do limite do próximo passo num mesmo `Atualizar` (no máximo um `Passo` por quadro); o resto fica para o quadro seguinte.
 - Ir mal só custa tempo: nada aqui gasta carga nem reinicia o foco.
+- Entradas extremas: `dt` não finito ou <= 0 não muda nada; `dt` é limitado a 0,25 s (pausa/engasgo não trava o quadro); `Olhar` não finito conta como parado. Testes: DtNaoFinito_NaoMudaNada, OlharNaoFinito_ContaComoParado, DtEnorme_EhLimitado (suíte completa 451/451).

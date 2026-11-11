@@ -114,4 +114,55 @@ public class OndaDoPneuTestes
         });
         Assert.Greater(maior, 0.5f, "a fração chegou a subir antes de cada Passo");
     }
+
+    private static bool Finito(OndaDoPneu o) =>
+        float.IsFinite(o.Inclinacao) && float.IsFinite(o.Velocidade) && float.IsFinite(o.Nivel);
+
+    [Test]
+    public void DtNaoFinito_NaoMudaNada()
+    {
+        OndaDoPneu onda = new OndaDoPneu(3);
+        Simular(onda, 1f, EmFase);
+        float x = onda.Inclinacao, v = onda.Velocidade, n = onda.Nivel;
+
+        EntradaDoMinigame entrada = new EntradaDoMinigame();
+        entrada.Olhar = new Vector2(3f, 0f);
+        EstadoDoMinigame estado = onda.Atualizar(float.NaN, entrada);
+        Assert.AreEqual(EstadoDoMinigame.EmAndamento, estado);
+        Assert.AreEqual(x, onda.Inclinacao);
+        Assert.AreEqual(v, onda.Velocidade);
+        Assert.AreEqual(n, onda.Nivel);
+
+        onda.Atualizar(float.PositiveInfinity, entrada);
+        Assert.IsTrue(Finito(onda));
+    }
+
+    [Test]
+    public void OlharNaoFinito_ContaComoParado()
+    {
+        OndaDoPneu onda = new OndaDoPneu(3);
+        EntradaDoMinigame entrada = new EntradaDoMinigame();
+        entrada.Olhar = new Vector2(float.NaN, 0f);
+        onda.Atualizar(Quadro, entrada);
+        entrada.Olhar = new Vector2(float.PositiveInfinity, 0f);
+        onda.Atualizar(Quadro, entrada);
+        Assert.IsTrue(Finito(onda));
+
+        int passos = Simular(onda, 10f, EmFase);
+        Assert.IsTrue(Finito(onda));
+        Assert.Greater(passos, 0, "depois da entrada ruim a sessão ainda funciona");
+    }
+
+    [Test]
+    public void DtEnorme_EhLimitado()
+    {
+        OndaDoPneu onda = new OndaDoPneu(3);
+        EntradaDoMinigame entrada = new EntradaDoMinigame();
+        entrada.Olhar = new Vector2(GrausPorSegundoCheio * 1e6f, 0f); // u = 1
+        EstadoDoMinigame estado = onda.Atualizar(1e6f, entrada);
+
+        Assert.IsTrue(Finito(onda));
+        Assert.LessOrEqual(1f - onda.Nivel, 1f / 3f + 1e-5f);
+        Assert.That(estado, Is.EqualTo(EstadoDoMinigame.EmAndamento).Or.EqualTo(EstadoDoMinigame.Passo));
+    }
 }

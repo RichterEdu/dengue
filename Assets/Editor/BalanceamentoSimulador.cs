@@ -329,7 +329,8 @@ public static class BalanceamentoSimulador
     /* A rota com o kit da Parte A, no mesmo vizinho mais próximo a partir da
      * partida, correndo, com o estoque do KitDoAgente da cena (começa cheio,
      * saco vazio):
-     *   - ação de cada foco: SegundosPorPasso × passos (garrafas: um passo
+     *   - ação de cada foco: o SegundosEstimados dele (SegundosPorPasso ×
+     *     passos; ralo: uma volta do ponteiro por check; garrafas: um passo
      *     por garrafa; pneu: o tempo de esvaziar, com água);
      *   - consumível zerado: antes de ir ao foco, desvia para o ponto de
      *     reabastecimento mais perto que tenha a ferramenta;
@@ -412,7 +413,7 @@ public static class BalanceamentoSimulador
                 continue;
             }
 
-            segundosSegurando += foco.SegundosPorPasso * foco.RequiredClicks;
+            segundosSegurando += foco.SegundosEstimados;
             estoque.Consumir(ferramenta);
 
             if (foco is PneuInteractable)

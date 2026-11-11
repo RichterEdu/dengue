@@ -3181,3 +3181,26 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 **Observações técnicas:**
 - A Tarefa 0 pede a decisão do usuário sobre commitar o nascimento seco, pendente nos mesmos arquivos que o plano edita.
 - Testes novos na categoria `Minigames`.
+
+### 2026-11-11 — Minigames: base IMinigame e ralo no adaptador
+
+**Objetivo:** Tarefa 1 do plano dos minigames (leva 1). O skill check do ralo, escrito direto no `Interactor`, vira um caso da base comum `IMinigame`, para os próximos focos (pneu, bromélia, caixa d'água) ganharem minigames próprios. O ralo se comporta como antes, agora por um adaptador.
+
+**Arquivos alterados:**
+- `Assets/Scripts/Minigame.cs` (novo) — `EntradaDoMinigame` (Olhar, Segurando, Apertou), `EstadoDoMinigame` (EmAndamento, Passo, Errou), `IMinigame` (`Atualizar(dt, entrada)`, `FracaoDoPasso`, `PodeSair`) e `IMinigameComMira` (`Mira` em graus a partir do olhar inicial). C# puro, o tempo entra pelo `dt`.
+- `Assets/Scripts/SkillCheck.cs` — `MinigameDeSkillCheck : IMinigame` embrulha a `SessaoDeSkillCheck` (`Sessao`): aperto → `Apertar`, senão `Atualizar(dt)`; `Acertou` → `Passo`, `Errou` → `Errou`; `PodeSair` false; `FracaoDoPasso` 0.
+- `Assets/Scripts/Interactable.cs` — saem `UsaSkillCheck`, `SegundosPorVoltaDoCheck`, `ErrarSkillCheck`, `CancelarSkillCheck`; entram `CriarMinigame(kit, semente)` (null = segurar), `AoErrarMinigame`, `AoSairDoMinigame`, `AoAtualizarMinigame`, `DicaDoMinigame`, `SegundosEstimados` e `ProgressoCom(kit, fracao)` (as duas contas da barra que estavam no `Interactor.AtualizarProgresso`).
+- `Assets/Scripts/RaloInteractable.cs` — `CriarMinigame` devolve o adaptador; `AoErrarMinigame` = o antigo `ErrarSkillCheck` (volta ao começo e gasta a tela); `AoSairDoMinigame` = o antigo `CancelarSkillCheck`; `SegundosEstimados => RequiredClicks × segundosPorVolta`.
+- `Assets/Scripts/Interactor.cs` — `MinigameAtivo`; `SkillCheckAtivo` = a sessão do adaptador; `IniciarMinigame(foco)` (internal; o foco vira o alvo, imobiliza e guarda o olhar inicial), `AvancarMinigame(dt, entrada, sair)` (internal; alvo destruído/inativo encerra, `sair && PodeSair` sai, `Passo` → `AvancarCom` e resultado diferente de `Avancou` encerra, `Errou` → `AoErrarMinigame` + `OnErrouSkillCheck`, `AoAtualizarMinigame` todo quadro, mira aplicada por `DefinirOlhar`) e `AoBloquear()` (internal; o corpo do antigo bloco `Bloqueado` do `Update`, saindo do minigame sem culpa). O `Update` só monta a entrada e chama `AvancarMinigame` (pausado, nada anda). O aperto conferido num foco com minigame começa a sessão no lugar do segurar; ao encerrar, segurar só volta a valer depois de soltar o botão. `Avancando` fica verdadeiro com minigame ativo que não seja o skill check. Kit e `ControladorJogador` são achados no primeiro uso (no EditMode o `Start` não roda). A barra usa `ProgressoCom(kit, fração)`, com a fração do minigame quando há um ativo.
+- `Assets/Scripts/DengueHUD.cs` — a linha de ação "encaixar a grelha" passa a sair para `foco is RaloInteractable` (era `UsaSkillCheck`).
+- `Assets/Editor/BalanceamentoSimulador.cs` — a rota com kit soma `foco.SegundosEstimados` (era `SegundosPorPasso × RequiredClicks`).
+- `Assets/Editor/Testes/MinigameNoInteractorTestes.cs` (novo, categoria `Minigames`), `Assets/Editor/Testes/SkillCheckTestes.cs` (adaptador e chamadas novas), `Assets/Editor/Testes/ConfiguracoesGlobaisTestes.cs` (lê o campo `segundosPorVolta` do ralo).
+
+**Configurações aplicadas:** nenhuma. Nenhuma cena ou prefab foi editado; nenhum campo serializado novo.
+
+**Testes:** `MinigameNoInteractorTestes` (9: PassoViraAvancarCom, UltimoPassoEncerra, SairMantemOsCliques, SairIgnoradoSemPodeSair, ErroChamaOGanchoENaoGastaCarga, AlvoDestruidoEncerraSemExcecao, FocoSemMinigameNaoInicia, BloqueioEncerraSemGastarCarga, MiraAplicadaNoOlhar) e, em `SkillCheckTestes`, AdaptadorAcertoViraPasso e AdaptadorErroViraErrou. Pelo CLI do Unity em batch mode: `MinigameNoInteractorTestes;SkillCheckTestes` 20/20 e suíte EditMode completa **438/438** (0 falhas).
+
+**Observações técnicas:**
+- Ordem no quadro do minigame: `Atualizar` → `AoAtualizarMinigame` → mira → aplicar o resultado. Assim o `AoErrarMinigame`/`AoSairDoMinigame` vem depois do visual do quadro e pode desfazê-lo.
+- Diferença pequena do ralo: segurar o botão e passar a mira para um ralo começa o skill check (antes só um aperto novo começava). Ao terminar, segurar não avança o ralo: é preciso soltar e apertar de novo.
+- Pendente: jogar um ralo no Editor (acerto, erro gastando a tela, celular no meio).

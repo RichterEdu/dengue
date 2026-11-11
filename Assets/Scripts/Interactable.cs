@@ -53,6 +53,10 @@ using UnityEngine;
  *    fixa, sem o OnEsvaziado: a água nunca esteve lá); fora do Play ou
  *    sem gerenciador, todo foco nasce cheio, como antes.
  *
+ *  Minigame: um foco pode trocar o segurar por uma sessão própria
+ *  (CriarMinigame, ver Minigame.cs); cada Passo dela é um AvancarCom(kit).
+ *  O ralo devolve o skill check.
+ *
  *  Para focos com comportamento próprio, herde esta classe e sobrescreva
  *  OnInteract()/OnComplete() (ver PneuInteractable.cs como exemplo) e,
  *  com o kit, AceitaFerramenta/VerificarExtra/AoAvancar.
@@ -182,12 +186,34 @@ public class Interactable : MonoBehaviour
             && currentClicks == 0;
     }
 
-    /* Skill check (ralo): este foco troca o "segurar" por checks, um por
-     * passo. O Interactor conduz; o erro e o cancelamento ficam no foco. */
-    public virtual bool UsaSkillCheck => false;
-    public virtual float SegundosPorVoltaDoCheck => 1.2f;
-    public virtual void ErrarSkillCheck(KitDoAgente kit) { }
-    public virtual void CancelarSkillCheck() { }
+    /* Minigame (Minigame.cs): o foco troca o "segurar" por uma sessão sua,
+     * em que cada Passo é um AvancarCom(kit). null = o segurar de sempre. O
+     * Interactor conduz; o erro, a saída e o visual ficam no foco. */
+    public virtual IMinigame CriarMinigame(KitDoAgente kit, int semente) => null;
+
+    /* A sessão errou (só o ralo pune: gasta a tela e volta ao começo). */
+    public virtual void AoErrarMinigame(KitDoAgente kit) { }
+
+    /* Saída voluntária ou cancelamento (Bloqueado), sem culpa do jogador. */
+    public virtual void AoSairDoMinigame() { }
+
+    /* Visual por quadro com a sessão ativa. */
+    public virtual void AoAtualizarMinigame(IMinigame sessao) { }
+
+    /* Texto da HUD com a sessão ativa (null = nenhum). */
+    public virtual string DicaDoMinigame => null;
+
+    /* Tempo previsto da ação inteira (BalanceamentoSimulador). */
+    public virtual float SegundosEstimados => SegundosPorPasso * RequiredClicks;
+
+    /* Barra da HUD (0..1): cliques dados + a fração do passo em andamento
+     * (no atalho de esvaziar, os passos de esvaziar). */
+    public virtual float ProgressoCom(KitDoAgente kit, float fracao)
+    {
+        if (NoCaminhoDeEsvaziar(kit))
+            return Mathf.Clamp01((passosEsvaziando + fracao) / Mathf.Max(1, passosParaEsvaziar));
+        return Mathf.Clamp01((currentClicks + fracao) / Mathf.Max(1, requiredClicks));
+    }
 
     /* Esvaziado e ainda não eliminado: a chuva enche de novo. */
     public virtual bool PodeReencher => Esvaziado && !IsComplete;

@@ -35,10 +35,15 @@ using UnityEngine.InputSystem;
  *    e o resultado Esvaziou encerra o aperto (como o uso de ponto:
  *    segurar mais não emenda num JaVazio). JaVazio é recusa, como a
  *    ferramenta errada.
- *  - Skill check (foco com UsaSkillCheck, o ralo): um aperto começa os
- *    checks (SkillCheck.cs), com a mesma conferência, e o jogador fica
- *    parado até o fim. Cada acerto é um AvancarCom(kit). Um erro chama
- *    ErrarSkillCheck(kit) e OnErrouSkillCheck. Bloqueado cancela sem culpa.
+ *  - Minigame (Minigame.cs; foco cujo CriarMinigame devolve uma sessão,
+ *    como o skill check do ralo): o aperto conferido começa a sessão no
+ *    lugar do segurar, e o jogador fica parado até o fim, sem trocar de
+ *    ferramenta nem de alvo. A cada quadro, AvancarMinigame: cada Passo é
+ *    um AvancarCom(kit) (resultado diferente de Avancou encerra); Errou
+ *    chama AoErrarMinigame(kit) e OnErrouSkillCheck; o botão de largar
+ *    sai (AoSairDoMinigame) se a sessão PodeSair; sessão com mira
+ *    (IMinigameComMira) aponta o olhar. Bloqueado (AoBloquear) sai sem
+ *    culpa. Encerrado, segurar só volta a valer depois de soltar o botão.
  *  - ProgressoContinuo (0..1) e Avancando alimentam a barra da HUD e o
  *    som de ação.
  *  - Destaque visual: quando o jogador mira num foco ou ponto de uso, os
@@ -99,7 +104,12 @@ public class Interactor : MonoBehaviour
     private Component alvoConferido;
     private bool liberado;
 
-    private SessaoDeSkillCheck skillCheck;
+    // Minigame em andamento (null = nenhum) e o olhar do começo dele (a
+    // mira de IMinigameComMira é contada a partir daqui).
+    private IMinigame minigame;
+    private float yawInicial;
+    private float pitchInicial;
+
     private ControladorJogador jogador;
 
     private readonly List<HighlightEntry> highlighted = new List<HighlightEntry>();
@@ -114,8 +124,12 @@ public class Interactor : MonoBehaviour
     /* O jogador errou um skill check neste foco (a tela já foi gasta). */
     public event Action<Interactable> OnErrouSkillCheck;
 
-    /* Skill check em andamento (null = nenhum). Lido pela SkillCheckHUD. */
-    public SessaoDeSkillCheck SkillCheckAtivo => skillCheck;
+    /* Minigame em andamento (null = nenhum). */
+    public IMinigame MinigameAtivo => minigame;
+
+    /* Skill check em andamento (null = nenhum, ou o minigame é outro).
+     * Lido pela SkillCheckHUD, pelo ItensNaMao e pela HUD. */
+    public SessaoDeSkillCheck SkillCheckAtivo => (minigame as MinigameDeSkillCheck)?.Sessao;
 
     /* Foco mirado (lido pela HUD, pelo brilho de proximidade e por scripts futuros). */
     public Interactable CurrentTarget => currentTarget;
@@ -124,14 +138,35 @@ public class Interactor : MonoBehaviour
     public PontoDeUso PontoAlvo => pontoAlvo;
 
     /* Kit do agente usado nos passos e nos pontos (null = sem kit). A HUD
-     * pede a ele o texto da mira do ponto (PontoDeUso.TextoPara). */
-    public KitDoAgente Kit => kit;
+     * pede a ele o texto da mira do ponto (PontoDeUso.TextoPara). Vazio, o
+     * deste objeto, achado no primeiro uso (no EditMode o Start não roda). */
+    public KitDoAgente Kit
+    {
+        get
+        {
+            if (kit == null)
+                kit = GetComponent<KitDoAgente>();
+            return kit;
+        }
+    }
+
+    /* O ControladorJogador deste objeto, achado no primeiro uso. */
+    private ControladorJogador Jogador
+    {
+        get
+        {
+            if (jogador == null)
+                jogador = GetComponent<ControladorJogador>();
+            return jogador;
+        }
+    }
 
     /* Barra da HUD (0..1): no foco, cliques dados + o passo em andamento;
      * no ponto, quanto do uso já foi segurado. */
     public float ProgressoContinuo { get; private set; }
 
-    /* Segurando num alvo liberado (passo válido) neste quadro: som de ação. */
+    /* Segurando num alvo liberado (passo válido) neste quadro, ou num
+     * minigame que não seja o skill check: som de ação. */
     public bool Avancando { get; private set; }
 
     /* Quando true, o jogador não mira nem interage com nada (usado, por
@@ -166,24 +201,18 @@ public class Interactor : MonoBehaviour
         //    zera o segurar e sai.
         if (Bloqueado)
         {
-            if (skillCheck != null)
-            {
-                currentTarget.CancelarSkillCheck();
-                EncerrarSkillCheck();
-            }
-            TrocarAlvo(null, null);
-            sessao.Zerar();
-            alvoConferido = null;
-            liberado = false;
-            ProgressoContinuo = 0f;
-            Avancando = false;
+            AoBloquear();
             return;
         }
 
-        // Skill check: nada de trocar ferramenta nem de alvo até acabar.
-        if (skillCheck != null)
+        // Minigame: nada de trocar ferramenta nem de alvo até acabar.
+        // Pausado, a sessão para e o aperto não conta.
+        if (minigame != null)
         {
-            AtualizarSkillCheck();
+            if (Time.deltaTime > 0f)
+                AvancarMinigame(Time.deltaTime, LerEntradaDoMinigame(), entrada != null && entrada.LargarPressionado);
+            else
+                Avancando = false;
             UpdateHighlightPulse();
             AtualizarProgresso();
             return;
@@ -242,42 +271,106 @@ public class Interactor : MonoBehaviour
         return mouse != null && mouse.leftButton.wasPressedThisFrame;
     }
 
-    private void IniciarSkillCheck()
+    /* O que o jogador fez neste quadro, para o minigame. */
+    private EntradaDoMinigame LerEntradaDoMinigame()
     {
-        skillCheck = new SessaoDeSkillCheck(currentTarget.RequiredClicks, currentTarget.SegundosPorVoltaDoCheck,
-                                            UnityEngine.Random.Range(int.MinValue, int.MaxValue));
-        if (jogador != null)
-            jogador.Imobilizado = true;
+        return new EntradaDoMinigame
+        {
+            Olhar = entrada != null ? entrada.Olhar : Vector2.zero,
+            Segurando = LerSegurando(),
+            Apertou = LerApertou()
+        };
     }
 
-    private void EncerrarSkillCheck()
+    /* Bloqueado: sai do minigame sem culpa, larga o alvo e zera o segurar. */
+    internal void AoBloquear()
     {
-        skillCheck = null;
-        if (jogador != null)
-            jogador.Imobilizado = false;
+        if (minigame != null)
+        {
+            if (currentTarget != null)
+                currentTarget.AoSairDoMinigame();
+            EncerrarMinigame();
+        }
+        TrocarAlvo(null, null);
+        sessao.Zerar();
+        alvoConferido = null;
+        liberado = false;
+        ProgressoContinuo = 0f;
+        Avancando = false;
     }
 
-    /* Anda o ponteiro ou lê o aperto e aplica o resultado no foco. */
-    private void AtualizarSkillCheck()
+    /* Começa o minigame do foco (que vira o alvo atual). false = o foco não
+     * tem minigame agora (CriarMinigame devolveu null): segue o segurar. */
+    internal bool IniciarMinigame(Interactable foco)
     {
-        // Pausado: o ponteiro para e o clique não conta.
-        if (Time.deltaTime <= 0f)
+        IMinigame criado = foco.CriarMinigame(Kit, UnityEngine.Random.Range(int.MinValue, int.MaxValue));
+        if (criado == null)
+            return false;
+
+        TrocarAlvo(foco, null);
+        minigame = criado;
+        sessao.Zerar();
+        if (Jogador != null)
+        {
+            Jogador.Imobilizado = true;
+            yawInicial = Jogador.Yaw;
+            pitchInicial = Jogador.Pitch;
+        }
+        return true;
+    }
+
+    /* Um quadro do minigame: sair, atualizar a sessão e aplicar o
+     * resultado no foco. Alvo destruído ou desativado encerra. */
+    internal void AvancarMinigame(float dt, EntradaDoMinigame entradaDoMinigame, bool sair)
+    {
+        if (minigame == null)
             return;
 
-        ResultadoDoCheck resultado = LerApertou() ? skillCheck.Apertar() : skillCheck.Atualizar(Time.deltaTime);
-
-        if (resultado == ResultadoDoCheck.Errou)
+        Interactable foco = currentTarget;
+        if (foco == null || !foco.gameObject.activeInHierarchy)
         {
-            Interactable foco = currentTarget;
-            foco.ErrarSkillCheck(kit);
-            EncerrarSkillCheck();
+            EncerrarMinigame();
+            return;
+        }
+
+        if (sair && minigame.PodeSair)
+        {
+            foco.AoSairDoMinigame();
+            EncerrarMinigame();
+            return;
+        }
+
+        IMinigame ativo = minigame;
+        EstadoDoMinigame estado = ativo.Atualizar(dt, entradaDoMinigame);
+        foco.AoAtualizarMinigame(ativo);
+        if (ativo is IMinigameComMira comMira && Jogador != null)
+            Jogador.DefinirOlhar(yawInicial + comMira.Mira.x, pitchInicial + comMira.Mira.y);
+
+        if (estado == EstadoDoMinigame.Passo)
+        {
+            if (foco.AvancarCom(Kit) != ResultadoDoPasso.Avancou)
+                EncerrarMinigame();
+        }
+        else if (estado == EstadoDoMinigame.Errou)
+        {
+            foco.AoErrarMinigame(Kit);
+            EncerrarMinigame();
             OnErrouSkillCheck?.Invoke(foco);
         }
-        else if (resultado == ResultadoDoCheck.Acertou
-                 && currentTarget.AvancarCom(kit) != ResultadoDoPasso.Avancou)
-        {
-            EncerrarSkillCheck();
-        }
+
+        Avancando = minigame != null && !(minigame is MinigameDeSkillCheck);
+    }
+
+    /* Fim do minigame: o jogador volta a andar. Segurar só vale de novo
+     * depois de soltar o botão (o ralo não avança segurando). */
+    private void EncerrarMinigame()
+    {
+        minigame = null;
+        sessao.Zerar();
+        liberado = false;
+        Avancando = false;
+        if (Jogador != null)
+            Jogador.Imobilizado = false;
     }
 
     /* Confere o alvo no aperto (ou ao trocar de alvo segurando) e converte o
@@ -309,21 +402,18 @@ public class Interactor : MonoBehaviour
             return;
         }
 
-        // Foco com skill check: o aperto começa os checks, sem segurar.
-        if (currentTarget != null && currentTarget.UsaSkillCheck)
-        {
-            sessao.Zerar();
-            Avancando = false;
-            if (LerApertou() && Conferir())
-                IniciarSkillCheck();
-            return;
-        }
-
         if (segurando && alvo != null && !ReferenceEquals(alvo, alvoConferido))
         {
             // Aperto novo, ou outro alvo com o botão ainda apertado: confere uma vez.
             alvoConferido = alvo;
             liberado = Conferir();
+
+            // Foco com minigame: o aperto conferido começa a sessão, no lugar do segurar.
+            if (liberado && currentTarget != null && IniciarMinigame(currentTarget))
+            {
+                Avancando = false;
+                return;
+            }
         }
 
         float segundosPorPasso = currentTarget != null ? currentTarget.SegundosPorPassoCom(kit)
@@ -432,16 +522,15 @@ public class Interactor : MonoBehaviour
             OnPontoRecusado?.Invoke(ponto, motivo);
     }
 
-    /* Barra da HUD: cliques já dados + a fração do passo em andamento (no
-     * atalho de esvaziar, os passos de esvaziar). */
+    /* Barra da HUD: no foco, a conta dele (Interactable.ProgressoCom) com
+     * a fração do passo em andamento (a do minigame, se houver um ativo). */
     private void AtualizarProgresso()
     {
-        if (currentTarget != null && currentTarget.NoCaminhoDeEsvaziar(kit))
-            ProgressoContinuo = Mathf.Clamp01((currentTarget.PassosEsvaziando + sessao.Fracao) /
-                                              Mathf.Max(1, currentTarget.PassosParaEsvaziar));
-        else if (currentTarget != null)
-            ProgressoContinuo = Mathf.Clamp01((currentTarget.CurrentClicks + sessao.Fracao) /
-                                              Mathf.Max(1, currentTarget.RequiredClicks));
+        if (currentTarget != null)
+        {
+            float fracao = minigame != null ? minigame.FracaoDoPasso : sessao.Fracao;
+            ProgressoContinuo = currentTarget.ProgressoCom(kit, fracao);
+        }
         else if (pontoAlvo != null)
             ProgressoContinuo = sessao.Fracao;
         else

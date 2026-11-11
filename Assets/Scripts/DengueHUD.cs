@@ -514,7 +514,7 @@ public class DengueHUD : MonoBehaviour
             return null;
         if (pneuVazio)
             return TextoPneuVazio;
-        if (foco.UsaSkillCheck)
+        if (foco is RaloInteractable)
             return AcaoSkillCheck;
         if (foco.Esvaziado)
             return AcaoResolverDeVez(foco.FerramentaNecessaria);

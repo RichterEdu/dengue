@@ -221,7 +221,7 @@ public class ConfiguracoesGlobaisTestes
                                      new ConfiguracoesGlobais.Valores { Passos = 4, Tempo = 0.9f });
 
         Assert.AreEqual(4, ralo.RequiredClicks);
-        Assert.AreEqual(0.9f, ralo.SegundosPorVoltaDoCheck, 1e-5f);
+        Assert.AreEqual(0.9f, Lido(ralo, "segundosPorVolta"), 1e-5f);
         Assert.AreEqual(2f, Lido(ralo, "segundosParaConcluir"), 1e-5f);
     }
 
@@ -233,7 +233,7 @@ public class ConfiguracoesGlobaisTestes
         ConfiguracoesGlobais.Aplicar(Tipo<RaloInteractable>(), new Interactable[] { ralo },
                                      new ConfiguracoesGlobais.Valores { Tempo = 0f });
 
-        Assert.AreEqual(0.1f, ralo.SegundosPorVoltaDoCheck, 1e-5f, "volta de 0 s tiraria o tempo de reação");
+        Assert.AreEqual(0.1f, Lido(ralo, "segundosPorVolta"), 1e-5f, "volta de 0 s tiraria o tempo de reação");
     }
 
     [Test]

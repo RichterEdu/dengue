@@ -188,8 +188,15 @@ public class Interactable : MonoBehaviour
 
     /* Minigame (Minigame.cs): o foco troca o "segurar" por uma sessão sua,
      * em que cada Passo é um AvancarCom(kit). null = o segurar de sempre. O
-     * Interactor conduz; o erro, a saída e o visual ficam no foco. */
+     * Interactor conduz; o erro, a saída e o visual ficam no foco.
+     * CriarMinigame é uma fábrica PURA: não muda nada no foco (o Interactor
+     * também chama só para saber se o foco tem minigame, e descarta a
+     * sessão). O que precisa mudar no começo vai no AoIniciarMinigame. */
     public virtual IMinigame CriarMinigame(KitDoAgente kit, int semente) => null;
+
+    /* A sessão foi aceita e vai começar (antes do primeiro Atualizar):
+     * guardar o estado do começo. */
+    public virtual void AoIniciarMinigame(IMinigame sessao) { }
 
     /* A sessão errou (só o ralo pune: gasta a tela e volta ao começo). */
     public virtual void AoErrarMinigame(KitDoAgente kit) { }

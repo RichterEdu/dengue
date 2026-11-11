@@ -9,7 +9,9 @@ using UnityEngine;
  *  pelo Interactor: Passo vira AvancarCom, o último passo encerra, sair
  *  guarda os cliques (só com PodeSair), o erro chama o gancho do foco sem
  *  gastar carga, alvo destruído ou Bloqueado encerram, e a mira da sessão
- *  aponta o olhar do jogador.
+ *  aponta o olhar do jogador. A sessão só começa num aperto novo
+ *  (ConferirFoco): a mira chegando com o botão já apertado não começa nem
+ *  libera o segurar, e CriarMinigame (consulta) não muda o foco.
  *
  *  O foco de teste (FocoDeTeste) devolve um MinigameFalso, que responde
  *  uma fila de estados, e conta as chamadas dos ganchos. Ele pede Areia
@@ -192,14 +194,69 @@ public class MinigameNoInteractorTestes
         Assert.AreEqual(pitch - 5f, jogador.Pitch, 0.001f);
     }
 
+    [Test]
+    public void ApertoNovoIniciaOMinigame()
+    {
+        interactor.ConferirFoco(foco, true);
+
+        Assert.IsNotNull(interactor.MinigameAtivo);
+        Assert.AreEqual(1, foco.Iniciadas);
+    }
+
+    [Test]
+    public void SegurarSemApertoNaoIniciaOMinigame()
+    {
+        // A mira chegou ao foco com o botão já apertado: nada começa e o
+        // segurar fica preso até soltar.
+        bool liberado = interactor.ConferirFoco(foco, false);
+
+        Assert.IsFalse(liberado);
+        Assert.IsNull(interactor.MinigameAtivo);
+        Assert.AreEqual(0, foco.Iniciadas);
+        Assert.AreEqual(0, foco.CurrentClicks);
+    }
+
+    [Test]
+    public void FocoSemMinigameSegueNoSegurar()
+    {
+        Interactable puro = TesteUtil.Com<Interactable>("Foco puro (teste)");
+        TesteUtil.Setar(puro, "ferramentaNecessaria", Ferramenta.Areia);
+
+        Assert.IsTrue(interactor.ConferirFoco(puro, false));
+        Assert.IsNull(interactor.MinigameAtivo);
+    }
+
+    [Test]
+    public void CriarMinigameNaoMudaOFoco()
+    {
+        kit.Selecionar(Ferramenta.Tela);
+        RaloInteractable ralo = TesteUtil.Com<RaloInteractable>("Ralo (teste)");
+        TesteUtil.Setar(ralo, "ferramentaNecessaria", Ferramenta.Tela);
+        TesteUtil.Setar(ralo, "requiredClicks", 3);
+        TesteUtil.Setar(ralo, "punchScale", 0f);
+        ralo.AvancarCom(kit);
+        int cliques = ralo.CurrentClicks;
+        float fechamento = ralo.Fechamento;
+        int telas = kit.Estoque.Quantidade(Ferramenta.Tela);
+
+        ralo.CriarMinigame(kit, 1);
+        ralo.CriarMinigame(kit, 2);
+
+        Assert.AreEqual(cliques, ralo.CurrentClicks);
+        Assert.AreEqual(fechamento, ralo.Fechamento);
+        Assert.AreEqual(telas, kit.Estoque.Quantidade(Ferramenta.Tela));
+    }
+
     /* Foco que devolve a sessão falsa e conta os ganchos. */
     private class FocoDeTeste : Interactable
     {
         public MinigameFalso Sessao = new MinigameFalso();
+        public int Iniciadas;
         public int Erros;
         public int Saidas;
 
         public override IMinigame CriarMinigame(KitDoAgente kit, int semente) => Sessao;
+        public override void AoIniciarMinigame(IMinigame sessao) => Iniciadas++;
         public override void AoErrarMinigame(KitDoAgente kit) => Erros++;
         public override void AoSairDoMinigame() => Saidas++;
     }

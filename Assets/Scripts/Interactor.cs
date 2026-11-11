@@ -36,8 +36,10 @@ using UnityEngine.InputSystem;
  *    segurar mais não emenda num JaVazio). JaVazio é recusa, como a
  *    ferramenta errada.
  *  - Minigame (Minigame.cs; foco cujo CriarMinigame devolve uma sessão,
- *    como o skill check do ralo): o aperto conferido começa a sessão no
- *    lugar do segurar, e o jogador fica parado até o fim, sem trocar de
+ *    como o skill check do ralo): só um aperto NOVO, conferido, começa a
+ *    sessão no lugar do segurar (ConferirFoco); a mira chegando ao foco com
+ *    o botão já apertado não começa nada nem avisa, e o segurar fica preso
+ *    até soltar. O jogador fica parado até o fim, sem trocar de
  *    ferramenta nem de alvo. A cada quadro, AvancarMinigame: cada Passo é
  *    um AvancarCom(kit) (resultado diferente de Avancou encerra); Errou
  *    chama AoErrarMinigame(kit) e OnErrouSkillCheck; o botão de largar
@@ -316,6 +318,7 @@ public class Interactor : MonoBehaviour
             yawInicial = Jogador.Yaw;
             pitchInicial = Jogador.Pitch;
         }
+        foco.AoIniciarMinigame(criado);
         return true;
     }
 
@@ -406,10 +409,10 @@ public class Interactor : MonoBehaviour
         {
             // Aperto novo, ou outro alvo com o botão ainda apertado: confere uma vez.
             alvoConferido = alvo;
-            liberado = Conferir();
+            liberado = Conferir(LerApertou());
 
-            // Foco com minigame: o aperto conferido começa a sessão, no lugar do segurar.
-            if (liberado && currentTarget != null && IniciarMinigame(currentTarget))
+            // Foco com minigame: o aperto conferido começou a sessão, no lugar do segurar.
+            if (minigame != null)
             {
                 Avancando = false;
                 return;
@@ -430,18 +433,12 @@ public class Interactor : MonoBehaviour
         Avancando = segurando && liberado && alvo != null;
     }
 
-    /* Conferência do aperto, sem avançar nem gastar nada. Recusado, avisa. */
-    private bool Conferir()
+    /* Conferência do aperto (ou da troca de alvo segurando), sem avançar nem
+     * gastar nada. true = o segurar fica liberado. Recusado, avisa. */
+    private bool Conferir(bool apertoNovo)
     {
         if (currentTarget != null)
-        {
-            ResultadoDoPasso resultado = currentTarget.Verificar(kit);
-            if (resultado == ResultadoDoPasso.Avancou)
-                return true;
-
-            AvisarRecusa(currentTarget, resultado);
-            return false;
-        }
+            return ConferirFoco(currentTarget, apertoNovo);
 
         if (pontoAlvo != null)
         {
@@ -453,6 +450,34 @@ public class Interactor : MonoBehaviour
         }
 
         return false;
+    }
+
+    /* Conferência de um foco. Sem minigame, como sempre: aprovado, o segurar
+     * fica liberado (true). Com minigame para este kit, só um aperto novo
+     * conta: conferido, começa a sessão (e o segurar não é liberado). A mira
+     * chegando com o botão já apertado não começa nada, não confere (sem
+     * aviso, como o ralo antigo) e prende o segurar até soltar: no ralo, o
+     * ponteiro andaria sem o jogador querer e o erro gastaria a tela. */
+    internal bool ConferirFoco(Interactable foco, bool apertoNovo)
+    {
+        // Só a pergunta: CriarMinigame é uma fábrica pura e a sessão é descartada.
+        bool temMinigame = foco.CriarMinigame(Kit, 0) != null;
+        if (temMinigame && !apertoNovo)
+            return false;
+
+        ResultadoDoPasso resultado = foco.Verificar(Kit);
+        if (resultado != ResultadoDoPasso.Avancou)
+        {
+            AvisarRecusa(foco, resultado);
+            return false;
+        }
+
+        if (temMinigame)
+        {
+            IniciarMinigame(foco);
+            return false;
+        }
+        return true;
     }
 
     /* Um passo no alvo atual. False = parar por aqui neste aperto ou alvo

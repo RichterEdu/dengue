@@ -3204,3 +3204,18 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - Ordem no quadro do minigame: `Atualizar` → `AoAtualizarMinigame` → mira → aplicar o resultado. Assim o `AoErrarMinigame`/`AoSairDoMinigame` vem depois do visual do quadro e pode desfazê-lo.
 - Como antes, só o aperto começa o skill check: passar a mira para um ralo segurando o botão não começa nada (o ponteiro correria sem o jogador querer e o erro gastaria a tela). Ao terminar, segurar não avança o ralo: é preciso soltar e apertar de novo.
 - Pendente: jogar um ralo no Editor (acerto, erro gastando a tela, celular no meio).
+
+### 2026-11-11 — Minigames: onda do pneu (lógica pura)
+
+**Objetivo:** lógica do minigame do pneu: a água é um oscilador amortecido; empurrar o pneu no ritmo faz a onda crescer até transbordar, e o transbordar esvazia o `Nivel`. Só a lógica; a ligação com o `PneuInteractable` e o visual ficam para tarefas seguintes.
+
+**Arquivos alterados:** `Assets/Scripts/OndaDoPneu.cs` (novo, implementa `IMinigame`), `Assets/Editor/Testes/OndaDoPneuTestes.cs` (novo, categoria `Minigames`).
+
+**Configurações aplicadas:** nenhuma. Nenhuma cena ou prefab foi editado. Padrões do construtor mantidos como no plano: `periodo` 0,9, `amortecimento` 0,12, `ganho` 15, `limiarDaBorda` 1, `taxa` 1,4, `grausPorSegundoCheio` 180.
+
+**Testes:** `OndaDoPneuTestes` (6): Parada_NaoDerrama, EmFase_Esvazia (3 passos, esvazia em ~5,4 s simulados, faixa aceita 3 a 7 s), ContraFase_NaoPassaDaBorda, OndaMorreSozinha, QuadroLongo_NaoExplode, FracaoDoPasso_SobeDentroDoTerco. Pelo CLI do Unity em batch mode: 6/6 e suíte EditMode completa 448/448 (0 falhas).
+
+**Observações técnicas:**
+- Euler semi-implícito em subpassos de no máximo 1/120 s; `passos` < 1 vale 1; `dt <= 0` não muda nada.
+- O `Nivel` nunca passa do limite do próximo passo num mesmo `Atualizar` (no máximo um `Passo` por quadro); o resto fica para o quadro seguinte.
+- Ir mal só custa tempo: nada aqui gasta carga nem reinicia o foco.

@@ -3220,3 +3220,22 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - O `Nivel` nunca passa do limite do próximo passo num mesmo `Atualizar` (no máximo um `Passo` por quadro); o resto fica para o quadro seguinte.
 - Ir mal só custa tempo: nada aqui gasta carga nem reinicia o foco.
 - Entradas extremas: `dt` não finito ou <= 0 não muda nada; `dt` é limitado a 0,25 s (pausa/engasgo não trava o quadro); `Olhar` não finito conta como parado. Testes: DtNaoFinito_NaoMudaNada, OlharNaoFinito_ContaComoParado, DtEnorme_EhLimitado (suíte completa 451/451).
+
+### 2026-11-11 — Minigames: pneu de balançar
+
+**Objetivo:** Tarefa 3 do plano dos minigames (leva 1). O jogador esvazia o pneu balançando-o no ritmo da água (a `OndaDoPneu` da tarefa anterior), no lugar de segurar o botão.
+
+**Arquivos alterados:**
+- `Assets/Scripts/PneuInteractable.cs` — campos serializados `periodoDaOnda` (0,9), `inclinacaoMaxima` (25) e `deslocamentoDaAgua` (0,05 m). `CriarMinigame` (fábrica pura) devolve `new OndaDoPneu(RequiredClicks, periodoDaOnda)` só com as Mãos num pneu não esvaziado; `ConviteDoMinigame` = "Clique para balançar o pneu" na mesma condição; `DicaDoMinigame` = "Balance o pneu ← →   |   Botão direito: sair"; `SegundosEstimados => Esvaziado ? 0 : 6`. `AoIniciarMinigame` guarda pose, ponto de apoio (ponto mais baixo dos `Renderer.bounds`), eixo (horizontal da câmera ao pneu; `Vector3.forward` sem `Camera.main`) e a água cheia (lida uma vez). `AoAtualizarMinigame` gira o pneu em torno do apoio por `Inclinacao × inclinacaoMaxima` (preso a ±), dá à água escala Y `Nivel` e a desloca para o lado baixo, e derramando solta `EstourarParticulas` no lado baixo a cada 0,25 s (só no Play). A pose original volta em `AoSairDoMinigame` (água na escala `1 − CurrentClicks/RequiredClicks`), no `AoTerminarAcao` (o Interactor encerra o último passo sem chamar o `AoSairDoMinigame`) e a água cheia também no `AoReencher`. Os ganchos não lançam em qualquer ordem.
+- `Assets/Scripts/Interactable.cs` — `ConviteDoMinigame(kit)` (texto da linha de ação ao mirar um foco cujo aperto novo começaria um minigame; null = "segure o clique").
+- `Assets/Scripts/RaloInteractable.cs` — `ConviteDoMinigame` devolve `DengueHUD.AcaoSkillCheck`.
+- `Assets/Scripts/DengueHUD.cs` — `AcaoDoFoco` usa `ConviteDoMinigame` no lugar do `foco is RaloInteractable`; com minigame ativo, a linha de ação mostra `DicaDoMinigame` do alvo (o nome do foco não muda).
+- `Assets/Editor/Testes/PneuBalancarTestes.cs` (novo, categoria `Minigames`), `Assets/Editor/Testes/MinigameNoInteractorTestes.cs` (convite do ralo).
+
+**Configurações aplicadas:** nenhuma. Nenhuma cena ou prefab foi editado; campos novos com valor padrão no código.
+
+**Testes:** `PneuBalancarTestes` (10): MaosNoPneuCheioCriaAOnda, PneuEsvaziadoNaoTemMinigame, OutraFerramentaNaoTemMinigame, ConviteSoComMaosEPneuCheio, UltimoPassoEsvaziaEEncerra, SairDevolveAPose, BloqueioNoMeioDevolveAPose, AguaAcompanhaONivel, ReenchidoRecomecaDoZero, GanchosForaDeOrdemNaoLancam; mais ConviteDoRaloEhOTextoDoSkillCheck. Suíte EditMode completa em batch mode: **462/462**.
+
+**Observações técnicas:**
+- `SegundosEstimados` do pneu (6 s) passa a valer na rota do `BalanceamentoSimulador`; nenhum teste fixava o tempo do pneu.
+- Pendente no Editor: balançar um pneu com mouse e com controle, conferir cerca de 5 s no ritmo e a onda morrendo parado, e ajustar `ganho`/`taxa` da `OndaDoPneu` se preciso (anotar os valores finais).

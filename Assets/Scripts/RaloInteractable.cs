@@ -81,6 +81,9 @@ public class RaloInteractable : Interactable
         return new MinigameDeSkillCheck(new SessaoDeSkillCheck(RequiredClicks, segundosPorVolta, semente));
     }
 
+    /* Mirando o ralo, o clique encaixa a grelha (skill check). */
+    public override string ConviteDoMinigame(KitDoAgente kit) => DengueHUD.AcaoSkillCheck;
+
     /* Cada check leva no máximo uma volta do ponteiro (BalanceamentoSimulador). */
     public override float SegundosEstimados => RequiredClicks * segundosPorVolta;
 

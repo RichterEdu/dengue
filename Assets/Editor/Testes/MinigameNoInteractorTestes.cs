@@ -247,6 +247,15 @@ public class MinigameNoInteractorTestes
         Assert.AreEqual(telas, kit.Estoque.Quantidade(Ferramenta.Tela));
     }
 
+    [Test]
+    public void ConviteDoRaloEhOTextoDoSkillCheck()
+    {
+        RaloInteractable ralo = TesteUtil.Com<RaloInteractable>("Ralo (teste)");
+
+        Assert.AreEqual(DengueHUD.AcaoSkillCheck, ralo.ConviteDoMinigame(kit));
+        Assert.IsNull(foco.ConviteDoMinigame(kit), "foco sem convite próprio");
+    }
+
     /* Foco que devolve a sessão falsa e conta os ganchos. */
     private class FocoDeTeste : Interactable
     {

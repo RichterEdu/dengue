@@ -443,9 +443,11 @@ public class DengueHUD : MonoBehaviour
         // Texto de mirar é refeito a cada frame porque pode usar {cliques}/{faltam}
         // (e o estágio, o esvaziado e a ferramenta selecionada mudam).
         KitDoAgente kit = interactor != null ? interactor.Kit : null;
+        string dicaDaSessao = interactor != null && interactor.MinigameAtivo != null && target != null
+            ? target.DicaDoMinigame : null;
         if (promptText != null)
             promptText.text = ComLinhaDeAcao(TextoDeMirar(target, ponto, info, kit),
-                                             AcaoDoFoco(target, pneuVazio, kit));
+                                             AcaoDoFoco(target, pneuVazio, kit, dicaDaSessao));
 
         displayedFill = Mathf.Lerp(displayedFill, Progress(), k);
         if (progressFill != null)
@@ -508,14 +510,18 @@ public class DengueHUD : MonoBehaviour
      * num foco esvaziado, resolver de vez com a ferramenta certa; com as
      * Mãos no atalho de esvaziar, esvaziar. O pneu esvaziado no chão diz
      * para onde levar. */
-    private static string AcaoDoFoco(Interactable foco, bool pneuVazio, KitDoAgente kit)
+    private static string AcaoDoFoco(Interactable foco, bool pneuVazio, KitDoAgente kit, string dicaDaSessao = null)
     {
         if (foco == null)
             return null;
+        // Com um minigame em andamento, a dica dele no lugar do "segure o clique".
+        if (!string.IsNullOrWhiteSpace(dicaDaSessao))
+            return dicaDaSessao;
         if (pneuVazio)
             return TextoPneuVazio;
-        if (foco is RaloInteractable)
-            return AcaoSkillCheck;
+        string convite = foco.ConviteDoMinigame(kit);
+        if (convite != null)
+            return convite;
         if (foco.Esvaziado)
             return AcaoResolverDeVez(foco.FerramentaNecessaria);
         if (foco.NoCaminhoDeEsvaziar(kit))

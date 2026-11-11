@@ -210,6 +210,11 @@ public class Interactable : MonoBehaviour
     /* Texto da HUD com a sessão ativa (null = nenhum). */
     public virtual string DicaDoMinigame => null;
 
+    /* Texto da linha de ação da HUD ao MIRAR o foco, quando um aperto novo
+     * começaria um minigame com este kit (null = o "segure o clique" de
+     * sempre). */
+    public virtual string ConviteDoMinigame(KitDoAgente kit) => null;
+
     /* Tempo previsto da ação inteira (BalanceamentoSimulador). */
     public virtual float SegundosEstimados => SegundosPorPasso * RequiredClicks;
 

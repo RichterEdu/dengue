@@ -3297,3 +3297,40 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - "Soltar antes de tampar" depende da entrada do jogador (o `DarPasso` lê o botão): coberto por leitura, sem teste.
 - Com a tampa nos braços a stamina limita a corrida, mas a `KitHUD` só mostra a barra de stamina na linha do pneu.
 - Pendente no Editor: pegar, andar, devolver, pegar de novo e tampar; chuva e celular com a tampa nos braços; ajustar `posNosBracos`/`rotNosBracos` para a tampa não tapar a visão.
+
+### 2026-11-11 — Minigames (leva 1): verificação final
+
+**Objetivo:** Tarefa 7 do plano dos minigames (leva 1). Conferir a suíte inteira, estimar o efeito no balanceamento e registrar os valores calibrados e o que falta jogar no Editor. Nenhum código, cena, prefab ou número de balanceamento foi alterado.
+
+**Arquivos alterados:** só este `contexto do jogo.md`.
+
+**Testes:** suíte EditMode completa em batch mode (`unity test`, sem filtro): **515/515**, `failed="0"` (no começo do ramo eram 427). Nenhum `warning CS` nem `error CS` no log do Unity dessa rodada.
+
+**Balanceamento (estimativa, sem rodar o menu):** o `Dengue > Simular Balanceamento` precisa do Editor aberto; a tentativa headless (`unity run -- -executeMethod BalanceamentoSimulador.Simular`) não imprimiu nada e foi abandonada. A conta abaixo vem da `SampleScene` e dos prefabs: contagem pelos `m_Script` (pneus, soltos na cena) e pelos `m_SourcePrefab` (bromélia, caixa d'água, ralo), com os `propertyPath` de `requiredClicks`/`segundosParaConcluir` das instâncias. Antes, o `SegundosEstimados` de todo foco era `segundosParaConcluir`.
+
+| Foco | Na cena | Antes (s cada) | Agora (s cada) | Diferença (s) |
+|---|---|---|---|---|
+| Pneu | 10 | 1,5 | 6,0 | +45,0 |
+| Bromélia (5 pocinhas) | 4 | 2,0 | 5,2 | +12,8 |
+| Caixa d'água | 2 | 3,0 | 1,5 | −3,0 |
+| Ralo (5 voltas × 1,5 s) | 4 | 2,0 em 3 deles, 3,0 em 1 (total 9,0) | 7,5 | +21,0 |
+| **Total** | 20 | | | **+75,8 s** |
+
+- O `segundosPorVolta` do ralo vale 1,5 no prefab (o padrão do código é 1,2); a cena não sobrescreve. O ralo com 3,0 s é a instância que sobrescreve `segundosParaConcluir`. Os outros 10 focos (vaso, garrafas, piscina) não mudam.
+- Referência: a última saída do simulador no registro (calibração da nota, 30 focos, 10 sementes, custo do kit 10,6 s/foco): 30 s + 10,6 s → vence em 26:11 (1.571 s); 20 s + 10,6 s → 19:44. A diferença entra no custo do kit: +75,8 s / 30 focos = +2,5 s/foco (10,6 → cerca de 13,1).
+- Mudança relativa: +75,8 s sobre 1.571 s = **4,8%** (cerca de 6%, ~+98 s, se os últimos focos, que levam até 1,6x, também escalarem). **Abaixo do limite de 15%**; nenhum número de balanceamento foi mexido. Estimativa: a saída real do simulador com o código novo não foi obtida.
+
+**Valores calibrados como estão no código:**
+- `OndaDoPneu` (construtor): `periodo` 0,9; `amortecimento` 0,12; `ganho` 15; `limiarDaBorda` 1; `taxa` 1,4; `grausPorSegundoCheio` 180; `nivelInicial` 1; `DtMaximo` 0,25 s.
+- `PneuInteractable`: `periodoDaOnda` 0,9; `inclinacaoMaxima` 25°; `deslocamentoDaAgua` 0,05 m; `SegundosEstimados` 6 s.
+- `BromeliaInteractable`: `segundosPorPoca` 0,5; `segundosDoCopoCentral` 1,2; `raioDeAcerto` 4°.
+- `MiraDoBorrifador` (padrões do construtor): `cone` 30°; `raio` 4°.
+- `CaixaDaguaInteractable`: `segundosParaTampar` 0,8; `SegundosEstimados` 1,5 s; `posNosBracos`/`rotNosBracos` zero.
+- `RaloInteractable`: `segundosPorVolta` 1,2 no código (1,5 no prefab do ralo).
+
+**Pendente para o usuário (jogar no Editor, mouse e controle):**
+- Ralo: acerto; erro que gasta a tela; celular aberto no meio; mirar o ralo com o botão já segurado não inicia o anel.
+- Pneu: balançar com mouse e com controle; conferir o tempo no ritmo (cerca de 5,4 s na simulação) e ajustar ganho/taxa se preciso; conferir o eixo do balanço e o lado para onde a água desloca; sair no meio e voltar (a água continua de onde parou); pegar e levar à caçamba como antes.
+- Bromélia: toda pocinha alcançável dentro do cone; a névoa sai do bico só enquanto segura; sair no meio e voltar; a dose só é gasta ao concluir.
+- Caixa d'água: pegar a tampa, andar, devolver com o botão de largar, pegar de novo, soltar o botão e segurar para tampar; ajustar `posNosBracos`/`rotNosBracos` se a tampa tapar a visão; a tampa não deve pulsar com o destaque enquanto está nos braços; chuva com a tampa nos braços.
+- Geral: vaso, garrafas e piscina continuam no segurar; nota e recorde aparecem no fim; o `TimeManager.asset` foi commitado com `m_TimeScale: 0` (conferir se o jogo abre correndo).

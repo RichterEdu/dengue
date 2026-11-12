@@ -79,7 +79,7 @@ public class GerenciadorDeFocos : MonoBehaviour
 
     [Tooltip("Fração dos focos que nasce com água (contagem fixa, arredondada, no mínimo 1); o resto nasce seco, como se já tivesse sido esvaziado.")]
     [Range(0f, 1f)]
-    [SerializeField] private float fracaoNascendoComAgua = 0.1f;
+    [SerializeField] private float fracaoNascendoComAgua = 0.5f;
 
     /* Um foco eliminado (conta uma vez por foco). */
     public event Action<Interactable> OnFocoEliminado;

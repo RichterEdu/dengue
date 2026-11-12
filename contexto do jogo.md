@@ -3371,3 +3371,16 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - Tampa: pegar e andar sem olhar para a caixa (a linha da HUD explica?); correr até a stamina acabar; terminar a partida com ela.
 - Interrupções: celular e fim de partida no meio do pneu e da bromélia.
 - Rodar `Dengue > Simular Balanceamento`.
+
+### 2026-11-12 — Metade dos focos nasce com água
+
+**Objetivo:** fazer os minigames da leva 1 aparecerem numa partida normal. Com 10% dos focos molhados, só 1 dos 10 pneus e 1 das 4 bromélias ofereciam minigame (conferido em Play); o resto nascia seco e se comportava como antes.
+
+**Arquivos alterados:** `Assets/Scripts/GerenciadorDeFocos.cs` (padrão do campo); `Assets/Scenes/SampleScene.unity` (valor do objeto na cena, salvo pelo Editor).
+
+**Configurações aplicadas:** `fracaoNascendoComAgua` de 0,1 para 0,5, a pedido do usuário.
+
+**Observações técnicas:**
+- Mais focos molhados aumentam a pressão do hospital: o balanceamento não foi recalibrado. Rodar Dengue > Simular Balanceamento.
+- O salvamento da cena pelo Editor levou junto cerca de 70 linhas de outras mudanças de serialização, não inspecionadas.
+- Verificado em Play antes da mudança: o minigame do pneu roda de ponta a ponta (convite, sessão, 5 passos em 5,47 s com entrada simulada no ritmo, pose devolvida).

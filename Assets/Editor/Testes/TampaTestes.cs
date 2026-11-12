@@ -14,7 +14,7 @@ using UnityEngine;
  *  braços, a ferramenta não troca e a chuva não reenche a caixa. Bloquear
  *  o Interactor (pausa, cutscene) deixa a tampa nos braços. O caminho
  *  antigo Interact() (sem kit) continua deslizando a tampa clique a
- *  clique.
+ *  clique, e sem kit o passo segurado dura o da base (não é na hora).
  *
  *  "Soltar antes de tampar" (o Interactor exige soltar o botão depois do
  *  Pegou) depende da entrada do jogador e não é observável aqui.
@@ -86,6 +86,17 @@ public class TampaTestes
     private static void AssertGiro(Quaternion esperado, Quaternion obtido, string onde)
     {
         Assert.That(Quaternion.Angle(esperado, obtido), Is.LessThan(0.1f), onde);
+    }
+
+    [Test]
+    public void SemKitOPassoDuraODaBase()
+    {
+        // segundosParaConcluir (2 s, o padrão) dividido pelos 5 cliques.
+        Assert.AreEqual(2f / 5f, caixa.SegundosPorPassoCom(null), 1e-5f, "sem kit, clique a clique como antes");
+        Assert.AreEqual(0f, caixa.SegundosPorPassoCom(kit), 1e-5f, "com kit, pegar a tampa é na hora");
+
+        Assert.AreEqual(ResultadoDoPasso.Pegou, caixa.AvancarCom(kit));
+        Assert.AreEqual(0.8f, caixa.SegundosPorPassoCom(kit), 1e-5f, "nos braços, segundosParaTampar");
     }
 
     [Test]

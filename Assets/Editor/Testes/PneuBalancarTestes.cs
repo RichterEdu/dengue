@@ -9,6 +9,9 @@ using UnityEngine;
  *  no lugar, na pose de antes); sair e o bloqueio devolvem a pose; o
  *  pneu reenchido recomeça do zero; o convite da HUD só aparece quando um
  *  aperto novo começaria a sessão; os ganchos não lançam fora de ordem.
+ *  O apoio ignora as partículas do enxame; a taxa de derrame do Inspector
+ *  chega à onda; desativar o pneu no meio (OnDisable) e começar uma sessão
+ *  com a anterior ainda marcada devolvem a pose.
  *
  *  A sessão é conduzida pelo Interactor (IniciarMinigame/AvancarMinigame),
  *  empurrando o pneu em fase com a velocidade da onda. O pneu de teste tem
@@ -252,5 +255,84 @@ public class PneuBalancarTestes
         pneu.AoIniciarMinigame(new OndaDoPneu(2));
         pneu.AoSairDoMinigame();
         Assert.DoesNotThrow(() => pneu.AoSairDoMinigame(), "sair duas vezes");
+    }
+
+    [Test]
+    public void ApoioIgnoraAsParticulasDoEnxame()
+    {
+        // Fora do eixo da origem: a caixa vazia de um ParticleSystem ainda
+        // não simulado fica em (0, 0, 0) e também mexeria no apoio.
+        pneu.transform.position = SemChao + new Vector3(5f, 0f, 5f);
+        GameObject borracha = TesteUtil.Primitivo(PrimitiveType.Cube, "Borracha (teste)");
+        Object.DestroyImmediate(borracha.GetComponent<Collider>());
+        borracha.transform.SetParent(pneu.transform, false);
+        borracha.transform.localScale = new Vector3(0.2f, 0.7f, 0.7f);
+
+        pneu.AoIniciarMinigame(new OndaDoPneu(2));
+        Vector3 apoioSemEnxame = pneu.Apoio;
+        float raioSemEnxame = pneu.RaioDoPneu;
+        pneu.AoSairDoMinigame();
+
+        // Como o EnxameDeMosquitos: um filho com partículas, longe da borracha.
+        GameObject enxame = TesteUtil.Novo("Enxame (teste)");
+        enxame.transform.SetParent(pneu.transform, false);
+        enxame.transform.localPosition = new Vector3(3f, 5f, 2f);
+        enxame.AddComponent<ParticleSystem>().Simulate(0.5f, true, true);   // partículas de verdade, com caixa
+
+        pneu.AoIniciarMinigame(new OndaDoPneu(2));
+        Assert.Less(Vector3.Distance(apoioSemEnxame, pneu.Apoio), 1e-4f, "o enxame não mexe no apoio");
+        Assert.AreEqual(raioSemEnxame, pneu.RaioDoPneu, 1e-4f, "nem no raio do respingo");
+        pneu.AoSairDoMinigame();
+    }
+
+    [Test]
+    public void TaxaDeDerrameChegaASessao()
+    {
+        OndaDoPneu padrao = (OndaDoPneu)pneu.CriarMinigame(kit, 0);
+        TesteUtil.Setar(pneu, "taxaDeDerrame", 2.8f);
+        OndaDoPneu dobro = (OndaDoPneu)pneu.CriarMinigame(kit, 0);
+
+        // A onda não depende do Nivel: com a mesma entrada, o dobro da taxa
+        // derrama o dobro (esvazia na metade do tempo de derrame).
+        for (int i = 0; i < 2400 && padrao.Nivel > 0.95f; i++)
+        {
+            float u = padrao.Velocidade < 0f ? -1f : 1f;
+            EntradaDoMinigame entrada = new EntradaDoMinigame { Olhar = new Vector2(u * 180f * Quadro, 0f) };
+            padrao.Atualizar(Quadro, entrada);
+            dobro.Atualizar(Quadro, entrada);
+        }
+
+        Assert.LessOrEqual(padrao.Nivel, 0.95f, "o padrão derramou");
+        Assert.AreEqual(2f * (1f - padrao.Nivel), 1f - dobro.Nivel, 1e-3f, "o dobro da taxa, o dobro derramado");
+    }
+
+    [Test]
+    public void DesativadoNoMeioDevolveAPose()
+    {
+        Vector3 posicao = pneu.transform.position;
+        interactor.IniciarMinigame(pneu);
+        QuadrosEmFase(30);
+        Assert.Greater(Quaternion.Angle(rotacaoInicial, pneu.transform.rotation), 1f, "o pneu inclinou");
+
+        pneu.gameObject.SetActive(false);
+        pneu.OnDisable();   // no EditMode o Unity não manda o OnDisable a este script
+        pneu.gameObject.SetActive(true);
+
+        AssertPoseOriginal(posicao);
+    }
+
+    [Test]
+    public void NovaSessaoComAAnteriorDePeVoltaAPoseAntes()
+    {
+        Vector3 posicao = pneu.transform.position;
+        interactor.IniciarMinigame(pneu);
+        QuadrosEmFase(30);
+        Assert.Greater(Quaternion.Angle(rotacaoInicial, pneu.transform.rotation), 1f, "o pneu inclinou");
+
+        // A sessão anterior acabou sem gancho nenhum: a nova guarda a pose de antes.
+        pneu.AoIniciarMinigame(new OndaDoPneu(2));
+        pneu.AoSairDoMinigame();
+
+        AssertPoseOriginal(posicao);
     }
 }

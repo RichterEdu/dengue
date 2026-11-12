@@ -3205,6 +3205,8 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - Como antes, só o aperto começa o skill check: passar a mira para um ralo segurando o botão não começa nada (o ponteiro correria sem o jogador querer e o erro gastaria a tela). Ao terminar, segurar não avança o ralo: é preciso soltar e apertar de novo.
 - Pendente: jogar um ralo no Editor (acerto, erro gastando a tela, celular no meio).
 
+**Atualização:** depois desta entrada o `IMinigame` ganhou um quarto membro, `Agindo` (Tarefa 5, "bromélia de mirar o borrifador"), e o `Avancando` do Interactor passou a seguir `minigame.Agindo` (não mais "minigame ativo que não seja o skill check"). Na revisão final (2026-11-12), um clique rápido (apertar e soltar no mesmo quadro) num foco com minigame voltou a começar a sessão.
+
 ### 2026-11-11 — Minigames: onda do pneu (lógica pura)
 
 **Objetivo:** lógica do minigame do pneu: a água é um oscilador amortecido; empurrar o pneu no ritmo faz a onda crescer até transbordar, e o transbordar esvazia o `Nivel`. Só a lógica; a ligação com o `PneuInteractable` e o visual ficam para tarefas seguintes.
@@ -3240,6 +3242,8 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - `SegundosEstimados` do pneu (6 s) passa a valer na rota do `BalanceamentoSimulador`; nenhum teste fixava o tempo do pneu.
 - Pendente no Editor: balançar um pneu com mouse e com controle, conferir cerca de 5 s no ritmo e a onda morrendo parado, e ajustar `ganho`/`taxa` da `OndaDoPneu` se preciso (anotar os valores finais).
 - Retomada: `OndaDoPneu` ganhou o parâmetro opcional `nivelInicial` (último; limitado a 0..1, não finito = 1; os passos que o nível implica contam como dados). O pneu o cria com `1 − CurrentClicks/RequiredClicks`, então, depois de sair com passos fechados, a nova sessão continua do nível guardado (a água não volta a cheia) e esvazia junto com o `CurrentClicks`. Testes novos: `ComecaDoNivelInicial`, `NivelInicialForaDaFaixaEhLimitado`, `RetomarContinuaDoNivelGuardado`; suíte completa 465/465.
+
+**Atualização:** o `CriarMinigame` do pneu passou a `new OndaDoPneu(RequiredClicks, periodoDaOnda, amortecimentoDaOnda, ganhoDaOnda, limiarDaBorda, taxaDeDerrame, grausPorSegundoCheio, nivel)` (retomada e, na revisão final de 2026-11-12, os números da onda no Inspector), e o `PneuBalancarTestes` tem hoje 15 testes (mais `RetomarContinuaDoNivelGuardado` e os 4 da revisão final).
 
 ### 2026-11-11 — Minigames: mira do borrifador
 
@@ -3334,3 +3338,36 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - Bromélia: toda pocinha alcançável dentro do cone; a névoa sai do bico só enquanto segura; sair no meio e voltar; a dose só é gasta ao concluir.
 - Caixa d'água: pegar a tampa, andar, devolver com o botão de largar, pegar de novo, soltar o botão e segurar para tampar; ajustar `posNosBracos`/`rotNosBracos` se a tampa tapar a visão; a tampa não deve pulsar com o destaque enquanto está nos braços; chuva com a tampa nos braços.
 - Geral: vaso, garrafas e piscina continuam no segurar; nota e recorde aparecem no fim; o `TimeManager.asset` foi commitado com `m_TimeScale: 0` (conferir se o jogo abre correndo).
+
+### 2026-11-12 — Minigames (leva 1): correções da revisão final
+
+**Objetivo:** corrigir os nove achados da revisão do ramo `minigames-leva-1` inteiro.
+
+**Arquivos alterados:**
+1. Bromélia, raio de acerto — `Assets/Scripts/MiraDoBorrifador.cs`: `RaioParaAsPocinhas(pocas, raioMaximo)` = `max(0,3°, min(raioMaximo, 0,45 × a menor distância entre duas pocinhas))`; `Assets/Scripts/BromeliaInteractable.cs`: `raioDeAcerto` 4 → **1,5**, e cada sessão usa o raio da geometria (um só por sessão). No prefab real (pocinhas a 0,055 m do centro, escala 1,51) o raio fica em ~0,48°: mirar o centro e segurar já não seca as cinco.
+2. Bromélia, ângulos — `BromeliaInteractable.CriarMira(olho, yawInicial, pitchInicial, pitchMinimo = −90, pitchMaximo = 90)`: cada pocinha é o yaw `atan2(d.x, d.z)` e o pitch `atan2(−d.y, √(x²+z²))` de MUNDO de olho → pocinha, menos o olhar do começo (`Mathf.DeltaAngle`), como o Interactor aplica a mira (`DefinirOlhar(yawInicial + Mira.x, pitchInicial + Mira.y)`). A `Mira.y` fica presa a `[pitchMinimo − pitchInicial, pitchMaximo − pitchInicial]` dentro da sessão (parâmetros `miraYMinima`/`miraYMaxima` do `MiraDoBorrifador`); os limites vêm de `ControladorJogador.PitchMinimo`/`PitchMaximo` (getters novos). Sem `ControladorJogador`, o olhar do começo é o giro da câmera.
+3. Pneu, apoio e respingo — `PneuInteractable.AoIniciarMinigame` ignora os Renderers com `EmissionHighlightUtil.Destacavel` falso (o `ParticleSystemRenderer` do enxame de mosquitos) e os da água; `Apoio`/`RaioDoPneu` internal para os testes.
+4. Calibração no Inspector — `PneuInteractable`: `amortecimentoDaOnda`, `ganhoDaOnda`, `limiarDaBorda`, `taxaDeDerrame`, `grausPorSegundoCheio`, passados à `OndaDoPneu`. `BromeliaInteractable`: `coneDaMira`, `sensibilidadeDaMira` (multiplica o `Olhar` no `MiraDoBorrifador`, último parâmetro opcional `sensibilidade`; não finita ou <= 0 vale 1).
+5. HUD da tampa — `Assets/Scripts/KitHUD.cs`: `TextoDaLinha(kit)` (internal) escolhe a linha de carga: a do pneu (sem mudança) ou, com `kit.TampaCarregada`, "Carregando a tampa. Tampe a caixa d'água. [Botão direito] devolve." (`TextoLinhaTampa`); a faixa da stamina aparece nos dois.
+6. Pneu inclinado sem gancho — `PneuInteractable.OnDisable` (internal) chama o `AoSairDoMinigame` (pose original e água no nível dos passos dados); `AoIniciarMinigame` chama o `RestaurarPose` antes de guardar a pose (sessão anterior ainda marcada).
+7. Ralo, clique rápido — `Assets/Scripts/Interactor.cs` (`AtualizarSegurar`): o aperto novo (`LerApertou()`) num foco com minigame confere (`ConferirFoco`) mesmo se o botão já foi solto no mesmo quadro; o segurar dos outros focos não mudou.
+8. Caixa d'água sem kit — `CaixaDaguaInteractable.SegundosPorPassoCom(kit)`: sem kit, `segundosParaConcluir / requiredClicks` (como a base); com kit, como antes.
+9. Este registro: linhas **Atualização:** nas entradas da Tarefa 1 e da Tarefa 3.
+- Testes: `BromeliaBorrifarTestes`, `MiraDoBorrifadorTestes`, `PneuBalancarTestes`, `KitHUDTestes`, `TampaTestes` e `TesteUtil.Primitivo` (primitiva escondida, destruída no `LimparTudo`).
+
+**Configurações aplicadas:** nenhuma cena, prefab ou asset editado (o prefab da bromélia só foi lido). Campos novos com o padrão no código: `PneuInteractable` — `amortecimentoDaOnda` 0,12; `ganhoDaOnda` 15; `limiarDaBorda` 1; `taxaDeDerrame` 1,4; `grausPorSegundoCheio` 180 (ao lado do `periodoDaOnda` 0,9). `BromeliaInteractable` — `raioDeAcerto` **1,5** (era 4); `coneDaMira` 30; `sensibilidadeDaMira` 1.
+
+**Testes:** novos — `BromeliaBorrifarTestes`: PrefabReal_MirarOCentroESegurarSecaNoMaximoUma, PrefabReal_MirarCadaUmaSecaTodas, PitchInicial45_AMiraApontaParaAPocinha, MiraPresaAosLimitesDoPitch, SensibilidadeDaMiraChegaASessao; `MiraDoBorrifadorTestes`: RaioParaAsPocinhas_NaoAlcancaDuas, MiraYPresaAosLimites, SensibilidadeMultiplicaOOlhar_ValorRuimVale1; `PneuBalancarTestes`: ApoioIgnoraAsParticulasDoEnxame, TaxaDeDerrameChegaASessao, DesativadoNoMeioDevolveAPose, NovaSessaoComAAnteriorDePeVoltaAPoseAntes; `KitHUDTestes`: LinhaDeCarga_MaosLivresNaoTem, LinhaDeCarga_ComOPneu, LinhaDeCarga_ComATampa; `TampaTestes`: SemKitOPassoDuraODaBase. Classes tocadas 77/77; suíte EditMode completa em batch mode **531/531** (0 falhas).
+
+**Observações técnicas:**
+- O clique rápido do ralo (achado 7) depende da entrada do jogador (`LerApertou`/`LerSegurando`): coberto por leitura, sem teste.
+- No EditMode o Unity não manda o `OnDisable` a este script (sem `ExecuteAlways`): o teste chama `pneu.OnDisable()` entre o `SetActive(false)` e o `SetActive(true)`.
+- A caixa de um `ParticleSystem` ainda não simulado é (0, 0, 0) com tamanho zero; o teste do apoio simula as partículas e tira o pneu do eixo da origem para o enxame mexer no apoio sem a correção.
+
+**Pendente para o usuário (jogar no Editor):**
+- Bromélia: mirar o centro e segurar sem mover (deve secar no máximo uma pocinha); secar cada pocinha olhando de cima e quase em cima da planta.
+- Pneu: jogar um pneu no estágio Mosquito (enxame visível) e conferir o pivô e o respingo; testar com FPS livre.
+- Ralo: cliques muito rápidos e pausa no meio do anel.
+- Tampa: pegar e andar sem olhar para a caixa (a linha da HUD explica?); correr até a stamina acabar; terminar a partida com ela.
+- Interrupções: celular e fim de partida no meio do pneu e da bromélia.
+- Rodar `Dengue > Simular Balanceamento`.

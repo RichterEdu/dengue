@@ -102,6 +102,16 @@ public class CaixaDaguaInteractable : Interactable
     /* Pegar a tampa é na hora; tampar, segurando segundosParaTampar. */
     public override float SegundosPorPasso => TampaNosBracos ? segundosParaTampar : 0f;
 
+    /* Sem kit (Interactor sem KitDoAgente), segurar continua o caminho
+     * antigo, clique a clique: o tempo da base (segundosParaConcluir dividido
+     * pelos cliques), e não um passo por aperto. Com kit, como acima. */
+    public override float SegundosPorPassoCom(KitDoAgente kit)
+    {
+        if (kit == null)
+            return segundosParaConcluir / Mathf.Max(1, RequiredClicks);
+        return base.SegundosPorPassoCom(kit);
+    }
+
     /* Tempo previsto da ação (BalanceamentoSimulador): pegar a tampa e tampar. */
     public override float SegundosEstimados => 1.5f;
 

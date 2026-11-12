@@ -12,7 +12,11 @@ using UnityEngine;
  *  - Mira (yaw, pitch) em graus a partir do olhar do começo, mesma convenção
  *    do ControladorJogador: Mira.x += Olhar.x, Mira.y -= Olhar.y. Fica presa
  *    a um cone de raio max(cone, maior |pocinha| + raio + 2), para toda
- *    pocinha ser alcançável.
+ *    pocinha ser alcançável, e Mira.y aos limites [miraYMinima, miraYMaxima]
+ *    (os do pitch do jogador menos o pitch do começo). O Olhar é
+ *    multiplicado pela 'sensibilidade' (não finita ou <= 0 vale 1).
+ *  - RaioParaAsPocinhas: o raio de uma sessão, menor que metade da menor
+ *    distância entre duas pocinhas (um ponto de mira não alcança duas).
  *  - Segurando, seca a pocinha molhada mais próxima (distância euclidiana
  *    em graus) que estiver a até 'raio' da mira. A Umidade (1 cheia .. 0 seca)
  *    fica guardada ao soltar. Sem segurar ou fora do raio, nada seca.
@@ -32,6 +36,9 @@ public class MiraDoBorrifador : IMinigame, IMinigameComMira
     private const float SegundosMinimosParaSecar = 0.01f;
     /* Limite do olhar de um quadro: mantém a conta da mira finita. */
     private const float OlharMaximoPorQuadro = 1e6f;
+    /* RaioParaAsPocinhas: fração da menor distância entre pocinhas e o piso. */
+    private const float FracaoDaDistancia = 0.45f;
+    private const float RaioMinimo = 0.3f;
 
     private readonly Vector2[] pocas;
     private readonly float[] segundosParaSecar;
@@ -39,6 +46,9 @@ public class MiraDoBorrifador : IMinigame, IMinigameComMira
     private readonly int passos;
     private readonly float raio;
     private readonly float coneEfetivo;
+    private readonly float miraYMinima;
+    private readonly float miraYMaxima;
+    private readonly float sensibilidade;
 
     private int passosDados;
     private int ultimaSecada = -1;
@@ -69,7 +79,9 @@ public class MiraDoBorrifador : IMinigame, IMinigameComMira
         }
     }
 
-    public MiraDoBorrifador(Vector2[] pocas, float[] segundosParaSecar, int passos, float cone = 30f, float raio = 4f)
+    public MiraDoBorrifador(Vector2[] pocas, float[] segundosParaSecar, int passos, float cone = 30f, float raio = 4f,
+                            float miraYMinima = float.NegativeInfinity, float miraYMaxima = float.PositiveInfinity,
+                            float sensibilidade = 1f)
     {
         int n = pocas == null || segundosParaSecar == null ? 0 : Mathf.Min(pocas.Length, segundosParaSecar.Length);
         this.pocas = new Vector2[n];
@@ -92,6 +104,25 @@ public class MiraDoBorrifador : IMinigame, IMinigameComMira
             umidade[i] = 1f;
         }
         coneEfetivo = Mathf.Max(cone, maior + raio + 2f);
+
+        this.miraYMinima = miraYMinima;
+        this.miraYMaxima = miraYMaxima;
+        this.sensibilidade = sensibilidade > 0f && float.IsFinite(sensibilidade) ? sensibilidade : 1f;
+    }
+
+    /* Raio de acerto de uma sessão: até raioMaximo, mas menor que metade da
+     * menor distância entre duas pocinhas (0,45×), para um ponto de mira não
+     * alcançar duas; nunca abaixo de RaioMinimo. Com menos de duas, o máximo. */
+    public static float RaioParaAsPocinhas(Vector2[] pocas, float raioMaximo)
+    {
+        float raio = raioMaximo;
+        if (pocas != null)
+        {
+            for (int i = 0; i < pocas.Length; i++)
+                for (int j = i + 1; j < pocas.Length; j++)
+                    raio = Mathf.Min(raio, FracaoDaDistancia * Vector2.Distance(pocas[i], pocas[j]));
+        }
+        return Mathf.Max(RaioMinimo, raio);
     }
 
     /* Pocinhas que precisam estar secas para o k-ésimo Passo: ceil(Total·k/passos). */
@@ -126,9 +157,13 @@ public class MiraDoBorrifador : IMinigame, IMinigameComMira
 
     private void MoverAMira(Vector2 olhar)
     {
-        float x = float.IsFinite(olhar.x) ? Mathf.Clamp(olhar.x, -OlharMaximoPorQuadro, OlharMaximoPorQuadro) : 0f;
-        float y = float.IsFinite(olhar.y) ? Mathf.Clamp(olhar.y, -OlharMaximoPorQuadro, OlharMaximoPorQuadro) : 0f;
-        Mira = Vector2.ClampMagnitude(new Vector2(Mira.x + x, Mira.y - y), coneEfetivo);
+        float x = float.IsFinite(olhar.x) ? Mathf.Clamp(olhar.x * sensibilidade, -OlharMaximoPorQuadro, OlharMaximoPorQuadro) : 0f;
+        float y = float.IsFinite(olhar.y) ? Mathf.Clamp(olhar.y * sensibilidade, -OlharMaximoPorQuadro, OlharMaximoPorQuadro) : 0f;
+        Vector2 mira = Vector2.ClampMagnitude(new Vector2(Mira.x + x, Mira.y - y), coneEfetivo);
+        /* Limites do pitch (NaN ou mínimo acima do máximo: sem limite). */
+        if (miraYMinima <= miraYMaxima)
+            mira.y = Mathf.Clamp(mira.y, miraYMinima, miraYMaxima);
+        Mira = mira;
     }
 
     private void Secar(float dt, bool segurando)

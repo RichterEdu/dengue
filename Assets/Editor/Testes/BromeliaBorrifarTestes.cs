@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -11,7 +11,12 @@ using UnityEngine;
  *  seca o que sobrou; sair guarda as secas e devolve a meio caminho à
  *  escala original; retomar cobre só o que falta; o caminho antigo
  *  (Interact sem kit) mantém a ordem fixa; a dose de água sanitária só sai
- *  no fim; textos da HUD, tempo estimado e ganchos fora de ordem.
+ *  no fim; textos da HUD, tempo estimado e ganchos fora de ordem. Na
+ *  geometria do prefab real (Bromelia.prefab, escala 1,51, olho 2 m atrás
+ *  e 1,6 m acima), mirar o centro e segurar seca no máximo uma pocinha e
+ *  mirar cada uma seca todas; com pitch inicial de 45° a mira aponta a
+ *  câmera para a pocinha; a mira fica nos limites do pitch; a
+ *  sensibilidade do Inspector chega à sessão.
  *
  *  Câmera: os testes que passam pelo Interactor precisam do Camera.main
  *  (o CriarMinigame lê o olho dele). A cena aberta no modo batch já tem a
@@ -160,11 +165,11 @@ public class BromeliaBorrifarTestes
     [Test]
     public void CriaAMiraComAsPocinhasAtivas()
     {
-        Assert.AreEqual(3, bromelia.CriarMira(olho, Quaternion.identity).Total);
+        Assert.AreEqual(3, bromelia.CriarMira(olho, 0f, 0f).Total);
         Assert.IsInstanceOf<MiraDoBorrifador>(bromelia.CriarMinigame(kit, 0));
 
         pocas[0].SetActive(false);
-        Assert.AreEqual(2, bromelia.CriarMira(olho, Quaternion.identity).Total, "só as ativas");
+        Assert.AreEqual(2, bromelia.CriarMira(olho, 0f, 0f).Total, "só as ativas");
     }
 
     [Test]
@@ -172,13 +177,13 @@ public class BromeliaBorrifarTestes
     {
         Montar(Vector3.zero, new[] { new Vector3(0.1f, -0.2f, 1.5f) }, 1);
 
-        MiraDoBorrifador certa = bromelia.CriarMira(Vector3.zero, Quaternion.identity);
+        MiraDoBorrifador certa = bromelia.CriarMira(Vector3.zero, 0f, 0f);
         Frame(certa, new Vector2(3.814f, -7.578f), false);
         for (int i = 0; i < 90; i++) Frame(certa, Vector2.zero, true);
         Assert.AreEqual(1, certa.Secas, "mirada na pocinha, seca");
         Assert.AreEqual(0f, certa.Umidade(0));
 
-        MiraDoBorrifador longe = bromelia.CriarMira(Vector3.zero, Quaternion.identity);
+        MiraDoBorrifador longe = bromelia.CriarMira(Vector3.zero, 0f, 0f);
         Frame(longe, new Vector2(3.814f + 6f, -7.578f), false);
         for (int i = 0; i < 90; i++) Frame(longe, Vector2.zero, true);
         Assert.AreEqual(0, longe.Secas, "6° fora, não seca");
@@ -223,7 +228,7 @@ public class BromeliaBorrifarTestes
         Assert.IsNull(bromelia.CriarMinigame(kit, 0));
 
         bromelia.Reencher();
-        Assert.AreEqual(3, bromelia.CriarMira(olho, Quaternion.identity).Total);
+        Assert.AreEqual(3, bromelia.CriarMira(olho, 0f, 0f).Total);
     }
 
     [Test]
@@ -272,7 +277,7 @@ public class BromeliaBorrifarTestes
     [Test]
     public void UltimoPassoSecaOQueSobrou()
     {
-        bromelia.AoIniciarMinigame(bromelia.CriarMira(olho, Quaternion.identity));
+        bromelia.AoIniciarMinigame(bromelia.CriarMira(olho, 0f, 0f));
 
         Assert.AreEqual(ResultadoDoPasso.Avancou, bromelia.AvancarCom(kit));
         Assert.AreEqual(ResultadoDoPasso.Avancou, bromelia.AvancarCom(kit));
@@ -426,7 +431,7 @@ public class BromeliaBorrifarTestes
     [Test]
     public void GanchosForaDeOrdemNaoLancam()
     {
-        MiraDoBorrifador solta = bromelia.CriarMira(olho, Quaternion.identity);
+        MiraDoBorrifador solta = bromelia.CriarMira(olho, 0f, 0f);
         Assert.DoesNotThrow(() => bromelia.AoSairDoMinigame(), "sair sem ter iniciado");
         Assert.DoesNotThrow(() => bromelia.AoAtualizarMinigame(solta), "atualizar sem ter iniciado");
         Assert.DoesNotThrow(() => bromelia.AoAtualizarMinigame(null), "sessão nula");
@@ -438,5 +443,127 @@ public class BromeliaBorrifarTestes
         Assert.DoesNotThrow(() => bromelia.AoAtualizarMinigame(solta), "atualizar depois de sair");
         foreach (GameObject p in pocas)
             Assert.IsTrue(p.activeSelf);
+    }
+
+    /* ---------------- Geometria do prefab real ----------------
+     * As posições locais das pocinhas em Assets/Meus/Assets Gerados/Focos/
+     * Bromelia.prefab (Agua_1..4 entre as folhas e Agua_Centro, na ordem
+     * de 'pocas'; pais na origem, sem giro e com escala 1), a escala 1,51
+     * das instâncias da cena e o olho 2 m atrás e 1,6 m acima da planta. */
+    private static readonly Vector3[] PocasDoPrefab =
+    {
+        new Vector3(0.024947787f, 0.19f, 0.049016405f),     // Agua_1
+        new Vector3(-0.038908083f, 0.19f, 0.038873658f),    // Agua_2
+        new Vector3(-0.048994303f, 0.19f, -0.024991164f),   // Agua_3
+        new Vector3(0.008627936f, 0.19f, -0.054319046f),    // Agua_4
+        new Vector3(0f, 0.215f, 0f)                         // Agua_Centro (copo central)
+    };
+    private const float EscalaDaCena = 1.51f;
+    private static readonly Vector3 OlhoDaPlanta = new Vector3(0f, 1.6f, -2f);
+
+    /* (yaw, pitch) de mundo, em graus, da direção d (pitch positivo = abaixo). */
+    private static Vector2 AngulosNoMundo(Vector3 d)
+    {
+        float yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
+        float pitch = Mathf.Atan2(-d.y, Mathf.Sqrt(d.x * d.x + d.z * d.z)) * Mathf.Rad2Deg;
+        return new Vector2(yaw, pitch);
+    }
+
+    /* A bromélia do prefab, com 5 cliques; devolve o olho (no mundo). */
+    private Vector3 MontarPrefabReal()
+    {
+        Vector3 origem = new Vector3(20f, 0f, 20f);
+        Montar(origem, new Vector3[0], 5);
+        bromelia.transform.localScale = Vector3.one * EscalaDaCena;
+
+        pocas = new GameObject[PocasDoPrefab.Length];
+        for (int i = 0; i < PocasDoPrefab.Length; i++)
+        {
+            pocas[i] = TesteUtil.Novo("Agua " + i + " (teste)");
+            pocas[i].transform.SetParent(bromelia.transform, false);
+            pocas[i].transform.localPosition = PocasDoPrefab[i];
+        }
+        DefinirPocas(pocas);
+        return origem + OlhoDaPlanta;
+    }
+
+    /* A mira que leva o olhar (do começo) até a posição dada. */
+    private static Vector2 MiraPara(Vector3 posicao, Vector3 olhoDoTeste, Vector2 olharInicial)
+    {
+        Vector2 a = AngulosNoMundo(posicao - olhoDoTeste);
+        return new Vector2(Mathf.DeltaAngle(olharInicial.x, a.x), Mathf.DeltaAngle(olharInicial.y, a.y));
+    }
+
+    [Test]
+    public void PrefabReal_MirarOCentroESegurarSecaNoMaximoUma()
+    {
+        Vector3 o = MontarPrefabReal();
+        Vector2 olhar = AngulosNoMundo(pocas[4].transform.position - o);
+        MiraDoBorrifador m = bromelia.CriarMira(o, olhar.x, olhar.y);
+
+        for (int i = 0; i < 600; i++)   // 10 s parado no centro
+            Frame(m, Vector2.zero, true);
+
+        Assert.LessOrEqual(m.Secas, 1, "um ponto de mira não pode alcançar duas pocinhas");
+    }
+
+    [Test]
+    public void PrefabReal_MirarCadaUmaSecaTodas()
+    {
+        Vector3 o = MontarPrefabReal();
+        Vector2 olhar = AngulosNoMundo(pocas[4].transform.position - o);
+        MiraDoBorrifador m = bromelia.CriarMira(o, olhar.x, olhar.y);
+        Assert.AreEqual(5, m.Total);
+
+        for (int k = 0; k < 5; k++)
+        {
+            Vector2 alvo = MiraPara(pocas[k].transform.position, o, olhar);
+            Frame(m, new Vector2(alvo.x - m.Mira.x, -(alvo.y - m.Mira.y)), false);
+            for (int i = 0; i < 300 && m.Umidade(k) > 0f; i++)
+                Frame(m, Vector2.zero, true);
+            Assert.AreEqual(0f, m.Umidade(k), "pocinha " + k + " devia ter secado");
+            Assert.AreEqual(k + 1, m.Secas, "só a mirada seca");
+        }
+    }
+
+    [Test]
+    public void PitchInicial45_AMiraApontaParaAPocinha()
+    {
+        Vector3 deslocamento = new Vector3(0.5f, -1f, 1f);   // abaixo e ao lado
+        Montar(Vector3.zero, new[] { deslocamento }, 1);
+        const float pitchInicial = 45f;
+        MiraDoBorrifador m = bromelia.CriarMira(Vector3.zero, 0f, pitchInicial);
+
+        Vector2 alvo = MiraPara(deslocamento, Vector3.zero, new Vector2(0f, pitchInicial));
+        Frame(m, new Vector2(alvo.x, -alvo.y), false);
+
+        // O Interactor aplica a mira como yaw/pitch de mundo somados ao começo.
+        Vector3 frente = Quaternion.Euler(pitchInicial + m.Mira.y, 0f + m.Mira.x, 0f) * Vector3.forward;
+        Assert.Less(Vector3.Angle(frente, deslocamento), 0.2f, "a câmera aponta para a pocinha");
+
+        for (int i = 0; i < 120; i++)
+            Frame(m, Vector2.zero, true);
+        Assert.AreEqual(1, m.Secas, "segurando ali, ela seca");
+    }
+
+    [Test]
+    public void MiraPresaAosLimitesDoPitch()
+    {
+        Montar(Vector3.zero, new[] { new Vector3(0f, -0.3f, 1.5f) }, 1);
+        MiraDoBorrifador m = bromelia.CriarMira(Vector3.zero, 0f, 70f, -80f, 80f);
+
+        Frame(m, new Vector2(0f, -50f), false);   // olhar para baixo: Mira.y += 50
+        Assert.AreEqual(10f, m.Mira.y, 1e-4f, "70 + Mira.y não passa do limite de 80");
+    }
+
+    [Test]
+    public void SensibilidadeDaMiraChegaASessao()
+    {
+        TesteUtil.Setar(bromelia, "sensibilidadeDaMira", 2f);
+        MiraDoBorrifador m = bromelia.CriarMira(olho, 0f, 0f);
+
+        Frame(m, new Vector2(1f, 0.5f), false);
+        Assert.AreEqual(2f, m.Mira.x, 1e-5f, "o dobro do olhar");
+        Assert.AreEqual(-1f, m.Mira.y, 1e-5f);
     }
 }

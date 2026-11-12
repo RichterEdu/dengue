@@ -47,7 +47,11 @@ using UnityEngine;
  *  apoio no chão (eixo horizontal da câmera ao pneu), a água baixa com o
  *  Nivel e se desloca para o lado baixo, e derramando sai um estouro de
  *  partículas (só no Play). Cada Passo da onda é um AvancarCom, e o último
- *  esvazia. Sair, bloquear e o último passo devolvem a pose original.
+ *  esvazia. Sair, bloquear, desativar o pneu (OnDisable) e o último passo
+ *  devolvem a pose original. O apoio e o lado do respingo vêm só dos
+ *  Renderers do pneu (sem partículas nem a água). Os números da onda
+ *  (período, amortecimento, ganho, borda, taxa, graus/s) são calibráveis
+ *  no Inspector.
  *
  *  No caminho antigo Interact() (sem kit), o último clique conclui o
  *  pneu como antes.
@@ -62,6 +66,21 @@ public class PneuInteractable : Interactable
     [Header("Balançar (minigame)")]
     [Tooltip("Segundos de uma oscilação completa da água dentro do pneu (o ritmo certo de balançar).")]
     [SerializeField] private float periodoDaOnda = 0.9f;
+
+    [Tooltip("Amortecimento da onda: quanto ela morre sozinha quando o jogador para de balançar.")]
+    [SerializeField] private float amortecimentoDaOnda = 0.12f;
+
+    [Tooltip("Quanto cada balanço no ritmo empurra a onda (maior = transborda mais cedo).")]
+    [SerializeField] private float ganhoDaOnda = 15f;
+
+    [Tooltip("Altura da onda (Inclinacao) a partir da qual a água transborda (1 = a borda).")]
+    [SerializeField] private float limiarDaBorda = 1f;
+
+    [Tooltip("Velocidade com que o pneu esvazia enquanto a água transborda (maior = esvazia mais rápido).")]
+    [SerializeField] private float taxaDeDerrame = 1.4f;
+
+    [Tooltip("Graus por segundo de olhar para os lados que contam como balanço máximo.")]
+    [SerializeField] private float grausPorSegundoCheio = 180f;
 
     [Tooltip("Graus que o pneu inclina quando a água está na borda (Inclinacao = 1).")]
     [SerializeField] private float inclinacaoMaxima = 25f;
@@ -84,6 +103,10 @@ public class PneuInteractable : Interactable
     private Vector3 eixoDeBalanco;      // horizontal, da câmera ao pneu
     private float raioDoPneu = RaioPadraoDoPneu;
     private float proximaParticula;
+
+    /* O apoio e o raio guardados no AoIniciarMinigame (para os testes). */
+    internal Vector3 Apoio => apoio;
+    internal float RaioDoPneu => raioDoPneu;
 
     // A água cheia (escala e posição locais), lida uma única vez: sair no
     // meio deixa a escala menor, e a próxima sessão não pode tomá-la por cheia.
@@ -171,7 +194,8 @@ public class PneuInteractable : Interactable
 
         // Retomada: continua do nível dos passos já fechados.
         float nivel = RequiredClicks > 0 ? 1f - (float)CurrentClicks / RequiredClicks : 1f;
-        return new OndaDoPneu(RequiredClicks, periodoDaOnda, nivelInicial: nivel);
+        return new OndaDoPneu(RequiredClicks, periodoDaOnda, amortecimentoDaOnda, ganhoDaOnda, limiarDaBorda,
+                              taxaDeDerrame, grausPorSegundoCheio, nivel);
     }
 
     public override string ConviteDoMinigame(KitDoAgente kit) => TemMinigame(kit) ? ConviteDeBalancar : null;
@@ -186,11 +210,15 @@ public class PneuInteractable : Interactable
     /* Esvaziado, não há o que balançar (pegar é na hora). */
     public override float SegundosEstimados => Esvaziado ? 0f : 6f;
 
-    /* Guarda o começo: a pose, o ponto de apoio (o mais baixo dos Renderers),
-     * o eixo do balanço (horizontal, da câmera ao pneu: o pneu balança para
-     * os lados, como o jogador vê) e a água cheia. */
+    /* Guarda o começo: a pose, o ponto de apoio (o mais baixo dos Renderers
+     * do pneu: sem as partículas, como o enxame de mosquitos do estágio
+     * Mosquito, ver EmissionHighlightUtil.Destacavel, e sem a água), o eixo
+     * do balanço (horizontal, da câmera ao pneu: o pneu balança para os
+     * lados, como o jogador vê) e a água cheia. Uma sessão anterior ainda
+     * marcada (acabou sem gancho) devolve a pose antes. */
     public override void AoIniciarMinigame(IMinigame sessao)
     {
+        RestaurarPose();
         posicaoInicial = transform.position;
         rotacaoInicial = transform.rotation;
 
@@ -198,6 +226,8 @@ public class PneuInteractable : Interactable
         bool temCaixa = false;
         foreach (Renderer r in GetComponentsInChildren<Renderer>())
         {
+            if (!EmissionHighlightUtil.Destacavel(r) || (water != null && r.transform.IsChildOf(water.transform)))
+                continue;
             if (!temCaixa)
                 caixa = r.bounds;
             else
@@ -279,6 +309,15 @@ public class PneuInteractable : Interactable
             escala.y *= RequiredClicks > 0 ? Mathf.Clamp01(1f - (float)CurrentClicks / RequiredClicks) : 1f;
             water.transform.localScale = escala;
         }
+    }
+
+    /* Desativado no meio do balanço (fim de partida, foco desligado): o
+     * Interactor encerra a sessão sem gancho nenhum, então a pose original
+     * (e a água no nível dos passos dados) volta aqui. Internal para os
+     * testes: no EditMode o Unity não manda o OnDisable a este script. */
+    internal void OnDisable()
+    {
+        AoSairDoMinigame();
     }
 
     /* Pose original e água cheia (escala e posição). Encerra o balanço. */

@@ -40,7 +40,8 @@ using UnityEngine.InputSystem;
  *    ferramenta errada.
  *  - Minigame (Minigame.cs; foco cujo CriarMinigame devolve uma sessão,
  *    como o skill check do ralo): só um aperto NOVO, conferido, começa a
- *    sessão no lugar do segurar (ConferirFoco); a mira chegando ao foco com
+ *    sessão no lugar do segurar (ConferirFoco), mesmo que o botão já tenha
+ *    sido solto no mesmo quadro (clique rápido); a mira chegando ao foco com
  *    o botão já apertado não começa nada nem avisa, e o segurar fica preso
  *    até soltar. O jogador fica parado até o fim, sem trocar de
  *    ferramenta nem de alvo. A cada quadro, AvancarMinigame: cada Passo é
@@ -415,11 +416,18 @@ public class Interactor : MonoBehaviour
             return;
         }
 
-        if (segurando && alvo != null && !ReferenceEquals(alvo, alvoConferido))
+        // Um clique rápido (apertou e soltou no mesmo quadro) num foco com
+        // minigame também confere: começa a sessão como antes (o ralo). No
+        // segurar dos outros focos nada muda.
+        bool apertou = LerApertou();
+        bool conferir = segurando
+            || (apertou && currentTarget != null && currentTarget.CriarMinigame(Kit, 0) != null);
+
+        if (conferir && alvo != null && !ReferenceEquals(alvo, alvoConferido))
         {
             // Aperto novo, ou outro alvo com o botão ainda apertado: confere uma vez.
             alvoConferido = alvo;
-            liberado = Conferir(LerApertou());
+            liberado = Conferir(apertou);
 
             // Foco com minigame: o aperto conferido começou a sessão, no lugar do segurar.
             if (minigame != null)

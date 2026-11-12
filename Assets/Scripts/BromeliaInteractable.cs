@@ -18,8 +18,10 @@ using UnityEngine;
  *  Minigame do borrifador: com a água sanitária, o clique começa uma
  *  MiraDoBorrifador (CriarMinigame) no lugar do segurar. O jogador aponta
  *  o borrifador para cada pocinha ATIVA e segura até ela secar; a sessão
- *  vê as pocinhas pelos ângulos (yaw, pitch) a partir do olho da câmera,
- *  no olhar do começo (CriarMira). A última de 'pocas' é o copo central,
+ *  vê as pocinhas pelos ângulos (yaw, pitch) de mundo a partir do olho da
+ *  câmera, menos o olhar do começo (CriarMira), com um raio de acerto que
+ *  não deixa um ponto de mira alcançar duas pocinhas (raioDeAcerto no
+ *  máximo). A última de 'pocas' é o copo central,
  *  que demora mais. A cada quadro a pocinha encolhe no X e no Z com a
  *  Umidade e, seca, some (AoAtualizarMinigame). Com a sessão, o passo não
  *  seca na ordem fixa; o passo que conclui seca o que sobrou. Sair guarda
@@ -54,8 +56,14 @@ public class BromeliaInteractable : Interactable
     [Tooltip("Segundos borrifando para secar o copo central (a última de 'pocas').")]
     [SerializeField] private float segundosDoCopoCentral = 1.2f;
 
-    [Tooltip("Graus entre a mira e a pocinha para o jato acertar.")]
-    [SerializeField] private float raioDeAcerto = 4f;
+    [Tooltip("Graus (no máximo) entre a mira e a pocinha para o jato acertar. Cada sessão usa menos se duas pocinhas estiverem perto (0,45 × a menor distância entre elas, mínimo 0,3°).")]
+    [SerializeField] private float raioDeAcerto = 1.5f;
+
+    [Tooltip("Graus que a mira pode se afastar do olhar do começo (cresce se alguma pocinha estiver mais longe).")]
+    [SerializeField] private float coneDaMira = 30f;
+
+    [Tooltip("Multiplica o olhar ao mover a mira (1 = como a câmera; não finito ou <= 0 vale 1).")]
+    [SerializeField] private float sensibilidadeDaMira = 1f;
 
     private const string DicaDeBorrifar = "Segure para borrifar as pocinhas   |   Botão direito: sair";
     private const string ConviteDeBorrifar = "Clique para borrifar as pocinhas";
@@ -90,8 +98,9 @@ public class BromeliaInteractable : Interactable
     }
 
     /* Minigame do borrifador: a água sanitária numa bromélia com água.
-     * Fábrica pura. O olho é a câmera; o olhar é o do ControladorJogador
-     * (o Interactor aplica a mira por cima dele), ou o da câmera sem ele. */
+     * Fábrica pura. O olho é a câmera; o olhar do começo e os limites do
+     * pitch são os do ControladorJogador (o Interactor aplica a mira por
+     * cima dele), ou o giro da câmera sem ele. */
     public override IMinigame CriarMinigame(KitDoAgente kit, int semente)
     {
         if (!TemMinigame(kit))
@@ -101,20 +110,26 @@ public class BromeliaInteractable : Interactable
         if (camera == null)
             return null;
 
+        Vector3 olho = camera.transform.position;
         ControladorJogador jogador = kit.GetComponent<ControladorJogador>();
-        Quaternion visao = jogador != null
-            ? Quaternion.Euler(jogador.Pitch, jogador.Yaw, 0f)
-            : camera.transform.rotation;
-        return CriarMira(camera.transform.position, visao);
+        if (jogador != null)
+            return CriarMira(olho, jogador.Yaw, jogador.Pitch, jogador.PitchMinimo, jogador.PitchMaximo);
+
+        Vector3 giro = camera.transform.eulerAngles;
+        return CriarMira(olho, giro.y, Mathf.DeltaAngle(0f, giro.x));
     }
 
-    /* A sessão com as pocinhas ativas, em graus (yaw, pitch) vistas do olho
-     * com esta visão; pitch positivo = abaixo do centro (como o
-     * ControladorJogador.Pitch). Os passos são os que faltam. */
-    internal MiraDoBorrifador CriarMira(Vector3 olho, Quaternion visao)
+    /* A sessão com as pocinhas ativas. Cada pocinha vira o (yaw, pitch) de
+     * mundo da direção olho → pocinha (yaw = atan2(x, z); pitch positivo =
+     * abaixo, como o ControladorJogador.Pitch) menos o olhar do começo: é a
+     * Mira que o Interactor soma ao yaw/pitch do começo (DefinirOlhar) para
+     * a câmera apontar para ela, com qualquer pitch inicial. A Mira.y fica
+     * dentro dos limites do pitch; o raio de acerto, o da geometria
+     * (MiraDoBorrifador.RaioParaAsPocinhas). Os passos são os que faltam. */
+    internal MiraDoBorrifador CriarMira(Vector3 olho, float yawInicial, float pitchInicial,
+                                        float pitchMinimo = -90f, float pitchMaximo = 90f)
     {
         GameObject[] lista = Pocas;
-        Quaternion inversa = Quaternion.Inverse(visao);
         List<Vector2> angulos = new List<Vector2>();
         List<float> segundos = new List<float>();
 
@@ -123,15 +138,18 @@ public class BromeliaInteractable : Interactable
             if (!Ativa(i))
                 continue;
 
-            Vector3 local = inversa * (lista[i].transform.position - olho);
-            float yaw = Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg;
-            float pitch = Mathf.Atan2(-local.y, Mathf.Sqrt(local.x * local.x + local.z * local.z)) * Mathf.Rad2Deg;
-            angulos.Add(new Vector2(yaw, pitch));
+            Vector3 d = lista[i].transform.position - olho;
+            float yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
+            float pitch = Mathf.Atan2(-d.y, Mathf.Sqrt(d.x * d.x + d.z * d.z)) * Mathf.Rad2Deg;
+            angulos.Add(new Vector2(Mathf.DeltaAngle(yawInicial, yaw), Mathf.DeltaAngle(pitchInicial, pitch)));
             segundos.Add(i == lista.Length - 1 ? segundosDoCopoCentral : segundosPorPoca);
         }
 
+        Vector2[] noCone = angulos.ToArray();
         int passos = Mathf.Max(1, RequiredClicks - CurrentClicks);
-        return new MiraDoBorrifador(angulos.ToArray(), segundos.ToArray(), passos, raio: raioDeAcerto);
+        return new MiraDoBorrifador(noCone, segundos.ToArray(), passos, coneDaMira,
+                                    MiraDoBorrifador.RaioParaAsPocinhas(noCone, raioDeAcerto),
+                                    pitchMinimo - pitchInicial, pitchMaximo - pitchInicial, sensibilidadeDaMira);
     }
 
     public override string ConviteDoMinigame(KitDoAgente kit) => TemMinigame(kit) ? ConviteDeBorrifar : null;

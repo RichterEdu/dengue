@@ -14,6 +14,8 @@ using Object = UnityEngine.Object;
  *    - Novo / Com<T>  criam o GameObject com HideFlags.HideAndDontSave
  *                     (não aparece na Hierarchy nem é salvo na cena) e
  *                     guardam numa lista;
+ *    - Primitivo      o mesmo para uma primitiva (cubo...) com malha e
+ *                     material padrão;
  *    - LimparTudo     destrói (DestroyImmediate) tudo o que foi criado —
  *                     chamar no [TearDown] de cada classe de teste;
  *    - Setar          ajusta um campo serializado (inclusive private com
@@ -40,6 +42,17 @@ public static class TesteUtil
     public static T Com<T>(string nome) where T : Component
     {
         return Novo(nome).AddComponent<T>();
+    }
+
+    /* Primitiva do Unity (cubo, esfera...) com malha e material padrão,
+     * escondida como as outras e destruída no LimparTudo. */
+    public static GameObject Primitivo(PrimitiveType tipo, string nome)
+    {
+        GameObject go = GameObject.CreatePrimitive(tipo);
+        go.name = nome;
+        go.hideFlags = HideFlags.HideAndDontSave;
+        criados.Add(go);
+        return go;
     }
 
     /* Ajusta o campo serializado 'campo' de 'alvo' (nome do campo no código, como no YAML). */

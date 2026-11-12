@@ -8,7 +8,8 @@ using UnityEngine;
  *  cone, só seca segurando e dentro do raio, a mais próxima primeiro,
  *  umidade guardada ao soltar, passos nas contagens certas (um por
  *  Atualizar), FracaoDoPasso em 0..1 e entradas ruins (dt, olhar,
- *  arrays) sem estragar a sessão.
+ *  arrays) sem estragar a sessão. Raio por sessão (RaioParaAsPocinhas),
+ *  limites da Mira.y e sensibilidade do olhar.
  *
  *  Rodar:  unity test "<projeto>" --mode EditMode --filter MiraDoBorrifadorTestes
  * ============================================================ */
@@ -324,5 +325,47 @@ public class MiraDoBorrifadorTestes
         pos[0] = new Vector2(25f, 25f);
         Segurar(m, 1f);
         Assert.AreEqual(1, m.Secas, "mexer no array depois não muda a pocinha");
+    }
+
+    [Test]
+    public void RaioParaAsPocinhas_NaoAlcancaDuas()
+    {
+        Vector2[] perto = { new Vector2(0f, 0f), new Vector2(2f, 0f), new Vector2(10f, 0f) };
+        Assert.AreEqual(0.9f, MiraDoBorrifador.RaioParaAsPocinhas(perto, 1.5f), 1e-5f, "0,45 × a menor distância");
+
+        Vector2[] longe = { new Vector2(0f, 0f), new Vector2(10f, 0f) };
+        Assert.AreEqual(1.5f, MiraDoBorrifador.RaioParaAsPocinhas(longe, 1.5f), 1e-5f, "o máximo dado");
+
+        Vector2[] coladas = { new Vector2(0f, 0f), new Vector2(0.2f, 0f) };
+        Assert.AreEqual(0.3f, MiraDoBorrifador.RaioParaAsPocinhas(coladas, 1.5f), 1e-5f, "piso de 0,3°");
+
+        Assert.AreEqual(1.5f, MiraDoBorrifador.RaioParaAsPocinhas(new[] { Vector2.zero }, 1.5f), 1e-5f, "uma só");
+        Assert.AreEqual(1.5f, MiraDoBorrifador.RaioParaAsPocinhas(null, 1.5f), 1e-5f, "nenhuma");
+    }
+
+    [Test]
+    public void MiraYPresaAosLimites()
+    {
+        MiraDoBorrifador m = new MiraDoBorrifador(new[] { Vector2.zero }, new[] { 0.5f }, 1,
+                                                  miraYMinima: -5f, miraYMaxima: 3f);
+        Frame(m, new Vector2(0f, -10f), false);
+        Assert.AreEqual(3f, m.Mira.y, 1e-5f, "máximo");
+        Frame(m, new Vector2(0f, 20f), false);
+        Assert.AreEqual(-5f, m.Mira.y, 1e-5f, "mínimo");
+    }
+
+    [Test]
+    public void SensibilidadeMultiplicaOOlhar_ValorRuimVale1()
+    {
+        MiraDoBorrifador dobro = new MiraDoBorrifador(new[] { Vector2.zero }, new[] { 0.5f }, 1, sensibilidade: 2f);
+        Frame(dobro, new Vector2(1f, 1f), false);
+        Assert.AreEqual(new Vector2(2f, -2f), dobro.Mira);
+
+        foreach (float ruim in new[] { 0f, -2f, float.NaN, float.PositiveInfinity })
+        {
+            MiraDoBorrifador m = new MiraDoBorrifador(new[] { Vector2.zero }, new[] { 0.5f }, 1, sensibilidade: ruim);
+            Frame(m, new Vector2(1f, 0f), false);
+            Assert.AreEqual(1f, m.Mira.x, 1e-5f, "sensibilidade " + ruim + " vale 1");
+        }
     }
 }

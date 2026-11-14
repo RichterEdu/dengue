@@ -61,6 +61,7 @@ public class KitHUD : MonoBehaviour
     internal const string TextoLinhaPneu = "Carregando pneu. Leve à <b>picape da UPA</b>. [Shift] corre. [Botão direito] larga.";
     private const string FormatoLinhaPneuComAgua = "Pneu com água ({0}%): balance a câmera para esvaziar. [Botão direito] larga.";
     internal const string TextoLinhaTampa = "Carregando a tampa. Tampe a caixa d'água. [Botão direito] devolve.";
+    private const int ChaveSemLinha = -3;   // ChaveDaLinha: sem linha de carga
     private const string TextoDica = "Teclas <b>1–5</b> trocam a ferramenta";
 
     /* Peças de um espaço da barra, guardadas para redesenhar. */
@@ -86,9 +87,8 @@ public class KitHUD : MonoBehaviour
     private KitDoAgente kit;
     private FluxoDeJogo fluxo;
     private ControladorJogador jogador;
-    private bool dicaVista;
+    private bool dicaVista;   // já trocou de ferramenta uma vez
     private int chaveDaLinha = ChaveSemLinha;   // o que a linha mostra agora (ver ChaveDaLinha)
-    private const int ChaveSemLinha = -3;           // já trocou de ferramenta uma vez
 
     void Awake()
     {
@@ -192,7 +192,7 @@ public class KitHUD : MonoBehaviour
 
     private static int PercentualDeAgua(PneuInteractable pneu)
     {
-        return Mathf.RoundToInt(pneu.NivelDeAgua * 100f);
+        return Mathf.CeilToInt(pneu.NivelDeAgua * 100f - 1e-4f);
     }
 
     /* O que decide o texto da linha: o percentual de água (0..100) com o

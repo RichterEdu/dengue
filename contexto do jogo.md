@@ -3479,13 +3479,13 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 | Olhar no ritmo andando para a frente | Balança, respinga, nível cai, velocidade até 0,85 | Pneu (1), de cheio a vazio em 6,49 s, andando 12,7 m. Primeiro derrame em 1,51 s; passos em 3,00, 3,93, 4,78, 5,64 e 6,49 s. Inclinação até ±24,8°, deslocamento ±0,040 m. Multiplicador de 0,500 a 0,850, velocidade de 1,40 a 2,38 m/s. Vazio: pose zero, HUD "Carregando pneu…", aviso "Pneu vazio: leve à picape da UPA" |
 | Olhar em volta sem ritmo por 5 s | Nível acima de 0,9 | Nível 1,000 nos três padrões: varredura de 180°/s com período de 3 s (\|Inclinação\| máxima 0,39), cinco piscadas de 90° em 0,25 s (0,55) e ruído de ±300°/s trocado a cada 0,15 s (0,63) |
 | Caçamba com água | Aviso "Esvazie o pneu antes"; vazio, entrega | Com água, segurar o clique e o botão direito dão o aviso "Esvazie o pneu antes: balance a câmera." e o pneu fica nos braços. Vazio, entrega: "Pneu recolhido — 1 de 10", pneu na vaga, multiplicador 1 |
-| Largar meio cheio e pegar de novo | Continua do nível | Nível 0,405 nos braços, com 2 passos fechados. No chão, 0,600 com a água visível; pego de novo, 0,600, com multiplicador 0,640. Continua do nível dos passos fechados, não do nível exato: a HUD vai de 41% para 60%. O pneu caiu no pé do agente (defeito abaixo) |
+| Largar meio cheio e pegar de novo | Continua do nível | Nível 0,405 nos braços, com 2 passos fechados. No chão, 0,600 com a água visível; pego de novo, 0,600, com multiplicador 0,640. Continua do nível dos passos fechados, não do nível exato: a HUD vai de 41% para 60% (corrigido em 6b27c6b: guarda o nível exato). O pneu caiu no pé do agente (defeito abaixo) |
 | Pausa com o pneu cheio | Nada esvazia | Menu de pausa aberto com 5 s de olhar no ritmo e W: nível 1,000, inclinação 0, 0 m andados. Pausado no meio do balanço (nível 0,880): nível e pose parados por 4,3 s, depois a onda some e a pose volta a zero |
 | Bromélia a 1,5 m, mirando perto de cada pocinha | Seca uma por vez; começar mirando a planta é fácil | Convite na hora; a sessão começa no primeiro aperto. Mirando 1,5° ao lado de cada pocinha, seca uma por vez, a mais perto dentro do raio: 5/5 em 3,3 s. Com 2,5°, uma segurada secou antes a vizinha mais perto (0,97° contra 1,5°) e depois a mirada. A mira pega a planta numa área de ~48° × 21° |
 
 **Testes:** suíte EditMode inteira, 536/536, sem falhas.
 
-**Defeito encontrado (não corrigido):**
+**Defeito encontrado (corrigido em 6b27c6b):**
 - **O que acontece:** largar um pneu com água no estágio Mosquito (com o enxame filho) o põe no pé do agente.
 - **Causa:** o `PneuInteractable.MedirNaDirecao` soma o `ParticleSystemRenderer` do `Enxame`. Com a escala do pneu (34,7), deu perto de −97 a −109 m e longe de +105 a +156 m. O raio do peito do `OndeCai` então acha um "muro" a até ~100 m e o avanço vira 0.
 - **Efeitos vistos:** o pneu nasce dentro do `CharacterController` e empurra o agente 0,62 m. A 7 m da picape, o botão direito foi recusado com "Esvazie o pneu antes", porque a picape virou a caçamba de destino.
@@ -3505,8 +3505,27 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 
 **Pendente para o usuário (jogar no Editor, mouse e controle):**
 - Partida real com mouse físico e com controle: o ritmo do balanço pela mão, olhar em volta andando com o pneu cheio, correr com ele.
-- Sons: o derrame mudo e o som de esvaziar.
+- Sons: o derrame nos braços (agora com o som de tirar a água, ver 2026-11-14) e o som de esvaziar.
 - Celular aberto e chuva com o pneu nos braços.
 - Bromélia com 2,5° num Editor reaberto ou na build.
-- Correções (verificação em Play): `MedirNaDirecao` ignora Renderers não destacáveis (o enxame do estágio Mosquito media centenas de metros e o `OndeCai` achava caçamba falsa); soltar o pneu no meio do esvaziar guarda o nível exato da onda (`nivelGuardado`), usado por `NivelDeAgua` e pela próxima onda ao pegar de novo; chuva e esvaziar zeram esse nível.
-- Correções (verificação em Play): `MedirNaDirecao` ignora Renderers não destacáveis (o enxame do estágio Mosquito media centenas de metros e o `OndeCai` achava caçamba falsa); soltar o pneu no meio do esvaziar guarda o nível exato da onda (`nivelGuardado`), usado por `NivelDeAgua` e pela próxima onda ao pegar de novo; chuva e esvaziar zeram esse nível. O pneu de teste de `PneuCarregarTestes` ganhou material (sem ele o Renderer não é medido).
+
+### 2026-11-14 — Pneu nos braços: correções da verificação e da revisão final
+
+**Objetivo:** corrigir os defeitos achados na verificação em Play e os apontados pela revisão final da branch `pneu-nos-bracos`.
+
+**Correções pós-verificação (commits 6b27c6b e 5c7f7b5):**
+- `PneuInteractable.MedirNaDirecao` ignora Renderers não destacáveis (o enxame do estágio Mosquito media centenas de metros e o `OndeCai` achava caçamba falsa); largar o pneu no meio do esvaziar guarda o nível exato da onda (`nivelGuardado`), usado por `NivelDeAgua` e pela próxima onda ao pegar de novo; chuva e esvaziar zeram esse nível.
+- `PneuCarregarTestes`: o pneu de teste ganhou material (sem ele o Renderer não é medido).
+
+**Correções da revisão final:**
+- `Assets/Scripts/SomDosFocos.cs`: ouve `KitDoAgente.OnPneuPego` e `OnPneuLargado` (campo `kit`, vazio = procura na cena) e leva a fonte do zumbido, parada no mundo, para o centro atual do pneu. Antes, pegar cheio, andar e largar longe deixava o zumbido no lugar antigo.
+- `Assets/Scripts/Interactable.cs`: novo `protected void NotificarClique()`, que dispara `OnClicado`.
+- `Assets/Scripts/PneuInteractable.cs`: `DarPassoNosBracos` chama `NotificarClique()` em cada passo que não é o último, e o derrame ganha o som que já existe (`SomDosFocos.TocaPrimeiroClique` escolhe o "tira a água" no 1º passo). O último passo segue só com `OnEsvaziado`. `Interactor.Avancando` não foi ligado.
+- `Assets/Scripts/KitHUD.cs`: o percentual de água usa `CeilToInt` (com folga de 1e-4 contra erro de ponto flutuante), então um fio de água mostra 1%, nunca 0%. O comentário "já trocou de ferramenta uma vez" voltou ao `dicaVista`, e `ChaveSemLinha` ficou junto das outras constantes.
+- Testes novos: `SonsNovosTestes.Zumbido_PneuCheioLargadoEmOutroLugar_ZumbeNoLugarNovo`, `PneuEsvaziarTestes.EsvaziarNosBracos_DisparaOnClicadoEmCadaPassoMenosOUltimo`, `KitHUDTestes.LinhaDeCarga_FiozinhoDeAgua_MostraUmPorCento`.
+- Este `contexto do jogo.md`: defeitos da verificação marcados como corrigidos e duplicata removida de "Pendente para o usuário".
+
+**Observações técnicas:**
+- Suíte EditMode inteira: 541 testes, todos passando.
+- Play não repetido depois das correções.
+- Reabrir o Editor antes de jogar ou fazer build: o prefab da bromélia não grava `raioDeAcerto`, e o Editor aberto guarda 4 na memória.

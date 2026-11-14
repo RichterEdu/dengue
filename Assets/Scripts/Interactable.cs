@@ -348,6 +348,10 @@ public class Interactable : MonoBehaviour
         return ResultadoDoPasso.Concluiu;
     }
 
+    /* Avisa quem ouve o OnClicado (o som) sem passar pelo DarPasso: o derrame
+     * nos braços (PneuInteractable) dá um aviso por passo que não é o último. */
+    protected void NotificarClique() => OnClicado?.Invoke(this);
+
     /* Um passo (= um clique antigo). kit é null no caminho Interact(). */
     private void DarPasso(KitDoAgente kit)
     {

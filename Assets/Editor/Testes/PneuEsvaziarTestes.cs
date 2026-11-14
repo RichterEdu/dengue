@@ -71,6 +71,24 @@ public class PneuEsvaziarTestes
         TesteUtil.EsvaziarPneu(pneu, kit);
     }
 
+    /* O derrame nos braços tem som: cada passo que não é o último dispara
+     * OnClicado (o som "tira a água"); o último é o OnEsvaziado. */
+    [Test]
+    public void EsvaziarNosBracos_DisparaOnClicadoEmCadaPassoMenosOUltimo()
+    {
+        TesteUtil.Setar(pneu, "requiredClicks", 5);
+        int clicados = 0;
+        pneu.OnClicado += f => clicados++;
+
+        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "o clique pega o pneu cheio");
+        Assert.AreEqual(0, clicados, "pegar não é passo de esvaziar");
+        for (int i = 1; i <= 4; i++)
+            Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.DarPassoNosBracos(), $"{i}º passo");
+        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.DarPassoNosBracos(), "5º passo");
+
+        Assert.AreEqual(pneu.RequiredClicks - 1, clicados, "OnClicado em cada passo menos o último");
+    }
+
     [Test]
     public void UltimoPasso_EsvaziaNosBracos()
     {

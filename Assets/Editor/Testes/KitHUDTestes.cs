@@ -81,6 +81,25 @@ public class KitHUDTestes
         Assert.AreEqual("Pneu com água (100%): balance a câmera para esvaziar. [Botão direito] larga.", KitHUD.TextoDaLinha(kit));
     }
 
+    /* Com um fiozinho de água (0,3%), a HUD não pode dizer "0%": arredonda
+     * para cima e mostra 1%. */
+    [Test]
+    public void LinhaDeCarga_FiozinhoDeAgua_MostraUmPorCento()
+    {
+        KitDoAgente kit = NovoKit();
+        PneuInteractable pneu = TesteUtil.Com<PneuInteractable>("Pneu (teste)");
+        pneu.transform.position = new UnityEngine.Vector3(0f, -10000f, 0f);
+        Assert.IsTrue(kit.Pegar(pneu));
+        // nivelGuardado não é serializado: vai por reflexão.
+        typeof(PneuInteractable)
+            .GetField("nivelGuardado", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            .SetValue(pneu, 0.003f);
+
+        string linha = KitHUD.TextoDaLinha(kit);
+        StringAssert.Contains("(1%)", linha);
+        Assert.AreEqual(KitHUD.TextoLinhaPneuComAgua(1), linha);
+    }
+
     [Test]
     public void LinhaDeCarga_ComATampa()
     {

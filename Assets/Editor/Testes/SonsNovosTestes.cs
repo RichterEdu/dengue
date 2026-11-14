@@ -430,6 +430,42 @@ public class SonsNovosTestes
         Assert.AreEqual(lugarNovo, canal.position, "zumbe onde o pneu está agora");
     }
 
+    /* O pneu é pego cheio e largado cheio longe: o zumbido (fonte parada no
+     * mundo) tem que ir com ele, senão o pneu novo fica mudo. */
+    [Test]
+    public void Zumbido_PneuCheioLargadoEmOutroLugar_ZumbeNoLugarNovo()
+    {
+        KitDoAgente kit = TesteUtil.Com<KitDoAgente>("Kit (teste)");
+        PneuInteractable pneu = TesteUtil.Com<PneuInteractable>("Pneu (teste)");
+        pneu.transform.position = SemChao;
+        SomDosFocos som = NovoSomDosFocos(pneu, out _);
+        TesteUtil.Setar(som, "kit", kit);
+        som.Ligar();
+        Transform canal = som.transform.Find("Zumbidos/Zumbido " + pneu.name);
+        Assert.IsNotNull(canal, "o canal do zumbido do pneu");
+
+        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "as Mãos pegam o pneu cheio");
+        Vector3 lugarNovo = SemChao + Vector3.right * 60f;
+        Assert.IsTrue(kit.LargarPneu(lugarNovo, Vector3.forward), "larga o pneu cheio");
+
+        Assert.IsFalse(pneu.Esvaziado, "continua cheio");
+        Assert.Less(Vector3.Distance(CentroDoPneu(pneu), canal.position), 0.01f,
+            "zumbe onde o pneu está agora");
+        Assert.Greater(canal.position.x, SemChao.x + 30f, "saiu do lugar antigo");
+    }
+
+    private static Vector3 CentroDoPneu(PneuInteractable pneu)
+    {
+        Bounds b = default;
+        bool tem = false;
+        foreach (Renderer r in pneu.GetComponentsInChildren<Renderer>())
+        {
+            if (!tem) { b = r.bounds; tem = true; }
+            else b.Encapsulate(r.bounds);
+        }
+        return tem ? b.center : pneu.transform.position;
+    }
+
     /* Limpar um foco cala o zumbido de todos por um tempo: num monte de
      * pneus, o vizinho entraria na hora e pareceria o foco limpo zumbindo. */
     [Test]

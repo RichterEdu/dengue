@@ -251,7 +251,11 @@ public class PneuInteractable : Interactable
     {
         currentClicks++;
         if (currentClicks < RequiredClicks)
+        {
+            // O som do derrame (o "tira a água" no 1º passo).
+            NotificarClique();
             return ResultadoDoPasso.Avancou;
+        }
 
         if (water != null)
             water.SetActive(false);

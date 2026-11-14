@@ -122,7 +122,8 @@ public class PneuCarregarTestes
         banda.transform.SetParent(pneu.transform, false);
         banda.transform.localScale = tamanho;
         banda.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
-        banda.AddComponent<MeshRenderer>();
+        // Com material, como o pneu da cena (sem ele o Renderer não é medido).
+        banda.AddComponent<MeshRenderer>().sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-Material.mat");
 
         BoxCollider forma = pneu.gameObject.AddComponent<BoxCollider>();
         forma.size = tamanho;

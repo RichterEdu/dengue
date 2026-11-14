@@ -3424,3 +3424,17 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - `OnClicado` e o punch não disparam nos passos nos braços (o `DarPasso` da base é privado); os sons dos passos do pneu ficam para as tarefas seguintes, se forem desejados.
 - O ritmo do teste usa 5° por quadro (a entrada satura em ±1); com 3°, a onda levaria cerca de 12 s para esvaziar 2 passos.
 - Suíte EditMode inteira: 529 testes, todos passando.
+
+### 2026-11-13 — Pneu: peso pela água, olhar repassado e caçamba só com pneu vazio (Task 2)
+
+**Objetivo:** ligar o olhar do jogador ao balanço do pneu, dar peso a ele pela água e fazer a caçamba recusar pneu com água.
+
+**Arquivos alterados:**
+- `Assets/Scripts/KitDoAgente.cs`: novo `multiplicadorCheio` (0,5, serializado) e `MultiplicadorComPneu(nivel)` = `Lerp(multiplicadorCarregando, multiplicadorCheio, nivel)`. `Pegar` usa o nível do pneu; `AvancarStamina` reajusta o multiplicador a cada quadro com o pneu nos braços (esvaziando, anda mais leve; a tampa da caixa continua com 0,85). `LargarPneu` sobre a caçamba com o pneu não esvaziado devolve false e o pneu fica nos braços.
+- `Assets/Scripts/Interactor.cs`: `BalancarPneuNosBracos(dt, olharX)` (nada com `Bloqueado`, sem kit ou sem pneu) chamado pelo `Update` depois do passo de largar, com `entrada.Olhar.x` e `transform.forward`. Largar cheio sobre a caçamba avisa `OnPontoRecusado(null, Cacamba.RecusaPneuComAgua)`.
+- `Assets/Scripts/Cacamba.cs`: `RecusaPneuComAgua` e `PodeUsar` falso com pneu não esvaziado (vale também para a cabine da picape, que delega).
+- Testes: 6 novos em `PneuNosBracosTestes.cs`; `DestinosTestes.cs`, `PontosDeUsoTestes.cs` e `PneuCarregarTestes.cs` esvaziam o pneu antes de entregar ou esperam 0,5 cheio.
+
+**Observações técnicas:**
+- O handler `HandlePontoRecusado` da `DengueHUD` só mostra o aviso e o `SomDoKit` só toca o erro: aceitam ponto null.
+- Suíte EditMode inteira: 535 testes, todos passando.

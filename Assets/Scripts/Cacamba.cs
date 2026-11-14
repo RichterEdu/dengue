@@ -11,7 +11,7 @@ using UnityEngine;
  *  de lixo agora vai para as lixeiras (Lixeira.cs).
  *
  *    - com um pneu nas mãos, entrega o pneu (KitDoAgente.EntregarPneu):
- *      ele conclui e é arremessado num arco até a próxima vaga livre da
+ *      ele (esvaziado: com água a caçamba recusa) conclui e é arremessado num arco até a próxima vaga livre da
  *      carroceria (ReservarVaga, que pula as vagas vazias da lista), onde
  *      fica empilhado, sem sumir. No fim do arco, Receber dispara o
  *      OnPneuRecebido (posts, o "Pneu recolhido — N de T" da HUD), a
@@ -45,6 +45,9 @@ using UnityEngine;
 
 public class Cacamba : PontoDeUso
 {
+    /* Motivo da recusa de um pneu que ainda tem água. */
+    public const string RecusaPneuComAgua = "Esvazie o pneu antes de jogar na <b>caçamba</b>.";
+
     // Balanço da carroceria ao receber um pneu.
     private const float DuracaoBalanco = 0.4f;
     private const float AnguloBalanco = 3f;
@@ -122,7 +125,14 @@ public class Cacamba : PontoDeUso
             return false;
 
         if (kit.PneuCarregado != null)
+        {
+            if (!kit.PneuCarregado.Esvaziado)
+            {
+                motivo = RecusaPneuComAgua;
+                return false;
+            }
             return true;
+        }
 
         if (picape != null)
             return picape.PodeUsar(kit, out motivo);

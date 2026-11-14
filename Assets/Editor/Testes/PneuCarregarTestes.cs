@@ -156,7 +156,7 @@ public class PneuCarregarTestes
         Assert.IsFalse(pneu.IsComplete, "só conclui na caçamba");
         Assert.IsFalse(pneu.CanInteract, "nos braços não é alvo");
         Assert.AreSame(ponto, pneu.transform.parent, "fica no PontoDeCarga");
-        Assert.AreEqual(0.85f, jogador.MultiplicadorVelocidade, 1e-5f);   // Parte B: era 0,7
+        Assert.AreEqual(0.5f, jogador.MultiplicadorVelocidade, 1e-5f);   // cheio de água (vazio seria 0,85)
         Assert.IsFalse(jogador.PodePular);
         Assert.AreEqual(1, pegos, "OnPneuPego");
     }

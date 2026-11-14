@@ -14,8 +14,8 @@ using UnityEngine;
  *      1–5 (Selecionar) ou pela roda do mouse / LB-RB (Proxima/Anterior,
  *      dando a volta na lista);
  *    - o pneu que está sendo carregado (PneuCarregado). Pegar o põe no
- *      PontoDeCarga e limita o jogador (velocidade × multiplicadorCarregando,
- *      sem pular); enquanto carrega, não troca de ferramenta. O Shift corre
+ *      PontoDeCarga e limita o jogador (velocidade × MultiplicadorComPneu:
+ *      0,5 cheio de água até 0,85 vazio, sem pular); enquanto carrega, não troca de ferramenta. O Shift corre
  *      gastando a Stamina (StaminaDeCarga): zerada, só anda até recuperar.
  *      De mãos livres a corrida não gasta nada, e a stamina volta sozinha.
  *      LargarPneu (no chão, na frente do agente e fora do corpo dele) e
@@ -59,6 +59,9 @@ public class KitDoAgente : MonoBehaviour
     [Header("Carregando pneu")]
     [Tooltip("Multiplica a velocidade do jogador enquanto carrega um pneu, andando ou correndo (sem pular).")]
     [SerializeField] private float multiplicadorCarregando = 0.85f;
+
+    [Tooltip("Multiplicador de velocidade com o pneu cheio de água nos braços (esvaziando, sobe até o multiplicadorCarregando).")]
+    [SerializeField] private float multiplicadorCheio = 0.5f;
 
     [Tooltip("Segundos correndo com o pneu até a stamina zerar.")]
     [SerializeField] private float segundosDeCorrida = 6f;
@@ -160,6 +163,17 @@ public class KitDoAgente : MonoBehaviour
         ControladorJogador controlador = Jogador;
         if (carregando && controlador != null)
             controlador.PodeCorrer = Stamina.PodeCorrer;
+
+        // O pneu pesa pela água que ainda tem: esvaziando, o agente anda mais leve.
+        if (PneuCarregado != null && controlador != null)
+            controlador.MultiplicadorVelocidade = MultiplicadorComPneu(PneuCarregado.NivelDeAgua);
+    }
+
+    /* Velocidade com o pneu nos braços: cheio (nível 1) = multiplicadorCheio,
+     * vazio (0) = multiplicadorCarregando. */
+    internal float MultiplicadorComPneu(float nivel)
+    {
+        return Mathf.Lerp(multiplicadorCarregando, multiplicadorCheio, Mathf.Clamp01(nivel));
     }
 
     /* O ControladorJogador do campo ou, vazio, o deste objeto (achado no primeiro uso). */
@@ -276,7 +290,7 @@ public class KitDoAgente : MonoBehaviour
 
         PneuCarregado = pneu;
         pneu.PrenderEm(pontoDeCarga != null ? pontoDeCarga : transform);
-        LimitarMovimento(multiplicadorCarregando, Stamina.PodeCorrer, false);
+        LimitarMovimento(MultiplicadorComPneu(pneu.NivelDeAgua), Stamina.PodeCorrer, false);
 
         OnPneuPego?.Invoke(pneu);
         OnMudou?.Invoke();
@@ -286,7 +300,8 @@ public class KitDoAgente : MonoBehaviour
     /* Larga o pneu no chão, na frente dos pés e fora do corpo do agente
      * (PneuInteractable.OndeCai). Se ele cairia na caçamba (o agente
      * encostado nela, achando que joga dentro), é entrega (EntregarPneu),
-     * e o foco conclui. False se não carrega nenhum. */
+     * e o foco conclui, mas só com o pneu esvaziado: cheio, devolve false e
+     * o pneu fica nos braços. False também se não carrega nenhum. */
     public bool LargarPneu(Vector3 pes, Vector3 frente)
     {
         PneuInteractable pneu = PneuCarregado;
@@ -295,7 +310,12 @@ public class KitDoAgente : MonoBehaviour
 
         pneu.OndeCai(pes, frente, RaioDoAgente, out Vector3 posicao, out Quaternion giro, out Cacamba cacamba);
         if (cacamba != null)
+        {
+            // Pneu com água não vai na caçamba: continua nos braços.
+            if (!pneu.Esvaziado)
+                return false;
             return EntregarPneu(cacamba);
+        }
 
         PneuCarregado = null;
         LimitarMovimento(1f, true, true);

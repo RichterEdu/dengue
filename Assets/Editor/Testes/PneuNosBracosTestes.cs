@@ -220,6 +220,92 @@ public class PneuNosBracosTestes
     }
 
     [Test]
+    public void PesoSegueONivel()
+    {
+        Assert.AreEqual(0.5f, kit.MultiplicadorComPneu(1f), 1e-5f);
+        Assert.AreEqual(0.85f, kit.MultiplicadorComPneu(0f), 1e-5f);
+        Assert.AreEqual(0.675f, kit.MultiplicadorComPneu(0.5f), 1e-5f);
+    }
+
+    [Test]
+    public void PegarCheioDeixaLento()
+    {
+        Pegar();
+        Assert.AreEqual(0.5f, jogador.MultiplicadorVelocidade, 1e-5f);
+    }
+
+    [Test]
+    public void EsvaziandoFicaMaisLeve()
+    {
+        TesteUtil.Setar(pneu, "requiredClicks", 4);
+        Pegar();
+        pneu.DarPassoNosBracos();
+        pneu.DarPassoNosBracos();
+
+        kit.AvancarStamina(0.016f, false);
+
+        Assert.AreEqual(Mathf.Lerp(0.85f, 0.5f, 1f - 2f / 4f), jogador.MultiplicadorVelocidade, 1e-4f);
+    }
+
+    /* Chão e caçamba como em DestinosTestes.Largar_SobreCacamba_Entrega. */
+    private Cacamba CacambaNaFrente()
+    {
+        BoxCollider chao = TesteUtil.Com<BoxCollider>("Chão (teste)");
+        chao.size = new Vector3(20f, 0.2f, 20f);
+        chao.transform.position = SemChao + Vector3.down * 0.1f;
+
+        BoxCollider caixa = TesteUtil.Com<BoxCollider>("Caçamba (teste)");
+        caixa.center = new Vector3(0f, 0.6f, 0f);
+        caixa.size = new Vector3(2.4f, 1.2f, 1.4f);
+        caixa.transform.position = SemChao + Vector3.forward * 0.9f;
+        Cacamba cacamba = caixa.gameObject.AddComponent<Cacamba>();
+        Physics.SyncTransforms();
+        return cacamba;
+    }
+
+    [Test]
+    public void CacambaRecusaPneuComAgua()
+    {
+        Cacamba cacamba = CacambaNaFrente();
+        Pegar();
+
+        Assert.IsFalse(cacamba.PodeUsar(kit, out string motivo));
+        Assert.AreEqual(Cacamba.RecusaPneuComAgua, motivo);
+
+        TesteUtil.EsvaziarPneu(pneu, kit, false);
+        Assert.IsTrue(cacamba.PodeUsar(kit, out _), "esvaziado, a caçamba aceita");
+    }
+
+    [Test]
+    public void LargarCheioSobreACacambaNaoEntrega()
+    {
+        CacambaNaFrente();
+        Pegar();
+
+        Assert.IsFalse(kit.LargarPneu(SemChao, Vector3.forward));
+
+        Assert.AreSame(pneu, kit.PneuCarregado, "continua nos braços");
+        Assert.IsFalse(pneu.IsComplete);
+    }
+
+    [Test]
+    public void InteractorRepassaOOlhar()
+    {
+        Interactor interactor = jogador.gameObject.AddComponent<Interactor>();
+        Pegar();
+
+        interactor.Bloqueado = true;
+        for (float t = 0f; t < 2f; t += Quadro)
+            interactor.BalancarPneuNosBracos(Quadro, 5f * Mathf.Sin(2f * Mathf.PI * t / 0.9f));
+        Assert.AreEqual(1f, pneu.NivelDeAgua, "bloqueado, não balança");
+
+        interactor.Bloqueado = false;
+        for (float t = 0f; t < 3f; t += Quadro)
+            interactor.BalancarPneuNosBracos(Quadro, 5f * Mathf.Sin(2f * Mathf.PI * t / 0.9f));
+        Assert.Less(pneu.NivelDeAgua, 1f, "o olhar no ritmo derrama");
+    }
+
+    [Test]
     public void ForaDosBracosBalancarNaoFazNada()
     {
         Vector3 posicao = pneu.transform.position;

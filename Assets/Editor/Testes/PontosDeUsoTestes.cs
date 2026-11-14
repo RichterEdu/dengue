@@ -190,6 +190,7 @@ public class PontosDeUsoTestes
         vagas.GetArrayElementAtIndex(0).objectReferenceValue = vaga;
         so.ApplyModifiedPropertiesWithoutUndo();
         PneuInteractable pneu = PneuNasMaos();
+        TesteUtil.EsvaziarPneu(pneu, kit, false);   // com água a caçamba recusa
 
         Assert.IsTrue(cacamba.PodeUsar(kit, out string motivo), $"pneu nas mãos (motivo: {motivo})");
         cacamba.Usar(kit);

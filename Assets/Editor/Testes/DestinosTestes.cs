@@ -131,6 +131,7 @@ public class DestinosTestes
         List<int> numerosNoAviso = new List<int>();
         cacamba.OnPneuRecebido += (p, numero) => numerosNoAviso.Add(numero);
         PneuInteractable pneu = PneuNasMaos();
+        TesteUtil.EsvaziarPneu(pneu, kit, false);   // com água a caçamba recusa
 
         Assert.IsTrue(cacamba.PodeUsar(kit, out string motivo), $"pneu nas mãos (motivo: {motivo})");
         cacamba.Usar(kit);
@@ -283,6 +284,7 @@ public class DestinosTestes
         TesteUtil.Setar(cacamba, "picape", picape);
         PontoDeReabastecimento monte = TesteUtil.Com<PontoDeReabastecimento>("Monte de areia (teste)");
         PneuInteractable pneu = PneuNasMaos();
+        TesteUtil.EsvaziarPneu(pneu, kit, false);   // com água a caçamba recusa
 
         Assert.IsFalse(monte.PodeUsar(kit, out string motivoMonte), "sem caçamba filha");
         Assert.AreEqual("Largue o pneu antes.", motivoMonte);
@@ -464,6 +466,7 @@ public class DestinosTestes
     {
         Vector3 pes = SemChao;
         PneuInteractable pneu = PneuDeFrenteParaACabine(altura, true, pes);
+        TesteUtil.EsvaziarPneu(pneu, kit, false);   // com água a caçamba recusa
 
         Assert.IsTrue(kit.LargarPneu(pes, Vector3.forward));
 
@@ -508,6 +511,7 @@ public class DestinosTestes
         pneu.transform.position = pes + Vector3.back * 2f + Vector3.up * 0.7f;
         Physics.SyncTransforms();
         Assert.IsTrue(kit.Pegar(pneu), "pneu nos braços");
+        TesteUtil.EsvaziarPneu(pneu, kit, false);   // com água a caçamba recusa
 
         Assert.IsTrue(kit.LargarPneu(pes, Vector3.forward));
 
@@ -518,7 +522,9 @@ public class DestinosTestes
     [Test]
     public void Kit_MultiplicadorCarregando_085()
     {
-        PneuNasMaos();
+        PneuInteractable pneu = PneuNasMaos();
+        TesteUtil.EsvaziarPneu(pneu, kit, false);   // 0,85 é o do pneu vazio; cheio é 0,5
+        kit.AvancarStamina(0.016f, false);
 
         Assert.AreEqual(0.85f, jogador.MultiplicadorVelocidade, 1e-5f);
         Assert.IsFalse(jogador.PodePular);

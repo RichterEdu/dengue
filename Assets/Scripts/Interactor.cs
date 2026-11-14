@@ -50,6 +50,9 @@ using UnityEngine.InputSystem;
  *    sai (AoSairDoMinigame) se a sessão PodeSair; sessão com mira
  *    (IMinigameComMira) aponta o olhar. Bloqueado (AoBloquear) sai sem
  *    culpa. Encerrado, segurar só volta a valer depois de soltar o botão.
+ *  - Pneu nos braços: o olhar horizontal é repassado a cada quadro ao
+ *    pneu (BalancarPneuNosBracos), que derrama a água no ritmo certo.
+ *    Largar cheio sobre a caçamba recusa (Cacamba.RecusaPneuComAgua).
  *  - ProgressoContinuo (0..1) e Avancando alimentam a barra da HUD e o
  *    som de ação.
  *  - Destaque visual: quando o jogador mira num foco ou ponto de uso, os
@@ -243,10 +246,17 @@ public class Interactor : MonoBehaviour
         if (kit != null && entrada != null && entrada.LargarPressionado)
         {
             if (kit.PneuCarregado != null)
-                kit.LargarPneu(transform.position, transform.forward);
+            {
+                // Cheio sobre a caçamba: recusa e o pneu fica nos braços.
+                if (!kit.LargarPneu(transform.position, transform.forward) && kit.PneuCarregado != null)
+                    AvisarRecusa((PontoDeUso)null, Cacamba.RecusaPneuComAgua);
+            }
             else if (kit.TampaCarregada != null)
                 kit.DevolverTampa();
         }
+
+        // 3b) O olhar balança o pneu nos braços e derrama a água.
+        BalancarPneuNosBracos(Time.deltaTime, entrada != null ? entrada.Olhar.x : 0f);
 
         // 4) Alvo da mira: se mudou, desfaz o destaque no antigo e aplica no novo.
         bool maosOcupadas = kit != null && kit.MaosOcupadas;
@@ -261,6 +271,16 @@ public class Interactor : MonoBehaviour
 
         // 7) Barra da HUD.
         AtualizarProgresso();
+    }
+
+    /* Repassa o olhar horizontal ao pneu nos braços (a onda do balanço).
+     * Nada com o Bloqueado, sem kit ou sem pneu. */
+    internal void BalancarPneuNosBracos(float dt, float olharX)
+    {
+        if (Bloqueado || Kit == null || Kit.PneuCarregado == null)
+            return;
+
+        Kit.PneuCarregado.BalancarNosBracos(dt, olharX, transform.forward);
     }
 
     /* Botão de interagir mantido apertado (clique esquerdo ou "Attack"). */

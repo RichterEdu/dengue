@@ -171,6 +171,9 @@ public class DengueHUD : MonoBehaviour
     internal const string AcaoPegarTampa = "Pegar a tampa";
     internal const string AcaoTamparCaixa = "Tampar a caixa";
 
+    // Pneu cheio no chão, com as Mãos: o convite de pegar (esvazia-se nos braços).
+    internal const string AcaoPegarPneu = "Pegar o pneu";
+
     // Atalho de esvaziar (Parte B): a
     // linha de ação no atalho e o aviso ao esvaziar.
     internal const string AcaoSkillCheck = "Clique para <b>encaixar a grelha</b>";
@@ -520,7 +523,7 @@ public class DengueHUD : MonoBehaviour
      * Mãos no atalho de esvaziar, esvaziar. O pneu esvaziado no chão diz
      * para onde levar; a caixa d'água, pegar a tampa (encostada, com as
      * Mãos) ou tampar (com ela nos braços). */
-    private static string AcaoDoFoco(Interactable foco, bool pneuVazio, KitDoAgente kit, string dicaDaSessao = null)
+    internal static string AcaoDoFoco(Interactable foco, bool pneuVazio, KitDoAgente kit, string dicaDaSessao = null)
     {
         if (foco == null)
             return null;
@@ -536,6 +539,8 @@ public class DengueHUD : MonoBehaviour
             if (!caixa.TampaNosBracos && kit.Selecionada == Ferramenta.Maos)
                 return AcaoPegarTampa;
         }
+        if (foco is PneuInteractable pneu && !pneu.Esvaziado && kit != null && kit.Selecionada == Ferramenta.Maos)
+            return AcaoPegarPneu;
         string convite = foco.ConviteDoMinigame(kit);
         if (convite != null)
             return convite;

@@ -318,4 +318,11 @@ public class PneuNosBracosTestes
         Assert.AreEqual(0f, Vector3.Distance(posicao, pneu.transform.position), 1e-5f);
         Assert.Less(Quaternion.Angle(giro, pneu.transform.rotation), 0.001f);
     }
+
+    [Test]
+    public void AcaoNoPneuCheioEhPegar()
+    {
+        Assert.AreEqual(Ferramenta.Maos, kit.Selecionada);
+        Assert.AreEqual(DengueHUD.AcaoPegarPneu, DengueHUD.AcaoDoFoco(pneu, false, kit));
+    }
 }

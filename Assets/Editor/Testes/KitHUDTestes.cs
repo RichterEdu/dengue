@@ -64,9 +64,21 @@ public class KitHUDTestes
         KitDoAgente kit = NovoKit();
         PneuInteractable pneu = TesteUtil.Com<PneuInteractable>("Pneu (teste)");
         pneu.transform.position = new UnityEngine.Vector3(0f, -10000f, 0f);
-        Assert.IsTrue(kit.Pegar(pneu));
+        TesteUtil.EsvaziarPneu(pneu, kit, false);   // esvaziado nos braços
 
         Assert.AreEqual(KitHUD.TextoLinhaPneu, KitHUD.TextoDaLinha(kit));
+    }
+
+    [Test]
+    public void LinhaDeCarga_PneuComAgua()
+    {
+        KitDoAgente kit = NovoKit();
+        PneuInteractable pneu = TesteUtil.Com<PneuInteractable>("Pneu (teste)");
+        pneu.transform.position = new UnityEngine.Vector3(0f, -10000f, 0f);
+        Assert.IsTrue(kit.Pegar(pneu));
+
+        Assert.AreEqual(KitHUD.TextoLinhaPneuComAgua(100), KitHUD.TextoDaLinha(kit));
+        StringAssert.Contains("100%", KitHUD.TextoDaLinha(kit));
     }
 
     [Test]

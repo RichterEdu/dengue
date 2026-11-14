@@ -3438,3 +3438,15 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 **Observações técnicas:**
 - O handler `HandlePontoRecusado` da `DengueHUD` só mostra o aviso e o `SomDoKit` só toca o erro: aceitam ponto null.
 - Suíte EditMode inteira: 535 testes, todos passando.
+
+### 2026-11-13 — Pneu: HUD da água nos braços e convite de pegar (Task 3)
+
+**Objetivo:** a linha do kit mostra a água restante do pneu cheio nos braços, e mirar um pneu cheio no chão com as Mãos mostra o convite de pegar.
+
+**Arquivos alterados:**
+- `Assets/Scripts/KitHUD.cs`: `TextoLinhaPneuComAgua(pct)` (internal); `TextoDaLinha` devolve esse texto com o pneu nos braços não esvaziado (percentual = `RoundToInt(NivelDeAgua·100)`) e `TextoLinhaPneu` com ele esvaziado. O `Update` compara uma chave inteira (percentual, -1 esvaziado, -2 tampa, -3 sem linha) e só reescreve o texto quando ela muda (a água cai sem `OnMudou`, e o esvaziar também não dispara).
+- `Assets/Scripts/DengueHUD.cs`: `AcaoPegarPneu` ("Pegar o pneu"); `AcaoDoFoco` passa a `internal` e, num `PneuInteractable` não esvaziado com as Mãos, devolve `AcaoPegarPneu`.
+- Testes: `KitHUDTestes.LinhaDeCarga_PneuComAgua` e `PneuNosBracosTestes.AcaoNoPneuCheioEhPegar`.
+
+**Observações técnicas:**
+- Sem alocação de string por quadro: o texto só é montado quando o percentual muda.

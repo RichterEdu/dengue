@@ -18,7 +18,9 @@ using UnityEngine.UI;
  *    picape da UPA e o botão direito, que larga. Carregando a tampa da
  *    caixa d'água, a mesma linha (TextoLinhaTampa) explica que é para
  *    tampar a caixa e que o botão direito devolve. Nos dois casos, com a
- *    faixa da stamina (TextoDaLinha).
+ *    faixa da stamina (TextoDaLinha). Com o pneu ainda cheio nos braços,
+ *    a linha mostra a água restante (TextoLinhaPneuComAgua, em %), e o
+ *    Update a reescreve quando o percentual muda (a água cai sem OnMudou).
  *  - Dica "Teclas 1–5 trocam a ferramenta", com o visual do DicaCorrer
  *    (na lateral esquerda, logo abaixo do lugar da dica de correr, para
  *    as duas não se taparem): aparece com a partida e some com fade na
@@ -57,6 +59,7 @@ public class KitHUD : MonoBehaviour
     private static readonly Color CorNome = new Color(1f, 1f, 1f, 0.85f);
 
     internal const string TextoLinhaPneu = "Carregando pneu. Leve à <b>picape da UPA</b>. [Shift] corre. [Botão direito] larga.";
+    private const string FormatoLinhaPneuComAgua = "Carregando pneu com <b>{0}%</b> de água. Balance o olhar para derramar. [Botão direito] larga.";
     internal const string TextoLinhaTampa = "Carregando a tampa. Tampe a caixa d'água. [Botão direito] devolve.";
     private const string TextoDica = "Teclas <b>1–5</b> trocam a ferramenta";
 
@@ -83,7 +86,9 @@ public class KitHUD : MonoBehaviour
     private KitDoAgente kit;
     private FluxoDeJogo fluxo;
     private ControladorJogador jogador;
-    private bool dicaVista;           // já trocou de ferramenta uma vez
+    private bool dicaVista;
+    private int chaveDaLinha = ChaveSemLinha;   // o que a linha mostra agora (ver ChaveDaLinha)
+    private const int ChaveSemLinha = -3;           // já trocou de ferramenta uma vez
 
     void Awake()
     {
@@ -133,8 +138,12 @@ public class KitHUD : MonoBehaviour
         if (kit == null)
             return;
 
-        if (TextoDaLinha(kit) != null)
+        if (linhaPneu.activeSelf)
         {
+            // A água cai sem OnMudou: reescreve o texto só quando o percentual muda.
+            if (ChaveDaLinha(kit) != chaveDaLinha)
+                AtualizarLinha();
+
             StaminaDeCarga stamina = kit.Stamina;
             barraStamina.anchorMax = new Vector2(stamina.Fracao, 1f);
             preenchimentoStamina.color = CorDaStamina(stamina);
@@ -167,11 +176,34 @@ public class KitHUD : MonoBehaviour
     {
         if (kit == null)
             return null;
-        if (kit.PneuCarregado != null)
-            return TextoLinhaPneu;
+        PneuInteractable pneu = kit.PneuCarregado;
+        if (pneu != null)
+            return pneu.Esvaziado ? TextoLinhaPneu : TextoLinhaPneuComAgua(PercentualDeAgua(pneu));
         if (kit.TampaCarregada != null)
             return TextoLinhaTampa;
         return null;
+    }
+
+    /* A linha do pneu cheio nos braços, com a água restante em %. */
+    internal static string TextoLinhaPneuComAgua(int pct)
+    {
+        return string.Format(FormatoLinhaPneuComAgua, pct);
+    }
+
+    private static int PercentualDeAgua(PneuInteractable pneu)
+    {
+        return Mathf.RoundToInt(pneu.NivelDeAgua * 100f);
+    }
+
+    /* O que decide o texto da linha: o percentual de água (0..100) com o
+     * pneu cheio nos braços, -1 pneu esvaziado, -2 tampa, -3 sem linha.
+     * Comparar este int evita montar string todo quadro. */
+    private static int ChaveDaLinha(KitDoAgente kit)
+    {
+        PneuInteractable pneu = kit.PneuCarregado;
+        if (pneu != null)
+            return pneu.Esvaziado ? -1 : PercentualDeAgua(pneu);
+        return kit.TampaCarregada != null ? -2 : ChaveSemLinha;
     }
 
     /* ---------------- Eventos do kit ---------------- */
@@ -189,10 +221,17 @@ public class KitHUD : MonoBehaviour
             espacos[i].quantidade.color = zerado ? CorZerado : CorQuantidade;
         }
 
+        AtualizarLinha();
+    }
+
+    /* Reescreve a linha de carga (texto e visibilidade) e guarda a chave. */
+    private void AtualizarLinha()
+    {
         string linha = TextoDaLinha(kit);
         if (linha != null)
             textoDaLinha.text = linha;
         linhaPneu.SetActive(linha != null);
+        chaveDaLinha = ChaveDaLinha(kit);
     }
 
     /* A dica 1–5 cumpriu o papel: some (com fade) e não volta mais. Só vale

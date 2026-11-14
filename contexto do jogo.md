@@ -3464,3 +3464,47 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - Continua secando uma pocinha por vez (a mais próxima dentro do raio); de longe um ponto de mira pode alcançar duas vizinhas, o que foi aceito.
 - Nem o prefab `Bromelia.prefab` nem a `SampleScene` sobrescrevem `raioDeAcerto`.
 - Suíte EditMode inteira: 536 testes, todos passando.
+
+### 2026-11-13 — Pneu nos braços: verificação em Play e registro (Task 5)
+
+**Objetivo:** conferir no Play o pneu pego cheio e esvaziado nos braços, o peso pela água, a caçamba só com pneu vazio e a bromélia com raio fixo (Tasks 1 a 4). Nenhum script, cena, prefab ou asset foi alterado.
+
+**Arquivos alterados:** só este `contexto do jogo.md`.
+
+**Como foi verificado:** `SampleScene` no Editor, em Play, com mouse e teclado virtuais do Input System. Abertura pulada, celular fechado e ocupação do hospital presa em 0,6, só no teste. O olhar no ritmo foi gerado em quadros reais, por eventos do mouse virtual: 300°/s × cos(2πt/0,9), cerca de ±43° de yaw. Passa pelo caminho real (`EntradaJogador` → `Interactor.Update` → `BalancarPneuNosBracos`). Capturas em `.superpowers/sdd/2026-11-13-pneu-nos-bracos/capturas/` (pasta fora do git).
+
+| Situação | Esperado | Observado |
+|---|---|---|
+| Clique num pneu cheio com as Mãos | Nos braços, água escondida, multiplicador 0,5 | Convite "Clique para pegar o pneu". Um clique: nos braços, `agua do pneu` desligada, nível 1,000, multiplicador 0,500, 1,40 m/s andando. HUD "Pneu com água (100%): …" |
+| Olhar no ritmo andando para a frente | Balança, respinga, nível cai, velocidade até 0,85 | Pneu (1), de cheio a vazio em 6,49 s, andando 12,7 m. Primeiro derrame em 1,51 s; passos em 3,00, 3,93, 4,78, 5,64 e 6,49 s. Inclinação até ±24,8°, deslocamento ±0,040 m. Multiplicador de 0,500 a 0,850, velocidade de 1,40 a 2,38 m/s. Vazio: pose zero, HUD "Carregando pneu…", aviso "Pneu vazio: leve à picape da UPA" |
+| Olhar em volta sem ritmo por 5 s | Nível acima de 0,9 | Nível 1,000 nos três padrões: varredura de 180°/s com período de 3 s (\|Inclinação\| máxima 0,39), cinco piscadas de 90° em 0,25 s (0,55) e ruído de ±300°/s trocado a cada 0,15 s (0,63) |
+| Caçamba com água | Aviso "Esvazie o pneu antes"; vazio, entrega | Com água, segurar o clique e o botão direito dão o aviso "Esvazie o pneu antes: balance a câmera." e o pneu fica nos braços. Vazio, entrega: "Pneu recolhido — 1 de 10", pneu na vaga, multiplicador 1 |
+| Largar meio cheio e pegar de novo | Continua do nível | Nível 0,405 nos braços, com 2 passos fechados. No chão, 0,600 com a água visível; pego de novo, 0,600, com multiplicador 0,640. Continua do nível dos passos fechados, não do nível exato: a HUD vai de 41% para 60%. O pneu caiu no pé do agente (defeito abaixo) |
+| Pausa com o pneu cheio | Nada esvazia | Menu de pausa aberto com 5 s de olhar no ritmo e W: nível 1,000, inclinação 0, 0 m andados. Pausado no meio do balanço (nível 0,880): nível e pose parados por 4,3 s, depois a onda some e a pose volta a zero |
+| Bromélia a 1,5 m, mirando perto de cada pocinha | Seca uma por vez; começar mirando a planta é fácil | Convite na hora; a sessão começa no primeiro aperto. Mirando 1,5° ao lado de cada pocinha, seca uma por vez, a mais perto dentro do raio: 5/5 em 3,3 s. Com 2,5°, uma segurada secou antes a vizinha mais perto (0,97° contra 1,5°) e depois a mirada. A mira pega a planta numa área de ~48° × 21° |
+
+**Testes:** suíte EditMode inteira, 536/536, sem falhas.
+
+**Defeito encontrado (não corrigido):**
+- **O que acontece:** largar um pneu com água no estágio Mosquito (com o enxame filho) o põe no pé do agente.
+- **Causa:** o `PneuInteractable.MedirNaDirecao` soma o `ParticleSystemRenderer` do `Enxame`. Com a escala do pneu (34,7), deu perto de −97 a −109 m e longe de +105 a +156 m. O raio do peito do `OndeCai` então acha um "muro" a até ~100 m e o avanço vira 0.
+- **Efeitos vistos:** o pneu nasce dentro do `CharacterController` e empurra o agente 0,62 m. A 7 m da picape, o botão direito foi recusado com "Esvazie o pneu antes", porque a picape virou a caçamba de destino.
+- **Comparação:** vazio, sem o enxame, que sai ao esvaziar, o pneu mede −0,25/+0,25 m e cai 0,73 m à frente. Antes deste ramo, só pneus vazios iam aos braços.
+
+**Observações técnicas:**
+- **Bromélia neste Editor:** em Play, o `raioDeAcerto` das quatro bromélias era 4, não 2,5. O `Bromelia.prefab` não grava o campo. O prefab carregado na memória do Editor aberto guarda o padrão antigo; um componente novo dá 2,5. Antes de jogar, reimporte o prefab ou reabra o Editor. Se o prefab for salvo nesta sessão, ele grava 4. O teste de 2,5° pôs o valor na instância, só em Play.
+- **Sentido do balanço:** com `Inclinacao` > 0, o lado direito do pneu sobe, ele vai 4 cm para a direita e respinga à esquerda. Isso acontece quando o olhar está no extremo direito. Parece natural, como um pneu pendurado nas mãos; não está invertido. Os 4 cm quase não se veem perto dos 25° de inclinação.
+- **`OnClicado`:** nenhum `OnFocoClicado` nos 5 passos nos braços, e um `OnFocoEsvaziado`. O único ouvinte de `OnClicado` é o som de cada passo (`SomDosFocos.Clicado`). Assim, o derrame fica mudo até o último passo, que toca o som de esvaziar. O `Interactor.Avancando` fica falso no balanço, então também não há som de ação do kit.
+- **Ouvintes de `OnEsvaziado`:** o aviso da HUD saiu e o enxame foi removido. A rede social ignora o pneu esvaziado de propósito: ela posta na entrega.
+- **Respingo:** é o estouro turquesa de sempre, espalhado em todas as direções no espaço de mundo. Perto da câmera, vira uma nuvem grande, às vezes na altura dos olhos.
+- **Enxame nos braços:** ele acompanha o pneu, e os mosquitos ficam em volta da câmera.
+- **Mira na caçamba com o pneu cheio:** ainda diz "Jogar o pneu na caçamba / segure o clique"; a recusa só sai ao clicar.
+- **Bromélia:** BoxCollider de 1,03 × 0,52 × 1,05 m. Durante a sessão, o painel do alvo cobre a parte de baixo da planta.
+- **Campos do pneu e do kit em Play:** iguais aos padrões do código (onda 0,9 / 0,12 / 15 / 1 / 1,4 / 180; inclinação 25°; multiplicadores 0,85 e 0,5).
+- **Limpeza:** dispositivos e callbacks removidos, Input System de volta (`ResetAndDisableNonBackgroundDevices`, `PointersAndKeyboardsRespectGameViewFocus`), `runInBackground` falso (`ProjectSettings.asset` com 0), Play parado, cena não salva.
+
+**Pendente para o usuário (jogar no Editor, mouse e controle):**
+- Partida real com mouse físico e com controle: o ritmo do balanço pela mão, olhar em volta andando com o pneu cheio, correr com ele.
+- Sons: o derrame mudo e o som de esvaziar.
+- Celular aberto e chuva com o pneu nos braços.
+- Bromélia com 2,5° num Editor reaberto ou na build.

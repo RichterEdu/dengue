@@ -46,7 +46,7 @@ using UnityEngine;
 public class Cacamba : PontoDeUso
 {
     /* Motivo da recusa de um pneu que ainda tem água. */
-    public const string RecusaPneuComAgua = "Esvazie o pneu antes de jogar na <b>caçamba</b>.";
+    public const string RecusaPneuComAgua = "Esvazie o pneu antes: balance a câmera.";
 
     // Balanço da carroceria ao receber um pneu.
     private const float DuracaoBalanco = 0.4f;

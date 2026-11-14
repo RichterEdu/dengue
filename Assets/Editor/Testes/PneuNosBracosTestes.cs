@@ -271,6 +271,7 @@ public class PneuNosBracosTestes
 
         Assert.IsFalse(cacamba.PodeUsar(kit, out string motivo));
         Assert.AreEqual(Cacamba.RecusaPneuComAgua, motivo);
+        Assert.AreEqual("Esvazie o pneu antes: balance a câmera.", motivo, "texto exigido, sem tags");
 
         TesteUtil.EsvaziarPneu(pneu, kit, false);
         Assert.IsTrue(cacamba.PodeUsar(kit, out _), "esvaziado, a caçamba aceita");

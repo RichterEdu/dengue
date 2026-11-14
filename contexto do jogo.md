@@ -3508,3 +3508,4 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - Sons: o derrame mudo e o som de esvaziar.
 - Celular aberto e chuva com o pneu nos braços.
 - Bromélia com 2,5° num Editor reaberto ou na build.
+- Correções (verificação em Play): `MedirNaDirecao` ignora Renderers não destacáveis (o enxame do estágio Mosquito media centenas de metros e o `OndeCai` achava caçamba falsa); soltar o pneu no meio do esvaziar guarda o nível exato da onda (`nivelGuardado`), usado por `NivelDeAgua` e pela próxima onda ao pegar de novo; chuva e esvaziar zeram esse nível.

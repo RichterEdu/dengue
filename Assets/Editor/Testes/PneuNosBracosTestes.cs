@@ -206,6 +206,64 @@ public class PneuNosBracosTestes
     }
 
     [Test]
+    public void LargarNoMeioGuardaONivelExato()
+    {
+        TesteUtil.Setar(pneu, "requiredClicks", 4);
+        Pegar();
+        float t = 0f;
+        while (t < 12f && pneu.CurrentClicks < 1)
+        {
+            pneu.BalancarNosBracos(Quadro, 5f * Mathf.Sin(2f * Mathf.PI * t / 0.9f), Vector3.forward);
+            t += Quadro;
+        }
+        for (int i = 0; i < 25; i++, t += Quadro)
+            pneu.BalancarNosBracos(Quadro, 5f * Mathf.Sin(2f * Mathf.PI * t / 0.9f), Vector3.forward);
+        float nivel = pneu.NivelDeAgua;
+        Assert.AreEqual(1, pneu.CurrentClicks, "um passo fechado");
+        Assert.Less(nivel, 0.74f, "entre dois limites de passo");
+        Assert.Greater(nivel, 0.5f + 1e-3f);
+
+        Assert.IsTrue(kit.LargarPneu(SemChao, Vector3.forward));
+        Assert.AreEqual(nivel, pneu.NivelDeAgua, 1e-4f, "largado");
+        Pegar();
+        Assert.AreEqual(nivel, pneu.NivelDeAgua, 1e-4f, "pego de novo");
+        pneu.BalancarNosBracos(Quadro, 0f, Vector3.forward);
+        Assert.AreEqual(nivel, pneu.NivelDeAgua, 0.02f, "a onda continua desse nível");
+    }
+
+    [Test]
+    public void LargarComEnxameIgnoraAsParticulas()
+    {
+        Vector3 pes = SemChao;
+        BoxCollider chao = TesteUtil.Com<BoxCollider>("Chão (teste)");
+        chao.size = new Vector3(20f, 0.2f, 20f);
+        chao.transform.position = pes + Vector3.down * 0.1f;
+
+        GameObject banda = TesteUtil.Primitivo(PrimitiveType.Cube, "Banda (teste)");
+        Object.DestroyImmediate(banda.GetComponent<Collider>());
+        banda.transform.SetParent(pneu.transform, false);
+        banda.transform.localScale = new Vector3(0.6f, 2f, 2f);
+        pneu.transform.position = pes + new Vector3(5f, 1f, 5f);
+        Physics.SyncTransforms();
+        Pegar();
+
+        pneu.OndeCai(pes, Vector3.forward, 0.3f, out Vector3 semEnxame, out Quaternion giroSem, out Cacamba cacambaSem);
+
+        GameObject enxame = TesteUtil.Novo("Enxame (teste)");
+        enxame.transform.SetParent(pneu.transform, false);
+        enxame.transform.localPosition = new Vector3(3f, 5f, 2f);
+        enxame.AddComponent<ParticleSystem>().Simulate(0.5f, true, true);
+
+        pneu.OndeCai(pes, Vector3.forward, 0.3f, out Vector3 comEnxame, out Quaternion giroCom, out Cacamba cacambaCom);
+
+        Assert.IsNull(cacambaSem);
+        Assert.IsNull(cacambaCom, "nenhuma caçamba falsa");
+        Assert.AreEqual(0f, Vector3.Distance(semEnxame, comEnxame), 1e-4f, "mesma posição");
+        Assert.Less(Quaternion.Angle(giroSem, giroCom), 0.01f);
+        Assert.Greater(Vector3.Distance(comEnxame, pes), 0.3f, "à frente, fora do corpo");
+    }
+
+    [Test]
     public void ChuvaNaoReencheNosBracos()
     {
         Pegar();

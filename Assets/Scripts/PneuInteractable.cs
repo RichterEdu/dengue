@@ -95,6 +95,7 @@ public class PneuInteractable : Interactable
     private const float IntervaloDasParticulas = 0.25f;
 
     private OndaDoPneu onda;            // null = ainda não balançou desde que pegou
+    private float nivelGuardado = -1f;  // nível exato ao soltar no meio do esvaziar (< 0 = nenhum)
     private float proximaParticula;
 
     // Raycasts que procuram o chão (para baixo, até esta distância).
@@ -143,6 +144,8 @@ public class PneuInteractable : Interactable
                 return 0f;
             if (onda != null)
                 return onda.Nivel;
+            if (nivelGuardado >= 0f)
+                return nivelGuardado;
             return RequiredClicks > 0 ? Mathf.Clamp01(1f - (float)CurrentClicks / RequiredClicks) : 1f;
         }
     }
@@ -199,7 +202,8 @@ public class PneuInteractable : Interactable
 
         if (onda == null)
         {
-            float nivel = RequiredClicks > 0 ? 1f - (float)CurrentClicks / RequiredClicks : 1f;
+            float nivel = nivelGuardado >= 0f ? nivelGuardado
+                        : RequiredClicks > 0 ? 1f - (float)CurrentClicks / RequiredClicks : 1f;
             onda = new OndaDoPneu(RequiredClicks, periodoDaOnda, amortecimentoDaOnda, ganhoDaOnda, limiarDaBorda,
                                   taxaDeDerrame, grausPorSegundoCheio, nivel);
             proximaParticula = 0f;
@@ -253,6 +257,7 @@ public class PneuInteractable : Interactable
             water.SetActive(false);
         Esvaziar();
         onda = null;
+        nivelGuardado = -1f;
         transform.localPosition = Vector3.zero;
         transform.localRotation = Quaternion.identity;
         return ResultadoDoPasso.Esvaziou;
@@ -280,6 +285,7 @@ public class PneuInteractable : Interactable
             water.SetActive(true);
         currentClicks = 0;
         onda = null;
+        nivelGuardado = -1f;
     }
 
     /* Nasce seco: o pneu já aparece sem água (pegável na hora, como o
@@ -456,7 +462,8 @@ public class PneuInteractable : Interactable
         Quaternion virar = giro * Quaternion.Inverse(transform.rotation);
         foreach (Renderer r in GetComponentsInChildren<Renderer>())
         {
-            if (!r.enabled)
+            // Sem as partículas (o enxame do estágio Mosquito mede centenas de metros).
+            if (!r.enabled || !EmissionHighlightUtil.Destacavel(r))
                 continue;
 
             Bounds caixa = r.localBounds;
@@ -548,6 +555,9 @@ public class PneuInteractable : Interactable
      * hierarquia), mantendo a posição de mundo até ser posicionado. */
     private void Soltar()
     {
+        // O pneu cai com o nível que tinha, e pegar de novo continua dele.
+        if (onda != null)
+            nivelGuardado = onda.Nivel;
         onda = null;
         transform.SetParent(paiOriginal, true);
         Carregado = false;

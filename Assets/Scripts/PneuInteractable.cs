@@ -6,26 +6,40 @@ using UnityEngine;
  *  PneuInteractable.cs
  *  ---------------------------------------------------------------------
  *  Foco do tipo PNEU — herda a base Interactable e adiciona o
- *  comportamento específico: no último passo, a ÁGUA é retirada (o
- *  filho "agua do pneu" é desativado) e o pneu fica Esvaziado. Antes
- *  disso a água continua lá: o pneu que parece vazio está vazio (não
- *  zumbe e a chuva o reenche).
+ *  comportamento específico: o pneu é pego CHEIO, com as Mãos, e esvazia
+ *  NOS BRAÇOS (a água é retirada: o filho "agua do pneu" é desativado e o
+ *  pneu fica Esvaziado). Antes disso a água continua lá: o pneu que parece
+ *  vazio está vazio (não zumbe e a chuva o reenche).
  *
  *  Kit do agente (Parte A): o pneu não conclui sozinho.
- *  - Com as Mãos, o último passo esvazia a água (Esvaziado, Parte B) e
- *    o pneu fica no lugar (Esvaziou). O passo seguinte o põe nos braços
- *    do agente (KitDoAgente.Pegar → PrenderEm): fica no PontoDeCarga,
- *    com os colliders desligados (Carregado). Não encolhe nos passos
- *    (Interactable): é carregado do tamanho dele.
+ *  - Com as Mãos, o clique pega o pneu na hora, cheio ou vazio
+ *    (KitDoAgente.Pegar → PrenderEm): fica no PontoDeCarga, com os
+ *    colliders desligados (Carregado). Não encolhe nos passos
+ *    (Interactable): é carregado do tamanho dele. Não há minigame no chão.
+ *  - Água nos braços: cada pneu da cena tem a água como um disco plano
+ *    deitado, que com o pneu de pé taparia o furo. Por isso ela fica
+ *    escondida nos braços e volta ao largar, se o pneu não esvaziou.
+ *  - Esvaziar nos braços (BalancarNosBracos): o jogador balança o olhar
+ *    para os lados no ritmo da água (OndaDoPneu, a mesma lógica pura de
+ *    antes). O Nivel cai com a água derramando (NivelDeAgua), cada passo
+ *    fechado pela onda é um clique (DarPassoNosBracos) e o último esvazia:
+ *    Esvaziou, a água some e o pneu fica esvaziado nos braços, de pose
+ *    zerada. O visual é só o pneu inclinado em torno da frente do agente
+ *    (e um pouco para o lado), com um estouro de partículas no lado baixo
+ *    ao derramar (só no Play). Largar no meio guarda o nível dos passos já
+ *    fechados; a onda recomeça de lá ao pegar. Os números da onda (período,
+ *    amortecimento, ganho, borda, taxa, graus/s) são calibráveis no
+ *    Inspector.
  *  - Largar: OndeCai() calcula a pose sem mexer no pneu, e Largar()
- *    assenta nela. O pneu cai de pé, com o eixo da roda apontado para a
- *    frente do agente (assim ocupa só a largura da banda na direção dele,
- *    e não o diâmetro), afastado pelo próprio tamanho: a borda de cá fica
- *    fora do corpo do agente. Com um muro ou parede na frente, fica do
- *    lado de cá; sem chão (beira de muro, borda do mapa), cai no pé dele.
- *    Largado, continua sendo foco (alcançável pela mira), e pegar de novo
- *    é instantâneo. Se ele cairia numa caçamba (ou contra a cabine da
- *    picape dela), o KitDoAgente entrega em vez de largar.
+ *    assenta nela. O pneu cai de pé (sem a inclinação do balanço), com o
+ *    eixo da roda apontado para a frente do agente (assim ocupa só a
+ *    largura da banda na direção dele, e não o diâmetro), afastado pelo
+ *    próprio tamanho: a borda de cá fica fora do corpo do agente. Com um
+ *    muro ou parede na frente, fica do lado de cá; sem chão (beira de
+ *    muro, borda do mapa), cai no pé dele. Largado, continua sendo foco
+ *    (alcançável pela mira), e pegar de novo é instantâneo. Se ele cairia
+ *    numa caçamba (ou contra a cabine da picape dela), o KitDoAgente
+ *    entrega em vez de largar.
  *  - EntregarEm() (na caçamba da picape, Parte B) reserva a próxima vaga
  *    da carroceria (VagaNaCacamba) e chama Concluir(): só aí o foco conta
  *    como eliminado. Com vaga, o OnComplete arremessa o pneu num arco
@@ -38,20 +52,8 @@ using UnityEngine;
  *    número do aviso (o pneu recebido 1, 2, 3...) vem da reserva.
  *  - Esvaziado, o pneu já não zumbe (SomDosFocos).
  *  - Esvaziado e fora dos braços (no chão, largado), a chuva o reenche
- *    (Reencher): a água volta e os cliques zeram, e as Mãos esvaziam de
- *    novo. Nos braços, não reenche.
- *
- *  Minigame de balançar: com as Mãos num pneu cheio, o clique começa uma
- *  OndaDoPneu (CriarMinigame) no lugar do segurar. O jogador balança o
- *  olhar para os lados no ritmo da água; o pneu gira em torno do ponto de
- *  apoio no chão (eixo horizontal da câmera ao pneu), a água baixa com o
- *  Nivel e se desloca para o lado baixo, e derramando sai um estouro de
- *  partículas (só no Play). Cada Passo da onda é um AvancarCom, e o último
- *  esvazia. Sair, bloquear, desativar o pneu (OnDisable) e o último passo
- *  devolvem a pose original. O apoio e o lado do respingo vêm só dos
- *  Renderers do pneu (sem partículas nem a água). Os números da onda
- *  (período, amortecimento, ganho, borda, taxa, graus/s) são calibráveis
- *  no Inspector.
+ *    (Reencher): a água volta e os cliques zeram, e dá para pegar e
+ *    esvaziar de novo. Nos braços, não reenche.
  *
  *  No caminho antigo Interact() (sem kit), o último clique conclui o
  *  pneu como antes.
@@ -63,7 +65,7 @@ public class PneuInteractable : Interactable
     [Tooltip("Objeto filho que representa a água parada dentro do pneu.")]
     [SerializeField] private GameObject water;
 
-    [Header("Balançar (minigame)")]
+    [Header("Balançar nos braços")]
     [Tooltip("Segundos de uma oscilação completa da água dentro do pneu (o ritmo certo de balançar).")]
     [SerializeField] private float periodoDaOnda = 0.9f;
 
@@ -82,37 +84,18 @@ public class PneuInteractable : Interactable
     [Tooltip("Graus por segundo de olhar para os lados que contam como balanço máximo.")]
     [SerializeField] private float grausPorSegundoCheio = 180f;
 
-    [Tooltip("Graus que o pneu inclina quando a água está na borda (Inclinacao = 1).")]
+    [Tooltip("Graus que o pneu inclina nos braços quando a água está na borda (Inclinacao = 1).")]
     [SerializeField] private float inclinacaoMaxima = 25f;
 
-    [Tooltip("Metros que a água se desloca para o lado baixo com o pneu na inclinação máxima.")]
-    [SerializeField] private float deslocamentoDaAgua = 0.05f;
-
-    // Minigame de balançar: o pneu gira em torno do ponto de apoio no chão;
-    // a pose do começo é guardada no AoIniciarMinigame e devolvida ao sair,
-    // ao bloquear e no último passo.
-    private const string DicaDeBalancar = "Balance o pneu ← →   |   Botão direito: sair";
-    private const string ConviteDeBalancar = "Clique para balançar o pneu";
+    // Balançar nos braços: o quanto o pneu se desloca para o lado (na direita
+    // do agente) com a onda na borda, o raio do respingo (do centro do pneu ao
+    // lado baixo) e o intervalo entre os estouros de partículas.
+    private const float DeslocamentoLateral = 0.04f;
+    private const float RaioDoRespingo = 0.3f;
     private const float IntervaloDasParticulas = 0.25f;
-    private const float RaioPadraoDoPneu = 0.3f;
 
-    private bool balancando;
-    private Vector3 posicaoInicial;
-    private Quaternion rotacaoInicial;
-    private Vector3 apoio;              // ponto mais baixo do pneu, no chão
-    private Vector3 eixoDeBalanco;      // horizontal, da câmera ao pneu
-    private float raioDoPneu = RaioPadraoDoPneu;
+    private OndaDoPneu onda;            // null = ainda não balançou desde que pegou
     private float proximaParticula;
-
-    /* O apoio e o raio guardados no AoIniciarMinigame (para os testes). */
-    internal Vector3 Apoio => apoio;
-    internal float RaioDoPneu => raioDoPneu;
-
-    // A água cheia (escala e posição locais), lida uma única vez: sair no
-    // meio deixa a escala menor, e a próxima sessão não pode tomá-la por cheia.
-    private bool aguaGuardada;
-    private Vector3 escalaCheiaDaAgua;
-    private Vector3 posicaoCheiaDaAgua;
 
     // Raycasts que procuram o chão (para baixo, até esta distância).
     private const float AlcanceDoChao = 4f;
@@ -150,6 +133,20 @@ public class PneuInteractable : Interactable
      * ou entregue sem vaga livre). */
     public Transform VagaNaCacamba { get; private set; }
 
+    /* Quanta água ainda há (1 cheio .. 0 vazio): 0 esvaziado; com a onda
+     * ativa, o Nivel dela; senão, o que os passos já fechados deixaram. */
+    public float NivelDeAgua
+    {
+        get
+        {
+            if (Esvaziado)
+                return 0f;
+            if (onda != null)
+                return onda.Nivel;
+            return RequiredClicks > 0 ? Mathf.Clamp01(1f - (float)CurrentClicks / RequiredClicks) : 1f;
+        }
+    }
+
     /* Nos braços não é alvo. Esvaziado, continua alvo (para pegar de novo)
      * mesmo com os cliques já no total; antes disso, vale a regra da base. */
     public override bool CanInteract => !IsComplete && !Carregado && (Esvaziado || base.CanInteract);
@@ -160,190 +157,111 @@ public class PneuInteractable : Interactable
     /* Esvaziado, pegar de novo é na hora (0 = um passo por aperto). */
     public override float SegundosPorPasso => Esvaziado ? 0f : base.SegundosPorPasso;
 
+    /* Com kit, o clique só pega o pneu: na hora. */
+    public override float SegundosPorPassoCom(KitDoAgente kit) => kit != null ? 0f : SegundosPorPasso;
+
     /* Nos braços a chuva não reenche: só no chão (no lugar ou largado). */
     public override bool PodeReencher => base.PodeReencher && !Carregado;
 
     /* O último passo só esvazia o pneu; quem conclui é o Entregar. */
     protected override bool ConcluiSozinho => false;
 
-    /* Já esvaziado, pegar é um passo só, sem clique a mais. Senão, o passo
-     * normal da base, que no último esvazia o pneu no lugar (Esvaziou). */
+    /* Com kit, o clique pega o pneu na hora (cheio ou vazio). Sem kit, o
+     * passo normal da base (caminho antigo). */
     public override ResultadoDoPasso AvancarCom(KitDoAgente kit)
     {
-        if (Esvaziado)
-        {
-            ResultadoDoPasso conferido = Verificar(kit);
-            if (conferido != ResultadoDoPasso.Avancou)
-                return conferido;
+        if (kit == null || Carregado)
+            return base.AvancarCom(kit);
 
-            // Sem kit não há braços para onde ir.
-            return kit != null && kit.Pegar(this) ? ResultadoDoPasso.Pegou : ResultadoDoPasso.Bloqueado;
-        }
+        ResultadoDoPasso conferido = Verificar(kit);
+        if (conferido != ResultadoDoPasso.Avancou)
+            return conferido;
 
-        ResultadoDoPasso resultado = base.AvancarCom(kit);
-        if (resultado == ResultadoDoPasso.Avancou && Esvaziado)
-            return ResultadoDoPasso.Esvaziou;
-        return resultado;
+        return kit.Pegar(this) ? ResultadoDoPasso.Pegou : ResultadoDoPasso.Bloqueado;
     }
 
-    /* Minigame de balançar: as Mãos num pneu cheio. Fábrica pura. */
-    public override IMinigame CriarMinigame(KitDoAgente kit, int semente)
-    {
-        if (!TemMinigame(kit))
-            return null;
+    /* Sem minigame no chão: o pneu esvazia nos braços. */
+    public override IMinigame CriarMinigame(KitDoAgente kit, int semente) => null;
 
-        // Retomada: continua do nível dos passos já fechados.
-        float nivel = RequiredClicks > 0 ? 1f - (float)CurrentClicks / RequiredClicks : 1f;
-        return new OndaDoPneu(RequiredClicks, periodoDaOnda, amortecimentoDaOnda, ganhoDaOnda, limiarDaBorda,
-                              taxaDeDerrame, grausPorSegundoCheio, nivel);
-    }
+    public override string ConviteDoMinigame(KitDoAgente kit) => null;
 
-    public override string ConviteDoMinigame(KitDoAgente kit) => TemMinigame(kit) ? ConviteDeBalancar : null;
-
-    private bool TemMinigame(KitDoAgente kit)
-    {
-        return kit != null && kit.Selecionada == Ferramenta.Maos && !Esvaziado;
-    }
-
-    public override string DicaDoMinigame => DicaDeBalancar;
-
-    /* Esvaziado, não há o que balançar (pegar é na hora). */
+    /* Esvaziar nos braços leva uns segundos de balanço. */
     public override float SegundosEstimados => Esvaziado ? 0f : 6f;
 
-    /* Guarda o começo: a pose, o ponto de apoio (o mais baixo dos Renderers
-     * do pneu: sem as partículas, como o enxame de mosquitos do estágio
-     * Mosquito, ver EmissionHighlightUtil.Destacavel, e sem a água), o eixo
-     * do balanço (horizontal, da câmera ao pneu: o pneu balança para os
-     * lados, como o jogador vê) e a água cheia. Uma sessão anterior ainda
-     * marcada (acabou sem gancho) devolve a pose antes. */
-    public override void AoIniciarMinigame(IMinigame sessao)
+    /* Todo quadro com o pneu nos braços: o olhar horizontal do quadro
+     * (graus) empurra a onda; derramando, o Nivel cai e cada passo fechado
+     * é um clique. dt ≤ 0, pneu fora dos braços ou esvaziado: nada.
+     * frenteDoAgente é o eixo da inclinação (o transform.forward do Player). */
+    internal void BalancarNosBracos(float dt, float olharX, Vector3 frenteDoAgente)
     {
-        RestaurarPose();
-        posicaoInicial = transform.position;
-        rotacaoInicial = transform.rotation;
-
-        Bounds caixa = default;
-        bool temCaixa = false;
-        foreach (Renderer r in GetComponentsInChildren<Renderer>())
-        {
-            if (!EmissionHighlightUtil.Destacavel(r) || (water != null && r.transform.IsChildOf(water.transform)))
-                continue;
-            if (!temCaixa)
-                caixa = r.bounds;
-            else
-                caixa.Encapsulate(r.bounds);
-            temCaixa = true;
-        }
-        apoio = temCaixa ? new Vector3(caixa.center.x, caixa.min.y, caixa.center.z) : posicaoInicial;
-        raioDoPneu = temCaixa ? Mathf.Max(caixa.extents.x, caixa.extents.z) : RaioPadraoDoPneu;
-
-        Vector3 eixo = Vector3.forward;
-        Camera camera = Camera.main;
-        if (camera != null)
-        {
-            Vector3 dir = posicaoInicial - camera.transform.position;
-            dir.y = 0f;
-            if (dir.sqrMagnitude > 1e-6f)
-                eixo = dir.normalized;
-        }
-        eixoDeBalanco = eixo;
-
-        if (water != null && !aguaGuardada)
-        {
-            escalaCheiaDaAgua = water.transform.localScale;
-            posicaoCheiaDaAgua = water.transform.localPosition;
-            aguaGuardada = true;
-        }
-        proximaParticula = 0f;
-        balancando = true;
-    }
-
-    /* Todo quadro: gira o pneu em torno do apoio, afunda a água com o Nivel e
-     * a desloca para o lado baixo; derramando, solta partículas no lado baixo. */
-    public override void AoAtualizarMinigame(IMinigame sessao)
-    {
-        if (!balancando || !(sessao is OndaDoPneu onda))
+        if (!Carregado || Esvaziado || !(dt > 0f))
             return;
 
-        float angulo = Mathf.Clamp(onda.Inclinacao * inclinacaoMaxima, -inclinacaoMaxima, inclinacaoMaxima);
-        Quaternion giro = Quaternion.AngleAxis(angulo, eixoDeBalanco);
-        transform.SetPositionAndRotation(apoio + giro * (posicaoInicial - apoio), giro * rotacaoInicial);
-
-        // Girar o eixo para cima inclina o topo para o lado de Cross(eixo, cima):
-        // esse lado desce com a inclinação positiva.
-        Vector3 ladoBaixo = Vector3.Cross(eixoDeBalanco, Vector3.up).normalized * Mathf.Sign(onda.Inclinacao);
-
-        if (water != null && aguaGuardada)
+        if (onda == null)
         {
-            Vector3 escala = escalaCheiaDaAgua;
-            escala.y *= onda.Nivel;
-            water.transform.localScale = escala;
-
-            Vector3 deslocamento = ladoBaixo * (deslocamentoDaAgua * Mathf.Min(1f, Mathf.Abs(onda.Inclinacao)));
-            Transform pai = water.transform.parent;
-            if (pai != null)
-                deslocamento = pai.InverseTransformVector(deslocamento);
-            water.transform.localPosition = posicaoCheiaDaAgua + deslocamento;
+            float nivel = RequiredClicks > 0 ? 1f - (float)CurrentClicks / RequiredClicks : 1f;
+            onda = new OndaDoPneu(RequiredClicks, periodoDaOnda, amortecimentoDaOnda, ganhoDaOnda, limiarDaBorda,
+                                  taxaDeDerrame, grausPorSegundoCheio, nivel);
+            proximaParticula = 0f;
         }
 
-        // Partículas só no Play: o EstourarParticulas destrói com atraso, o
-        // que o EditMode não permite.
+        EstadoDoMinigame estado = onda.Atualizar(dt, new EntradaDoMinigame { Olhar = new Vector2(olharX, 0f) });
+        if (estado == EstadoDoMinigame.Passo && DarPassoNosBracos() == ResultadoDoPasso.Esvaziou)
+            return;     // já voltou à pose zerada
+
+        AplicarBalanco(frenteDoAgente);
+    }
+
+    /* O pneu inclinado em torno da frente do agente, sobre o giro do pai
+     * (o PontoDeCarga), e levado um pouco para o lado; derramando, estoura
+     * partículas no lado baixo (só no Play: o EstourarParticulas destrói
+     * com atraso, o que o EditMode não permite). */
+    private void AplicarBalanco(Vector3 frenteDoAgente)
+    {
+        Transform pai = transform.parent;
+        Quaternion giroDoPai = pai != null ? pai.rotation : Quaternion.identity;
+        Vector3 centro = pai != null ? pai.position : transform.position;
+
+        Vector3 frente = frenteDoAgente.sqrMagnitude > 1e-6f ? frenteDoAgente.normalized : Vector3.forward;
+        float angulo = Mathf.Clamp(onda.Inclinacao * inclinacaoMaxima, -inclinacaoMaxima, inclinacaoMaxima);
+        Vector3 direita = Vector3.Cross(Vector3.up, frente).normalized;
+        float lado = Mathf.Clamp(onda.Inclinacao, -1f, 1f);
+
+        transform.SetPositionAndRotation(centro + direita * (DeslocamentoLateral * lado),
+                                         Quaternion.AngleAxis(angulo, frente) * giroDoPai);
+
         if (onda.Derramando && Application.isPlaying && Time.time >= proximaParticula)
         {
             proximaParticula = Time.time + IntervaloDasParticulas;
-            EstourarParticulas(transform.position + ladoBaixo * raioDoPneu);
+
+            // Girar o eixo para cima inclina o topo para o lado de Cross(eixo, cima):
+            // esse lado desce com a inclinação positiva.
+            Vector3 ladoBaixo = Vector3.Cross(frente, Vector3.up).normalized * Mathf.Sign(onda.Inclinacao);
+            EstourarParticulas(transform.position + ladoBaixo * RaioDoRespingo);
         }
     }
 
-    /* Saída voluntária ou bloqueio: pose original, e a água no nível dos
-     * passos já dados. */
-    public override void AoSairDoMinigame()
+    /* Soma um passo de esvaziar nos braços. No último, a água sai (some), o
+     * pneu fica Esvaziado e a pose nos braços volta a zero. */
+    internal ResultadoDoPasso DarPassoNosBracos()
     {
-        if (!balancando)
-            return;
+        currentClicks++;
+        if (currentClicks < RequiredClicks)
+            return ResultadoDoPasso.Avancou;
 
-        RestaurarPose();
-        if (water != null && aguaGuardada)
-        {
-            Vector3 escala = escalaCheiaDaAgua;
-            escala.y *= RequiredClicks > 0 ? Mathf.Clamp01(1f - (float)CurrentClicks / RequiredClicks) : 1f;
-            water.transform.localScale = escala;
-        }
+        if (water != null)
+            water.SetActive(false);
+        Esvaziar();
+        onda = null;
+        transform.localPosition = Vector3.zero;
+        transform.localRotation = Quaternion.identity;
+        return ResultadoDoPasso.Esvaziou;
     }
 
-    /* Desativado no meio do balanço (fim de partida, foco desligado): o
-     * Interactor encerra a sessão sem gancho nenhum, então a pose original
-     * (e a água no nível dos passos dados) volta aqui. Internal para os
-     * testes: no EditMode o Unity não manda o OnDisable a este script. */
-    internal void OnDisable()
-    {
-        AoSairDoMinigame();
-    }
-
-    /* Pose original e água cheia (escala e posição). Encerra o balanço. */
-    private void RestaurarPose()
-    {
-        if (!balancando)
-            return;
-
-        balancando = false;
-        transform.SetPositionAndRotation(posicaoInicial, rotacaoInicial);
-        if (water != null && aguaGuardada)
-        {
-            water.transform.localScale = escalaCheiaDaAgua;
-            water.transform.localPosition = posicaoCheiaDaAgua;
-        }
-    }
-
-    /* Último passo: a água sai e o pneu fica no lugar, Esvaziado (pegar é
-     * o próximo passo). No caminho antigo (kit null) conclui na hora, como
-     * antes do kit. */
+    /* Último passo do caminho antigo (kit null): a água sai e conclui na
+     * hora, como antes do kit. */
     protected override void AoTerminarAcao(KitDoAgente kit)
     {
-        // O Interactor encerra a sessão aqui sem chamar o AoSairDoMinigame:
-        // a pose original e a água cheia (para o Reencher) voltam já.
-        RestaurarPose();
-
         // A água sai antes do Esvaziar: quem ouve o OnEsvaziado já vê o
         // pneu sem água.
         if (water != null)
@@ -354,22 +272,18 @@ public class PneuInteractable : Interactable
             Concluir();
     }
 
-    /* Reenchido (a chuva): a água volta e os cliques zeram, para as Mãos
-     * esvaziarem de novo (sem isso o CanInteract ficaria falso de vez). */
+    /* Reenchido (a chuva): a água volta e os cliques zeram, para dar para
+     * pegar e esvaziar de novo (sem isso o CanInteract ficaria falso de vez). */
     protected override void AoReencher()
     {
         if (water != null)
-        {
-            // Sair no meio de um balanço deixa a água na escala parcial.
-            if (aguaGuardada)
-                water.transform.localScale = escalaCheiaDaAgua;
             water.SetActive(true);
-        }
         currentClicks = 0;
+        onda = null;
     }
 
     /* Nasce seco: o pneu já aparece sem água (pegável na hora, como o
-     * esvaziado — a chuva o enche, e as Mãos o esvaziam de novo). */
+     * esvaziado — a chuva o enche, e dá para esvaziá-lo de novo). */
     protected override void AoNascerVazio()
     {
         if (water != null)
@@ -377,9 +291,14 @@ public class PneuInteractable : Interactable
     }
 
     /* Vai para os braços: guarda de onde veio, desliga os colliders (não
-     * empurra o agente nem bloqueia a mira) e vira filho do ponto. */
+     * empurra o agente nem bloqueia a mira), esconde a água (o disco deitado
+     * taparia o furo com o pneu de pé; ela volta ao Largar) e vira filho do
+     * ponto. A onda recomeça do nível dos passos já fechados. */
     internal void PrenderEm(Transform ponto)
     {
+        onda = null;
+        if (water != null)
+            water.SetActive(false);
         paiOriginal = transform.parent;
         rotacaoOriginal = transform.rotation;
 
@@ -499,6 +418,8 @@ public class PneuInteractable : Interactable
     internal void Largar(Vector3 posicao, Quaternion giro)
     {
         Soltar();
+        if (water != null)
+            water.SetActive(!Esvaziado);
         transform.SetPositionAndRotation(posicao, giro);
         ReligarColliders();
     }
@@ -627,6 +548,7 @@ public class PneuInteractable : Interactable
      * hierarquia), mantendo a posição de mundo até ser posicionado. */
     private void Soltar()
     {
+        onda = null;
         transform.SetParent(paiOriginal, true);
         Carregado = false;
     }

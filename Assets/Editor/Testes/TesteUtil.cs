@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -96,6 +97,23 @@ public static class TesteUtil
         }
 
         so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /* O pneu pego cheio pelas Mãos e esvaziado nos braços (todos os passos de
+     * DarPassoNosBracos). Com 'largar', ele volta ao chão onde estava, esvaziado
+     * e fora dos braços (sem chão embaixo, o Largar o põe no mesmo lugar). */
+    public static void EsvaziarPneu(PneuInteractable pneu, KitDoAgente kit, bool largar = true)
+    {
+        Vector3 pes = pneu.transform.position;
+        if (kit.PneuCarregado != pneu)
+            Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "as Mãos pegam o pneu cheio");
+
+        for (int i = 0; i < 100 && !pneu.Esvaziado; i++)
+            pneu.DarPassoNosBracos();
+        Assert.IsTrue(pneu.Esvaziado, "o pneu esvaziou nos braços");
+
+        if (largar)
+            Assert.IsTrue(kit.LargarPneu(pes, Vector3.forward), "o pneu esvaziado volta ao chão");
     }
 
     /* Destrói tudo o que Novo/Com criaram (os já destruídos são ignorados). */

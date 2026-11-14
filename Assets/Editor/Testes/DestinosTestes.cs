@@ -536,14 +536,24 @@ public class DestinosTestes
         agua.transform.SetParent(pneu.transform, false);
         TesteUtil.Setar(pneu, "water", agua);
 
+        Vector3 pes = pneu.transform.position;
+        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit));
+        Assert.IsFalse(agua.activeSelf, "escondida nos braços");
+
         for (int i = 1; i <= 4; i++)
         {
-            Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.AvancarCom(kit), $"{i}º passo");
-            Assert.IsTrue(agua.activeSelf, $"{i}º passo: ainda com água");
+            Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.DarPassoNosBracos(), $"{i}º passo");
             Assert.IsFalse(pneu.Esvaziado);
         }
 
-        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.AvancarCom(kit), "5º passo");
+        // Cheio, largado: a água volta (o pneu parece vazio mas conta como cheio).
+        Assert.IsTrue(kit.LargarPneu(pes, Vector3.forward));
+        Assert.IsTrue(agua.activeSelf, "largado ainda cheio, a água volta");
+
+        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit));
+        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.DarPassoNosBracos(), "5º passo");
         Assert.IsFalse(agua.activeSelf, "esvaziado, sem água");
+        Assert.IsTrue(kit.LargarPneu(pes, Vector3.forward));
+        Assert.IsFalse(agua.activeSelf, "largado esvaziado, sem água");
     }
 }

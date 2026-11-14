@@ -75,13 +75,11 @@ public class PneuCarregarTestes
         TesteUtil.LimparTudo();
     }
 
-    /* Os dois passos com as Mãos esvaziam o pneu no lugar; o terceiro o
-     * põe nos braços. */
+    /* As Mãos pegam o pneu cheio e o esvaziam nos braços: fica carregado e
+     * esvaziado. */
     private void PegarNasMaos()
     {
-        pneu.AvancarCom(kit);
-        pneu.AvancarCom(kit);
-        pneu.AvancarCom(kit);
+        TesteUtil.EsvaziarPneu(pneu, kit, false);
     }
 
     /* Chão de teste de 20 × 20 m, com o topo na altura dos pés. */
@@ -152,9 +150,7 @@ public class PneuCarregarTestes
         int pegos = 0;
         kit.OnPneuPego += p => pegos++;
 
-        Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.AvancarCom(kit), "1º passo");
-        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.AvancarCom(kit), "2º passo: esvazia no lugar");
-        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "o passo seguinte: vai para os braços");
+        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "o clique pega o pneu cheio");
 
         Assert.AreSame(pneu, kit.PneuCarregado);
         Assert.IsFalse(pneu.IsComplete, "só conclui na caçamba");
@@ -329,10 +325,10 @@ public class PneuCarregarTestes
         RodarStart(pneu);
         Physics.SyncTransforms();
 
+        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "o clique pega o pneu cheio");
         for (int i = 1; i <= 4; i++)
-            Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.AvancarCom(kit), $"{i}º passo");
-        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.AvancarCom(kit), "5º passo: esvazia no lugar");
-        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "o passo seguinte: vai para os braços");
+            Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.DarPassoNosBracos(), $"{i}º passo");
+        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.DarPassoNosBracos(), "5º passo: esvazia nos braços");
         AssertEscala(escalaInicial, "nos braços");
 
         Assert.IsTrue(kit.LargarPneu(pes, Vector3.forward));

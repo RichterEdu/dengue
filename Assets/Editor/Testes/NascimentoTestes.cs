@@ -140,6 +140,7 @@ public class NascimentoTestes
     [Test]
     public void ComAguaNoNascimento_ContagemFixa()
     {
+        TesteUtil.Setar(gerenciador, "fracaoNascendoComAgua", 0.1f);   // o padrão agora é 0,5
         Assert.AreEqual(2, gerenciador.ComAguaNoNascimento(18), "round(0,1 × 18)");
         Assert.AreEqual(1, gerenciador.ComAguaNoNascimento(10), "no mínimo 1");
         Assert.AreEqual(1, gerenciador.ComAguaNoNascimento(1));

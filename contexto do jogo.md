@@ -3403,3 +3403,24 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 **Observações técnicas:**
 - **Causa provável da bromélia:** o raio de acerto do borrifador caiu para cerca de 0,5° no prefab real, na revisão dos minigames. A proposta é cerca de 2,5°.
 - **Mudança não minha no disco:** havia uma alteração em `LiberationSans SDF - Fallback.asset`, que deixei como estava.
+
+### 2026-11-13 — Pneu: pegar com água e esvaziar nos braços (Task 1)
+
+**Objetivo:** o pneu deixa de ter o minigame de balançar no chão. As Mãos o pegam cheio na hora e ele esvazia nos braços, com a mesma `OndaDoPneu`.
+
+**Arquivos alterados:**
+- `Assets/Scripts/PneuInteractable.cs`: sai o minigame no chão (`CriarMinigame` e `ConviteDoMinigame` devolvem null; somem `AoIniciarMinigame`, `AoAtualizarMinigame`, `AoSairDoMinigame`, `OnDisable`, `RestaurarPose`, `Apoio`, `RaioDoPneu`, os campos de apoio e eixo e `deslocamentoDaAgua`). Entram `NivelDeAgua`, `BalancarNosBracos(dt, olharX, frenteDoAgente)` e `DarPassoNosBracos()`.
+- `Assets/Editor/Testes/PneuNosBracosTestes.cs` (novo, categoria `Minigames`, 12 testes) no lugar de `PneuBalancarTestes.cs` (apagado).
+- Ajustes mínimos em testes que esvaziavam o pneu no chão: `TesteUtil.cs` (novo `EsvaziarPneu`), `PneuEsvaziarTestes.cs`, `PneuCarregarTestes.cs`, `DestinosTestes.cs`, `GerenciadorDeFocosTestes.cs`, `SonsNovosTestes.cs`. Em `NascimentoTestes.cs`, o teste de contagem passa a fixar a fração em 0,1 (estava quebrado desde o padrão 0,5).
+
+**Comportamento:**
+- `AvancarCom(kit)` com kit e pneu fora dos braços: pega na hora, cheio ou vazio (`Pegou`); `SegundosPorPassoCom(kit)` é 0.
+- `PrenderEm` esconde a água (o disco deitado taparia o furo com o pneu de pé) e zera a onda; `Largar` devolve a água se o pneu não esvaziou; `EntregarEm` zera a onda.
+- `BalancarNosBracos` só age com o pneu nos braços e cheio: cria a onda do nível dos passos já fechados, cada `Passo` vira `DarPassoNosBracos()` (o último esvazia, esconde a água e zera a pose). Visual: inclina em torno da frente do agente (até `inclinacaoMaxima`) e desloca 0,04 m para a direita do agente; derramando, estouro de partículas no lado baixo a cada 0,25 s, só no Play.
+- `NivelDeAgua`: 0 esvaziado; com a onda ativa, o `Nivel` dela; senão, `1 − cliques/total`.
+
+**Observações técnicas:**
+- Nada chama `BalancarNosBracos` ainda: o `Interactor` repassa o olhar na Task 2. Até lá, o pneu pego não esvazia no jogo.
+- `OnClicado` e o punch não disparam nos passos nos braços (o `DarPasso` da base é privado); os sons dos passos do pneu ficam para as tarefas seguintes, se forem desejados.
+- O ritmo do teste usa 5° por quadro (a entrada satura em ±1); com 3°, a onda levaria cerca de 12 s para esvaziar 2 passos.
+- Suíte EditMode inteira: 529 testes, todos passando.

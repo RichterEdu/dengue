@@ -296,10 +296,8 @@ public class GerenciadorDeFocosTestes
         kit.PontoDeCarga = TesteUtil.Novo("Ponto de carga (teste)").transform;
         gerenciador.Registrar(new Interactable[] { pneu });
 
-        pneu.AvancarCom(kit);
-        pneu.AvancarCom(kit);
-        Assert.IsTrue(pneu.Esvaziado, "os 2 passos com as Mãos esvaziam o pneu");
-        Assert.IsTrue(kit.Pegar(pneu), "o pneu vai para os braços");
+        TesteUtil.EsvaziarPneu(pneu, kit, false);
+        Assert.AreSame(pneu, kit.PneuCarregado, "o pneu esvaziou nos braços");
         int reenchidos = 0;
         gerenciador.OnFocoReenchido += f => reenchidos++;
 

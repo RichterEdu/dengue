@@ -396,6 +396,13 @@ public class SonsNovosTestes
     /* Os passos das Mãos até a água sair (o kit começa nelas). */
     private static void EsvaziarComAsMaos(Interactable foco, KitDoAgente kit)
     {
+        // O pneu esvazia nos braços; largado, volta ao chão onde estava.
+        if (foco is PneuInteractable pneu)
+        {
+            TesteUtil.EsvaziarPneu(pneu, kit);
+            return;
+        }
+
         for (int i = 0; i < 20 && !foco.Esvaziado; i++)
             foco.AvancarCom(kit);
         Assert.IsTrue(foco.Esvaziado, "o foco tinha que ficar esvaziado");
@@ -441,7 +448,7 @@ public class SonsNovosTestes
     }
 
     /* O splash do esvaziar sai de onde o foco está agora: o pool só alcança
-     * 30 m, e o pneu pode ter sido levado para longe. */
+     * 30 m, e o pneu esvazia nos braços do agente, longe de onde nasceu. */
     [Test]
     public void Esvaziar_TocaNoLugarAtualDoFoco()
     {
@@ -452,7 +459,7 @@ public class SonsNovosTestes
         som.Ligar();
 
         Vector3 lugarNovo = SemChao + Vector3.right * 60f;
-        pneu.transform.position = lugarNovo;
+        kit.transform.position = lugarNovo;   // sem PontoDeCarga, o pneu fica preso ao kit
         EsvaziarComAsMaos(pneu, kit);
 
         Assert.AreEqual(lugarNovo, som.transform.Find("Clique 1").position, "o som sai de onde o pneu está agora");

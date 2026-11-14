@@ -495,16 +495,21 @@ public class BromeliaBorrifarTestes
     }
 
     [Test]
-    public void PrefabReal_MirarOCentroESegurarSecaNoMaximoUma()
+    public void PrefabReal_MirarPertoDeCadaPocinhaSeca()
     {
-        Vector3 o = MontarPrefabReal();
+        Vector3 o = MontarPrefabReal();   // pocinhas a 1,5 m
         Vector2 olhar = AngulosNoMundo(pocas[4].transform.position - o);
         MiraDoBorrifador m = bromelia.CriarMira(o, olhar.x, olhar.y);
 
-        for (int i = 0; i < 600; i++)   // 10 s parado no centro
-            Frame(m, Vector2.zero, true);
+        for (int k = 0; k < 5; k++)
+        {
+            Vector2 alvo = MiraPara(pocas[k].transform.position, o, olhar) + new Vector2(2f, 0f);   // 2° ao lado
+            Frame(m, new Vector2(alvo.x - m.Mira.x, -(alvo.y - m.Mira.y)), false);
+            for (int i = 0; i < 1800; i++)
+                Frame(m, Vector2.zero, true);
+        }
 
-        Assert.LessOrEqual(m.Secas, 1, "um ponto de mira não pode alcançar duas pocinhas");
+        Assert.AreEqual(5, m.Secas, "mirar perto (2°) de cada pocinha e segurar seca todas");
     }
 
     [Test]

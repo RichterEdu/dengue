@@ -3450,3 +3450,17 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 
 **Observações técnicas:**
 - Sem alocação de string por quadro: o texto só é montado quando o percentual muda.
+
+### 2026-11-13 — Bromélia: raio de acerto fixo de 2,5° (Task 4)
+
+**Objetivo:** tornar a bromélia mais fácil de tratar. O raio calculado (0,45 × a menor distância entre pocinhas) dava cerca de 0,5° no prefab real e exigia precisão de pixel.
+
+**Arquivos alterados:**
+- `Assets/Scripts/BromeliaInteractable.cs`: `raioDeAcerto` passa a 2,5 (graus, cerca do tamanho de uma pocinha na tela) e `CriarMira` o usa direto; tooltip e cabeçalho atualizados.
+- `Assets/Scripts/MiraDoBorrifador.cs`: removidos `RaioParaAsPocinhas` e suas constantes; cabeçalho descreve o raio fixo.
+- Testes: `BromeliaBorrifarTestes.PrefabReal_MirarPertoDeCadaPocinhaSeca` (2° ao lado de cada pocinha a 1,5 m, segurar seca todas) substitui `PrefabReal_MirarOCentroESegurarSecaNoMaximoUma`; saiu `MiraDoBorrifadorTestes.RaioParaAsPocinhas_NaoAlcancaDuas`.
+
+**Observações técnicas:**
+- Continua secando uma pocinha por vez (a mais próxima dentro do raio); de longe um ponto de mira pode alcançar duas vizinhas, o que foi aceito.
+- Nem o prefab `Bromelia.prefab` nem a `SampleScene` sobrescrevem `raioDeAcerto`.
+- Suíte EditMode inteira: 536 testes, todos passando.

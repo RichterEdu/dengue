@@ -19,9 +19,9 @@ using UnityEngine;
  *  MiraDoBorrifador (CriarMinigame) no lugar do segurar. O jogador aponta
  *  o borrifador para cada pocinha ATIVA e segura até ela secar; a sessão
  *  vê as pocinhas pelos ângulos (yaw, pitch) de mundo a partir do olho da
- *  câmera, menos o olhar do começo (CriarMira), com um raio de acerto que
- *  não deixa um ponto de mira alcançar duas pocinhas (raioDeAcerto no
- *  máximo). A última de 'pocas' é o copo central,
+ *  câmera, menos o olhar do começo (CriarMira), com um raio de acerto fixo
+ *  (raioDeAcerto, 2,5°: cerca de uma pocinha na tela; de longe um ponto de
+ *  mira pode alcançar duas vizinhas, e seca a mais próxima). A última de 'pocas' é o copo central,
  *  que demora mais. A cada quadro a pocinha encolhe no X e no Z com a
  *  Umidade e, seca, some (AoAtualizarMinigame). Com a sessão, o passo não
  *  seca na ordem fixa; o passo que conclui seca o que sobrou. Sair guarda
@@ -56,8 +56,8 @@ public class BromeliaInteractable : Interactable
     [Tooltip("Segundos borrifando para secar o copo central (a última de 'pocas').")]
     [SerializeField] private float segundosDoCopoCentral = 1.2f;
 
-    [Tooltip("Graus (no máximo) entre a mira e a pocinha para o jato acertar. Cada sessão usa menos se duas pocinhas estiverem perto (0,45 × a menor distância entre elas, mínimo 0,3°).")]
-    [SerializeField] private float raioDeAcerto = 1.5f;
+    [Tooltip("Graus entre a mira e a pocinha para o jato acertar (cerca do tamanho de uma pocinha na tela). Seca a mais próxima dentro do raio.")]
+    [SerializeField] private float raioDeAcerto = 2.5f;
 
     [Tooltip("Graus que a mira pode se afastar do olhar do começo (cresce se alguma pocinha estiver mais longe).")]
     [SerializeField] private float coneDaMira = 30f;
@@ -124,8 +124,8 @@ public class BromeliaInteractable : Interactable
      * abaixo, como o ControladorJogador.Pitch) menos o olhar do começo: é a
      * Mira que o Interactor soma ao yaw/pitch do começo (DefinirOlhar) para
      * a câmera apontar para ela, com qualquer pitch inicial. A Mira.y fica
-     * dentro dos limites do pitch; o raio de acerto, o da geometria
-     * (MiraDoBorrifador.RaioParaAsPocinhas). Os passos são os que faltam. */
+     * dentro dos limites do pitch; o raio de acerto, o fixo
+     * (raioDeAcerto). Os passos são os que faltam. */
     internal MiraDoBorrifador CriarMira(Vector3 olho, float yawInicial, float pitchInicial,
                                         float pitchMinimo = -90f, float pitchMaximo = 90f)
     {
@@ -148,7 +148,7 @@ public class BromeliaInteractable : Interactable
         Vector2[] noCone = angulos.ToArray();
         int passos = Mathf.Max(1, RequiredClicks - CurrentClicks);
         return new MiraDoBorrifador(noCone, segundos.ToArray(), passos, coneDaMira,
-                                    MiraDoBorrifador.RaioParaAsPocinhas(noCone, raioDeAcerto),
+                                    raioDeAcerto,
                                     pitchMinimo - pitchInicial, pitchMaximo - pitchInicial, sensibilidadeDaMira);
     }
 

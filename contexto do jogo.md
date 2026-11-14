@@ -3384,3 +3384,22 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - Mais focos molhados aumentam a pressão do hospital: o balanceamento não foi recalibrado. Rodar Dengue > Simular Balanceamento.
 - O salvamento da cena pelo Editor levou junto cerca de 70 linhas de outras mudanças de serialização, não inspecionadas.
 - Verificado em Play antes da mudança: o minigame do pneu roda de ponta a ponta (convite, sessão, 5 passos em 5,47 s com entrada simulada no ritmo, pose devolvida).
+
+
+### 2026-11-13 — Design: pneu esvaziado nos braços e bromélia mais fácil
+
+**Objetivo (pedido do usuário):** depois de jogar, mudar duas coisas.
+- **Pneu:** pegar o pneu com água nos braços e tirar a água movendo a câmera; quanto mais água, mais lento o agente anda.
+- **Bromélia:** ficou difícil de tratar.
+
+**Arquivos novos:**
+- `docs/superpowers/specs/2026-11-13-pneu-nos-bracos-design.md`, aprovado pelo usuário.
+- `docs/superpowers/plans/2026-11-13-pneu-nos-bracos.md`, com 5 tarefas.
+
+**Mudança no design depois da aprovação:** a água fica escondida com o pneu nos braços. O disco de água de cada pneu é plano e, com o pneu de pé, taparia o furo.
+
+**Nenhum script, cena ou asset foi alterado nesta entrada.**
+
+**Observações técnicas:**
+- **Causa provável da bromélia:** o raio de acerto do borrifador caiu para cerca de 0,5° no prefab real, na revisão dos minigames. A proposta é cerca de 2,5°.
+- **Mudança não minha no disco:** havia uma alteração em `LiberationSans SDF - Fallback.asset`, que deixei como estava.

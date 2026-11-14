@@ -3445,7 +3445,7 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 
 **Arquivos alterados:**
 - `Assets/Scripts/KitHUD.cs`: `TextoLinhaPneuComAgua(pct)` (internal); `TextoDaLinha` devolve esse texto com o pneu nos braços não esvaziado (percentual = `RoundToInt(NivelDeAgua·100)`) e `TextoLinhaPneu` com ele esvaziado. O `Update` compara uma chave inteira (percentual, -1 esvaziado, -2 tampa, -3 sem linha) e só reescreve o texto quando ela muda (a água cai sem `OnMudou`, e o esvaziar também não dispara).
-- `Assets/Scripts/DengueHUD.cs`: `AcaoPegarPneu` ("Pegar o pneu"); `AcaoDoFoco` passa a `internal` e, num `PneuInteractable` não esvaziado com as Mãos, devolve `AcaoPegarPneu`.
+- `Assets/Scripts/DengueHUD.cs`: `AcaoPegarPneu` ("Clique para pegar o pneu"); `AcaoDoFoco` passa a `internal` e, num `PneuInteractable` não esvaziado com as Mãos, devolve `AcaoPegarPneu`.
 - Testes: `KitHUDTestes.LinhaDeCarga_PneuComAgua` e `PneuNosBracosTestes.AcaoNoPneuCheioEhPegar`.
 
 **Observações técnicas:**

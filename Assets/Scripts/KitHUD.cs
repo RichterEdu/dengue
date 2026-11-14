@@ -59,7 +59,7 @@ public class KitHUD : MonoBehaviour
     private static readonly Color CorNome = new Color(1f, 1f, 1f, 0.85f);
 
     internal const string TextoLinhaPneu = "Carregando pneu. Leve à <b>picape da UPA</b>. [Shift] corre. [Botão direito] larga.";
-    private const string FormatoLinhaPneuComAgua = "Carregando pneu com <b>{0}%</b> de água. Balance o olhar para derramar. [Botão direito] larga.";
+    private const string FormatoLinhaPneuComAgua = "Pneu com água ({0}%): balance a câmera para esvaziar. [Botão direito] larga.";
     internal const string TextoLinhaTampa = "Carregando a tampa. Tampe a caixa d'água. [Botão direito] devolve.";
     private const string TextoDica = "Teclas <b>1–5</b> trocam a ferramenta";
 

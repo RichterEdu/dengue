@@ -323,6 +323,6 @@ public class PneuNosBracosTestes
     public void AcaoNoPneuCheioEhPegar()
     {
         Assert.AreEqual(Ferramenta.Maos, kit.Selecionada);
-        Assert.AreEqual(DengueHUD.AcaoPegarPneu, DengueHUD.AcaoDoFoco(pneu, false, kit));
+        Assert.AreEqual("Clique para pegar o pneu", DengueHUD.AcaoDoFoco(pneu, false, kit));
     }
 }

@@ -78,7 +78,7 @@ public class KitHUDTestes
         Assert.IsTrue(kit.Pegar(pneu));
 
         Assert.AreEqual(KitHUD.TextoLinhaPneuComAgua(100), KitHUD.TextoDaLinha(kit));
-        StringAssert.Contains("100%", KitHUD.TextoDaLinha(kit));
+        Assert.AreEqual("Pneu com água (100%): balance a câmera para esvaziar. [Botão direito] larga.", KitHUD.TextoDaLinha(kit));
     }
 
     [Test]

@@ -172,7 +172,7 @@ public class DengueHUD : MonoBehaviour
     internal const string AcaoTamparCaixa = "Tampar a caixa";
 
     // Pneu cheio no chão, com as Mãos: o convite de pegar (esvazia-se nos braços).
-    internal const string AcaoPegarPneu = "Pegar o pneu";
+    internal const string AcaoPegarPneu = "Clique para pegar o pneu";
 
     // Atalho de esvaziar (Parte B): a
     // linha de ação no atalho e o aviso ao esvaziar.

@@ -7,9 +7,10 @@ using UnityEngine;
  *  Testes EditMode do pneu que se pega cheio e se esvazia NOS BRAÇOS:
  *  as Mãos pegam o pneu na hora (cheio ou vazio), sem minigame no chão;
  *  a água some nos braços (o pneu de pé a taparia) e volta ao largar;
- *  balançar o olhar no ritmo da OndaDoPneu derrama (NivelDeAgua cai), cada
- *  passo fechado pela onda vira um clique, e o último esvazia; largar no
- *  meio guarda o nível e assenta o pneu de pé, sem a inclinação do balanço.
+ *  mexer a câmera, para qualquer lado e sem ritmo, derrama (NivelDeAgua cai
+ *  na proporção dos graus mexidos), cada passo de nível vira um clique, e
+ *  o último esvazia; largar no meio guarda o nível e assenta o pneu de pé,
+ *  sem a inclinação do balanço.
  *
  *  O pneu de teste tem 2 cliques, sem punch e sem encolher, e fica em
  *  SemChao, longe dos colliders da cena aberta. O balanço é conduzido
@@ -64,10 +65,9 @@ public class PneuNosBracosTestes
         Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit));
     }
 
-    /* Balança no ritmo da onda (período 0,9 s) até acabar o tempo ou
-     * esvaziar; devolve os segundos usados. 5° por quadro satura a entrada
-     * em ±1 (um movimento firme de mouse); com 3° a onda levaria ~12 s. */
-    private float BalancarNoRitmo(float segundos)
+    /* Mexe a câmera para os lados (até 5° por quadro, um movimento normal de
+     * mouse) até acabar o tempo ou esvaziar; devolve os segundos usados. */
+    private float MexerACamera(float segundos)
     {
         float t = 0f;
         while (t < segundos && !pneu.Esvaziado)
@@ -120,32 +120,44 @@ public class PneuNosBracosTestes
     }
 
     [Test]
-    public void BalancarNoRitmoEsvazia()
+    public void MexerACameraEsvaziaRapido()
     {
         Pegar();
 
-        float gasto = BalancarNoRitmo(12f);
+        float gasto = MexerACamera(12f);
 
-        Assert.Less(gasto, 12f, "esvaziou antes do fim");
+        Assert.Less(gasto, 1.5f, "um pouco de câmera já esvazia");
         Assert.IsTrue(pneu.Esvaziado);
         Assert.IsFalse(agua.activeSelf);
         Assert.AreEqual(0f, pneu.NivelDeAgua);
     }
 
     [Test]
-    public void OlharSemRitmoQuaseNaoDerrama()
+    public void CameraParadaNaoDerrama()
     {
         Pegar();
 
         for (float t = 0f; t < 5f; t += Quadro)
-            pneu.BalancarNosBracos(Quadro, 2f, Vector3.forward);
+            pneu.BalancarNosBracos(Quadro, 0f, Vector3.forward);
 
-        Assert.Greater(pneu.NivelDeAgua, 0.9f);
+        Assert.AreEqual(1f, pneu.NivelDeAgua);
         Assert.IsFalse(pneu.Esvaziado);
     }
 
     [Test]
-    public void PassosSobemComAOnda()
+    public void PoucoMovimentoSemRitmoJaDerrama()
+    {
+        Pegar();
+
+        for (int i = 0; i < 10; i++)
+            pneu.BalancarNosBracos(Quadro, 1f, Vector3.forward);   // 10° no mesmo sentido
+
+        Assert.Less(pneu.NivelDeAgua, 1f);
+        Assert.Greater(pneu.NivelDeAgua, 0.5f, "10° derramam só um pouco");
+    }
+
+    [Test]
+    public void PassosSobemComONivel()
     {
         TesteUtil.Setar(pneu, "requiredClicks", 4);
         Pegar();
@@ -157,7 +169,7 @@ public class PneuNosBracosTestes
             t += Quadro;
         }
 
-        Assert.GreaterOrEqual(pneu.CurrentClicks, 1, "a onda fechou um passo");
+        Assert.GreaterOrEqual(pneu.CurrentClicks, 1, "o nível fechou um passo");
         int fechados = Mathf.FloorToInt((1f - pneu.NivelDeAgua) * pneu.RequiredClicks + 1e-4f);
         Assert.AreEqual(fechados, pneu.CurrentClicks);
     }
@@ -216,8 +228,8 @@ public class PneuNosBracosTestes
             pneu.BalancarNosBracos(Quadro, 5f * Mathf.Sin(2f * Mathf.PI * t / 0.9f), Vector3.forward);
             t += Quadro;
         }
-        for (int i = 0; i < 25; i++, t += Quadro)
-            pneu.BalancarNosBracos(Quadro, 5f * Mathf.Sin(2f * Mathf.PI * t / 0.9f), Vector3.forward);
+        for (int i = 0; i < 5; i++)
+            pneu.BalancarNosBracos(Quadro, 2f, Vector3.forward);
         float nivel = pneu.NivelDeAgua;
         Assert.AreEqual(1, pneu.CurrentClicks, "um passo fechado");
         Assert.Less(nivel, 0.74f, "entre dois limites de passo");
@@ -228,7 +240,7 @@ public class PneuNosBracosTestes
         Pegar();
         Assert.AreEqual(nivel, pneu.NivelDeAgua, 1e-4f, "pego de novo");
         pneu.BalancarNosBracos(Quadro, 0f, Vector3.forward);
-        Assert.AreEqual(nivel, pneu.NivelDeAgua, 0.02f, "a onda continua desse nível");
+        Assert.AreEqual(nivel, pneu.NivelDeAgua, 0.02f, "continua desse nível");
     }
 
     [Test]
@@ -355,13 +367,25 @@ public class PneuNosBracosTestes
 
         interactor.Bloqueado = true;
         for (float t = 0f; t < 2f; t += Quadro)
-            interactor.BalancarPneuNosBracos(Quadro, 5f * Mathf.Sin(2f * Mathf.PI * t / 0.9f));
+            interactor.BalancarPneuNosBracos(Quadro, new Vector2(5f * Mathf.Sin(2f * Mathf.PI * t / 0.9f), 0f));
         Assert.AreEqual(1f, pneu.NivelDeAgua, "bloqueado, não balança");
 
         interactor.Bloqueado = false;
         for (float t = 0f; t < 3f; t += Quadro)
-            interactor.BalancarPneuNosBracos(Quadro, 5f * Mathf.Sin(2f * Mathf.PI * t / 0.9f));
-        Assert.Less(pneu.NivelDeAgua, 1f, "o olhar no ritmo derrama");
+            interactor.BalancarPneuNosBracos(Quadro, new Vector2(5f * Mathf.Sin(2f * Mathf.PI * t / 0.9f), 0f));
+        Assert.Less(pneu.NivelDeAgua, 1f, "mexer a câmera derrama");
+    }
+
+    [Test]
+    public void InteractorContaOOlharVertical()
+    {
+        Interactor interactor = jogador.gameObject.AddComponent<Interactor>();
+        Pegar();
+
+        for (int i = 0; i < 10; i++)
+            interactor.BalancarPneuNosBracos(Quadro, new Vector2(0f, 2f));
+
+        Assert.Less(pneu.NivelDeAgua, 1f, "mexer a câmera para cima e para baixo também derrama");
     }
 
     [Test]
@@ -370,7 +394,7 @@ public class PneuNosBracosTestes
         Vector3 posicao = pneu.transform.position;
         Quaternion giro = pneu.transform.rotation;
 
-        BalancarNoRitmo(1f);
+        MexerACamera(1f);
 
         Assert.AreEqual(1f, pneu.NivelDeAgua);
         Assert.AreEqual(0f, Vector3.Distance(posicao, pneu.transform.position), 1e-5f);

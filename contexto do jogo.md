@@ -3529,3 +3529,33 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - Suíte EditMode inteira: 541 testes, todos passando.
 - Play não repetido depois das correções.
 - Reabrir o Editor antes de jogar ou fazer build: o prefab da bromélia não grava `raioDeAcerto`, e o Editor aberto guarda 4 na memória.
+
+
+### 2026-11-14 — Pneu: esvaziar mexendo a câmera, sem ritmo
+
+**Objetivo (pedido do usuário):** esvaziar o pneu nos braços ficou difícil, porque o jogo pedia para balançar no ritmo da água. Agora basta mexer um pouco a câmera para a água sair.
+
+**Arquivos alterados:**
+- `Assets/Scripts/PneuInteractable.cs`:
+  - `BalancarNosBracos(dt, olhar, frente)` não usa mais a `OndaDoPneu`;
+  - qualquer movimento de câmera derrama: o nível cai `|olhar| / grausParaEsvaziar`;
+  - cada limite de passo cruzado é um clique, com o som do derrame, e o último esvazia;
+  - a inclinação do pneu segue a velocidade da câmera, suavizada;
+  - o nível exato fica em `nivelGuardado`;
+  - saíram os campos da onda (`periodoDaOnda`, `amortecimentoDaOnda`, `ganhoDaOnda`, `limiarDaBorda`, `taxaDeDerrame`);
+  - `SegundosEstimados` foi de 6 s para 1 s.
+- `Assets/Scripts/Interactor.cs`: `BalancarPneuNosBracos(dt, Vector2 olhar)` repassa o tamanho do movimento em qualquer direção, com o sinal do horizontal para o lado da inclinação.
+- Removidos `Assets/Scripts/OndaDoPneu.cs` e `Assets/Editor/Testes/OndaDoPneuTestes.cs`, que ficaram sem uso.
+- `Assets/Editor/Testes/PneuNosBracosTestes.cs`:
+  - testes novos: `MexerACameraEsvaziaRapido`, `CameraParadaNaoDerrama`, `PoucoMovimentoSemRitmoJaDerrama` e `InteractorContaOOlharVertical`;
+  - ajustados: `PassosSobemComONivel` e `LargarNoMeioGuardaONivelExato`.
+
+**Configurações aplicadas:** `grausParaEsvaziar` = 150 (graus somados de câmera para esvaziar o pneu cheio); `grausPorSegundoCheio` 180 e `inclinacaoMaxima` 25, só para o visual.
+
+**Testes:** suíte EditMode inteira, 532/532.
+
+**Observações técnicas:**
+- Olhar em volta andando também derrama. Isso é de propósito: o usuário pediu que pouco movimento já tirasse a água.
+- O `BalanceamentoSimulador` passa a contar 1 s por pneu.
+- **Não verificado em Play:** a sensação com o mouse de verdade. Se esvaziar rápido ou devagar demais, ajuste `grausParaEsvaziar` no Inspector do pneu.
+

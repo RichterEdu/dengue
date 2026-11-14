@@ -50,8 +50,8 @@ using UnityEngine.InputSystem;
  *    sai (AoSairDoMinigame) se a sessão PodeSair; sessão com mira
  *    (IMinigameComMira) aponta o olhar. Bloqueado (AoBloquear) sai sem
  *    culpa. Encerrado, segurar só volta a valer depois de soltar o botão.
- *  - Pneu nos braços: o olhar horizontal é repassado a cada quadro ao
- *    pneu (BalancarPneuNosBracos), que derrama a água no ritmo certo.
+ *  - Pneu nos braços: quanto a câmera mexeu é repassado a cada quadro ao
+ *    pneu (BalancarPneuNosBracos), que derrama a água (sem ritmo).
  *    Largar cheio sobre a caçamba recusa (Cacamba.RecusaPneuComAgua).
  *  - ProgressoContinuo (0..1) e Avancando alimentam a barra da HUD e o
  *    som de ação.
@@ -256,7 +256,7 @@ public class Interactor : MonoBehaviour
         }
 
         // 3b) O olhar balança o pneu nos braços e derrama a água.
-        BalancarPneuNosBracos(Time.deltaTime, entrada != null ? entrada.Olhar.x : 0f);
+        BalancarPneuNosBracos(Time.deltaTime, entrada != null ? entrada.Olhar : Vector2.zero);
 
         // 4) Alvo da mira: se mudou, desfaz o destaque no antigo e aplica no novo.
         bool maosOcupadas = kit != null && kit.MaosOcupadas;
@@ -273,14 +273,16 @@ public class Interactor : MonoBehaviour
         AtualizarProgresso();
     }
 
-    /* Repassa o olhar horizontal ao pneu nos braços (a onda do balanço).
+    /* Repassa ao pneu nos braços quanto a câmera mexeu no quadro, para
+     * qualquer lado (o sinal do horizontal dá o lado da inclinação).
      * Nada com o Bloqueado, sem kit ou sem pneu. */
-    internal void BalancarPneuNosBracos(float dt, float olharX)
+    internal void BalancarPneuNosBracos(float dt, Vector2 olhar)
     {
         if (Bloqueado || Kit == null || Kit.PneuCarregado == null)
             return;
 
-        Kit.PneuCarregado.BalancarNosBracos(dt, olharX, transform.forward);
+        float graus = olhar.magnitude * (olhar.x < 0f ? -1f : 1f);
+        Kit.PneuCarregado.BalancarNosBracos(dt, graus, transform.forward);
     }
 
     /* Botão de interagir mantido apertado (clique esquerdo ou "Attack"). */

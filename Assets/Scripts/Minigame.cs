@@ -19,6 +19,14 @@ using UnityEngine;
  *    Interactor: som de ação e o item na mão).
  *  - IMinigameComMira: sessão que mexe no olhar do jogador. Mira é em
  *    graus (yaw, pitch), a partir do olhar do começo do minigame.
+ *  - EntradaDoMinigame.Ponteiro: o mesmo movimento do Olhar, sem o
+ *    "inverter Y" (+x = direita, +y = para cima na tela), para sessões
+ *    que mexem um ponteiro na tela em vez do olhar.
+ *  - PoseDePerto: pose de câmera de uma vista de perto (posição, giro e
+ *    FOV vertical). NoCampo diz onde um ponto do mundo cai no campo da
+ *    tela: y de −1 (base) a +1 (topo), x na mesma unidade (de −proporção
+ *    a +proporção), centro em (0, 0).
+ *  - IMinigameDePerto: sessão que quer a câmera nessa pose enquanto durar.
  *
  *  O skill check do ralo entra por um adaptador (MinigameDeSkillCheck,
  *  em SkillCheck.cs).
@@ -28,7 +36,8 @@ using UnityEngine;
 public struct EntradaDoMinigame
 {
     public Vector2 Olhar;      // delta do mouse / analógico direito (EntradaJogador.Olhar), em graus
-    public bool Segurando;     // botão de interagir mantido
+    public Vector2 Ponteiro;   // o mesmo movimento, sem o "inverter Y": +x = direita, +y = para cima na tela
+    public bool Segurando;    // botão de interagir mantido
     public bool Apertou;       // botão de interagir apertado neste quadro
 }
 
@@ -60,4 +69,31 @@ public interface IMinigameComMira
 {
     /* Graus (yaw, pitch) a partir do olhar inicial. */
     Vector2 Mira { get; }
+}
+
+/* Pose de câmera de uma vista de perto. */
+public struct PoseDePerto
+{
+    /* Profundidade mínima (1 cm) para um ponto contar como à frente da câmera. */
+    private const float ProfundidadeMinima = 0.01f;
+
+    public Vector3 Posicao;
+    public Quaternion Giro;
+    public float Fov;          // vertical, em graus
+
+    /* Onde um ponto do mundo cai no campo desta pose. Atrás da câmera
+     * (profundidade menor que 1 cm): Vector2.zero. */
+    public Vector2 NoCampo(Vector3 mundo)
+    {
+        Vector3 l = Quaternion.Inverse(Giro) * (mundo - Posicao);
+        if (!(l.z >= ProfundidadeMinima)) return Vector2.zero;
+        float escala = l.z * Mathf.Tan(Fov * 0.5f * Mathf.Deg2Rad);
+        return new Vector2(l.x, l.y) / escala;
+    }
+}
+
+/* Sessão que quer a câmera numa pose enquanto durar. */
+public interface IMinigameDePerto
+{
+    PoseDePerto Pose { get; }
 }

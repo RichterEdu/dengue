@@ -56,7 +56,9 @@ using UnityEngine;
  *
  *  Minigame: um foco pode trocar o segurar por uma sessão própria
  *  (CriarMinigame, ver Minigame.cs); cada Passo dela é um AvancarCom(kit).
- *  O ralo devolve o skill check.
+ *  O ralo devolve o skill check. Sessão com vista de perto
+ *  (IMinigameDePerto): AoVoltarDaVistaDePerto avisa quando a câmera
+ *  voltou aos olhos.
  *
  *  Para focos com comportamento próprio, herde esta classe e sobrescreva
  *  OnInteract()/OnComplete() (ver PneuInteractable.cs como exemplo) e,
@@ -207,6 +209,9 @@ public class Interactable : MonoBehaviour
 
     /* Visual por quadro com a sessão ativa. */
     public virtual void AoAtualizarMinigame(IMinigame sessao) { }
+
+    /* A vista de perto deste foco acabou e a câmera já voltou aos olhos (ou não há câmera para voltar). */
+    public virtual void AoVoltarDaVistaDePerto() { }
 
     /* Texto da HUD com a sessão ativa (null = nenhum). */
     public virtual string DicaDoMinigame => null;

@@ -50,6 +50,14 @@ using UnityEngine.InputSystem;
  *    sai (AoSairDoMinigame) se a sessão PodeSair; sessão com mira
  *    (IMinigameComMira) aponta o olhar. Bloqueado (AoBloquear) sai sem
  *    culpa. Encerrado, segurar só volta a valer depois de soltar o botão.
+ *  - Vista de perto: sessão IMinigameDePerto pede a pose dela à câmera
+ *    (CameraDePerto.Enquadrar) ao começar; toda saída (concluir, sair,
+ *    Bloqueado, recusa, alvo desativado ou destruído) solta o
+ *    enquadramento. Com a câmera ativa, o agente continua parado e sem
+ *    mira (LargarSeVoltando) enquanto ela volta aos olhos; ao chegar
+ *    (AtualizarVolta, no começo do Update), o agente é liberado e o foco
+ *    ouve AoVoltarDaVistaDePerto. Sem câmera ativa, isso é na hora. O
+ *    Ponteiro da sessão é o EntradaJogador.OlharSemInverter.
  *  - Pneu nos braços: quanto a câmera mexeu é repassado a cada quadro ao
  *    pneu (BalancarPneuNosBracos), que derrama a água (sem ritmo).
  *    Largar cheio sobre a caçamba recusa (Cacamba.RecusaPneuComAgua).
@@ -119,6 +127,12 @@ public class Interactor : MonoBehaviour
     private float yawInicial;
     private float pitchInicial;
 
+    // Vista de perto: a câmera que enquadra, se ela ainda está voltando aos
+    // olhos e o foco que ouve o AoVoltarDaVistaDePerto quando ela chegar.
+    private CameraJogador cameraDePerto;
+    private bool voltando;
+    private Interactable focoDaVolta;
+
     private ControladorJogador jogador;
 
     private readonly List<HighlightEntry> highlighted = new List<HighlightEntry>();
@@ -139,6 +153,41 @@ public class Interactor : MonoBehaviour
     /* Skill check em andamento (null = nenhum, ou o minigame é outro).
      * Lido pela SkillCheckHUD, pelo ItensNaMao e pela HUD. */
     public SessaoDeSkillCheck SkillCheckAtivo => (minigame as MinigameDeSkillCheck)?.Sessao;
+
+    /* Pontos de borrifar em andamento (null = nenhum, ou o minigame é outro). */
+    public PontosDeBorrifar PontosAtivos => minigame as PontosDeBorrifar;
+
+    /* Vista de perto: sessão IMinigameDePerto em andamento, ou a câmera ainda voltando dela. */
+    public bool DePerto => minigame is IMinigameDePerto || voltando;
+
+    /* A câmera saiu da vista de perto e ainda não chegou aos olhos (agente parado). */
+    internal bool Voltando => voltando;
+
+    /* A câmera que enquadra. Vazia = a da Camera.main, achada no primeiro uso. */
+    internal CameraJogador CameraDePerto
+    {
+        get
+        {
+            if (cameraDePerto == null)
+            {
+                Camera principal = Camera.main;
+                if (principal != null)
+                    cameraDePerto = principal.GetComponent<CameraJogador>();
+            }
+            return cameraDePerto;
+        }
+        set => cameraDePerto = value;
+    }
+
+    /* CameraDePerto existe, está ligada e com o objeto ativo. */
+    private bool CameraAtiva
+    {
+        get
+        {
+            CameraJogador camera = CameraDePerto;
+            return camera != null && camera.enabled && camera.gameObject.activeInHierarchy;
+        }
+    }
 
     /* Foco mirado (lido pela HUD, pelo brilho de proximidade e por scripts futuros). */
     public Interactable CurrentTarget => currentTarget;
@@ -206,6 +255,9 @@ public class Interactor : MonoBehaviour
 
     void Update()
     {
+        // 0) A câmera chegou aos olhos depois da vista de perto: libera o agente.
+        AtualizarVolta();
+
         // 1) Bloqueado (celular levantado, menu aberto...): larga o alvo,
         //    zera o segurar e sai.
         if (Bloqueado)
@@ -213,6 +265,11 @@ public class Interactor : MonoBehaviour
             AoBloquear();
             return;
         }
+
+        // Câmera voltando da vista de perto: sem mira (o raio ainda sairia
+        // da câmera sobre o foco) e sem nada até ela chegar aos olhos.
+        if (LargarSeVoltando())
+            return;
 
         // Minigame: nada de trocar ferramenta nem de alvo até acabar.
         // Pausado, a sessão para e o aperto não conta.
@@ -312,6 +369,7 @@ public class Interactor : MonoBehaviour
         return new EntradaDoMinigame
         {
             Olhar = entrada != null ? entrada.Olhar : Vector2.zero,
+            Ponteiro = entrada != null ? entrada.OlharSemInverter : Vector2.zero,
             Segurando = LerSegurando(),
             Apertou = LerApertou()
         };
@@ -334,6 +392,41 @@ public class Interactor : MonoBehaviour
         Avancando = false;
     }
 
+    /* Libera o agente quando a câmera chega aos olhos (ou deixa de estar
+     * ativa) e avisa o foco da vista de perto, se ele ainda existir.
+     * Chamado no começo do Update. */
+    internal void AtualizarVolta()
+    {
+        if (!voltando)
+            return;
+        if (CameraAtiva && CameraDePerto.Enquadrada)
+            return;
+
+        voltando = false;
+        if (Jogador != null)
+            Jogador.Imobilizado = false;
+        Interactable foco = focoDaVolta;
+        focoDaVolta = null;
+        if (foco != null)
+            foco.AoVoltarDaVistaDePerto();
+    }
+
+    /* Com a câmera voltando: larga o alvo, zera o segurar e devolve true
+     * (o Update sai aí). Sem volta, false e nada muda. */
+    internal bool LargarSeVoltando()
+    {
+        if (!voltando)
+            return false;
+
+        TrocarAlvo(null, null);
+        sessao.Zerar();
+        alvoConferido = null;
+        liberado = false;
+        ProgressoContinuo = 0f;
+        Avancando = false;
+        return true;
+    }
+
     /* Começa o minigame do foco (que vira o alvo atual). false = o foco não
      * tem minigame agora (CriarMinigame devolveu null): segue o segurar. */
     internal bool IniciarMinigame(Interactable foco)
@@ -345,6 +438,11 @@ public class Interactor : MonoBehaviour
         TrocarAlvo(foco, null);
         minigame = criado;
         sessao.Zerar();
+        // Uma volta em andamento é substituída pela sessão nova (o foco antigo não ouve a volta).
+        voltando = false;
+        focoDaVolta = null;
+        if (criado is IMinigameDePerto dePerto && CameraAtiva)
+            CameraDePerto.Enquadrar(dePerto.Pose);
         if (Jogador != null)
         {
             Jogador.Imobilizado = true;
@@ -398,13 +496,37 @@ public class Interactor : MonoBehaviour
     }
 
     /* Fim do minigame: o jogador volta a andar. Segurar só vale de novo
-     * depois de soltar o botão (o ralo não avança segurando). */
+     * depois de soltar o botão (o ralo não avança segurando). Vista de
+     * perto: solta o enquadramento e, com a câmera ativa, o jogador só
+     * volta a andar quando ela chegar aos olhos (AtualizarVolta). */
     private void EncerrarMinigame()
     {
+        bool eraDePerto = minigame is IMinigameDePerto;
         minigame = null;
         sessao.Zerar();
         liberado = false;
         Avancando = false;
+
+        if (eraDePerto)
+        {
+            // Solta mesmo com a câmera desligada: ao religar, ela não volta enquadrada.
+            if (CameraDePerto != null)
+                CameraDePerto.SoltarEnquadramento();
+
+            if (CameraAtiva)
+            {
+                voltando = true;
+                focoDaVolta = currentTarget;
+                return;   // o Imobilizado continua true até a câmera voltar
+            }
+
+            if (Jogador != null)
+                Jogador.Imobilizado = false;
+            if (currentTarget != null)
+                currentTarget.AoVoltarDaVistaDePerto();
+            return;
+        }
+
         if (Jogador != null)
             Jogador.Imobilizado = false;
     }

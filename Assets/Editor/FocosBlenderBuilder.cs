@@ -10,6 +10,8 @@ using UnityEngine;
  *
  *  Menus:  Dengue > Criar Ralo
  *          Dengue > Criar Bromélia
+ *          Dengue > Ajustar Pocinhas da Bromélia (sobe e aumenta as
+ *            pocinhas de fora direto no prefab, sem refazê-lo)
  *
  *  - Configura o import do FBX (eixo corrigido, sem animação) e troca os
  *    materiais do Blender por materiais URP Lit com as mesmas cores
@@ -39,6 +41,11 @@ public static class FocosBlenderBuilder
 
     // Altura da boca do ralo (ALT do gerar_focos.py) + folga para a grelha não brigar com a moldura.
     private const float AlturaGrelhaFechada = 0.034f;
+
+    // Pocinhas de fora da bromélia (Agua_1..Agua_4), mais altas e maiores que
+    // no modelo, para aparecerem entre as folhas na vista de cima. No espaço da raiz.
+    internal const float AlturaDasPocinhas = 0.22f;   // 0,19 do modelo + 0,03
+    internal const float EscalaDasPocinhas = 1.5f;
 
     [MenuItem("Dengue/Criar Ralo")]
     public static void CriarRalo()
@@ -128,11 +135,62 @@ public static class FocosBlenderBuilder
             info.textoAoMirar = "Clique para esvaziar {nome}";
             info.dica = "Bromélia guarda água entre as folhas. Esvazie com um jato d'água toda semana.";
 
+            AjustarPocinhas(root.transform);
             SalvarPrefab(root, "Bromelia", pocas.Count + " cliques secam a água das folhas.");
         }
         finally
         {
             Object.DestroyImmediate(root);
+        }
+    }
+
+    /* Sobe e aumenta Agua_1..Agua_4 sob 'raiz' (valores absolutos: rodar duas vezes dá no mesmo).
+     * Devolve quantas ajustou. O copo (Agua_Centro) não muda. */
+    internal static int AjustarPocinhas(Transform raiz)
+    {
+        int ajustadas = 0;
+        for (int i = 1; i <= 4; i++)
+        {
+            Transform p = Achar(raiz, "Agua_" + i);
+            if (p == null)
+                continue;
+            Vector3 noEspacoDaRaiz = raiz.InverseTransformPoint(p.position);
+            noEspacoDaRaiz.y = AlturaDasPocinhas;
+            p.position = raiz.TransformPoint(noEspacoDaRaiz);
+            p.localScale = Vector3.one * EscalaDasPocinhas;
+            ajustadas++;
+        }
+        return ajustadas;
+    }
+
+    /* Aplica o AjustarPocinhas direto no Bromelia.prefab, sem refazê-lo: o
+     * CriarBromelia montaria tudo de novo e perderia o que outros builders
+     * puseram no prefab. */
+    [MenuItem("Dengue/Ajustar Pocinhas da Bromélia")]
+    public static void AjustarPocinhasDoPrefab()
+    {
+        string path = Pasta + "/Bromelia.prefab";
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(path) == null)
+        {
+            Debug.LogError("[Dengue] Não encontrei " + path + ". Crie pelo Dengue > Criar Bromélia.");
+            return;
+        }
+
+        GameObject root = PrefabUtility.LoadPrefabContents(path);
+        try
+        {
+            int n = AjustarPocinhas(root.transform);
+            PrefabUtility.SaveAsPrefabAsset(root, path, out bool ok);
+            if (!ok)
+            {
+                Debug.LogError("[Dengue] Falha ao salvar o prefab em " + path);
+                return;
+            }
+            Debug.Log("[Dengue] " + n + " pocinhas da bromélia ajustadas em " + path + ".");
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(root);
         }
     }
 

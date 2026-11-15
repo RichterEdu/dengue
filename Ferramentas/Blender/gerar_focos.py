@@ -217,6 +217,7 @@ def poca(nome, x, y, z, r):
     ob.location = (x, y, z)
     pocas_brom.append(ob)
 poca('Agua_Centro', 0, 0, BASE_Z + 0.075, 0.032)
+# As pocinhas de fora: o Unity as sobe e aumenta (FocosBlenderBuilder.AjustarPocinhas).
 for i in range(4):
     a = 0.9 + 2 * math.pi * i / 5 + 0.2
     poca('Agua_%d' % (i + 1), math.cos(a) * 0.055, math.sin(a) * 0.055, BASE_Z + 0.05, 0.018)

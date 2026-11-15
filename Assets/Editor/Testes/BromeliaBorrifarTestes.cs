@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 /* ============================================================
@@ -17,7 +18,9 @@ using UnityEngine;
  *  do copo; desativada no meio, larga a sessão; o enxame some ao começar
  *  e volta com a câmera; a dose de água sanitária só sai no fim; o
  *  caminho antigo (Interact sem kit) mantém a ordem fixa; textos da HUD,
- *  tempo estimado e ganchos fora de ordem.
+ *  tempo estimado e ganchos fora de ordem. No prefab de verdade: as
+ *  pocinhas de fora mais altas e maiores (à vista de cima), as bolinhas
+ *  sem se sobrepor de qualquer lado, e o AjustarPocinhas idempotente.
  *
  *  Câmera: o CriarMinigame pede o Camera.main (a proporção da tela). A
  *  cena aberta no modo batch já tem a sua "Main Camera"; sem nenhuma, o
@@ -615,5 +618,135 @@ public class BromeliaBorrifarTestes
         Assert.DoesNotThrow(() => esta.AoAtualizarMinigame(outra));
         foreach (GameObject p in pocasDesta)
             Assert.IsTrue(p.activeSelf, "a sessão de outra bromélia não seca esta");
+    }
+
+    /* ---------------- O prefab de verdade ---------------- */
+
+    private const string CaminhoDoPrefab = "Assets/Meus/Assets Gerados/Focos/Bromelia.prefab";
+
+    private static GameObject CarregarPrefab()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoDoPrefab);
+        Assert.IsNotNull(prefab, "o Bromelia.prefab devia existir");
+        return prefab;
+    }
+
+    private static Transform AcharFilho(Transform t, string nome)
+    {
+        if (t.name == nome) return t;
+        foreach (Transform filho in t)
+        {
+            Transform r = AcharFilho(filho, nome);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    [Test]
+    public void PrefabReal_PocinhasAVista()
+    {
+        Transform raiz = CarregarPrefab().transform;
+
+        for (int i = 1; i <= 4; i++)
+        {
+            Transform p = AcharFilho(raiz, "Agua_" + i);
+            Assert.IsNotNull(p, "Agua_" + i);
+            Assert.AreEqual(0.22f, raiz.InverseTransformPoint(p.position).y, 1e-3f, "Agua_" + i + ": altura");
+            AssertPerto(Vector3.one * 1.5f, p.localScale, 1e-5f, "Agua_" + i + ": escala");
+        }
+
+        Transform copo = AcharFilho(raiz, "Agua_Centro");
+        Assert.IsNotNull(copo, "Agua_Centro");
+        Assert.AreEqual(0.215f, raiz.InverseTransformPoint(copo.position).y, 1e-3f, "o copo não sobe");
+        AssertPerto(Vector3.one, copo.localScale, 1e-5f, "o copo não aumenta");
+    }
+
+    [Test]
+    public void PrefabReal_BolinhasNaoSeSobrepoem()
+    {
+        GameObject instancia = Object.Instantiate(CarregarPrefab());
+        instancia.hideFlags = HideFlags.HideAndDontSave;
+        try
+        {
+            instancia.transform.position = Origem;
+            instancia.transform.localScale = Vector3.one * 1.51f;
+            BromeliaInteractable real = instancia.GetComponent<BromeliaInteractable>();
+            Assert.IsNotNull(real, "o prefab devia ter a BromeliaInteractable");
+
+            for (int d = 0; d < 8; d++)
+            {
+                Vector3 frente = Quaternion.Euler(0f, 45f * d, 0f) * Vector3.forward;
+                Vector3 agente = Origem - frente * 1.5f;
+                SessaoDaBromelia s = real.CriarSessao(agente, frente, 16f / 9f, 0);
+                string caso = "direção " + (45 * d) + "°";
+
+                Assert.AreEqual(5, s.Total, caso + ": cinco pocinhas");
+                AssertPerto(Vector2.zero, s.Ponto(s.Total - 1), 1e-3f, caso + ": o copo no centro");
+                for (int k = 0; k < s.Total - 1; k++)
+                {
+                    float r = s.Ponto(k).magnitude;
+                    Assert.That(r, Is.InRange(0.30f, 0.42f), caso + ": ponto " + k + " a " + r + " do centro");
+                }
+                for (int a = 0; a < s.Total; a++)
+                    for (int b = a + 1; b < s.Total; b++)
+                    {
+                        float dist = Vector2.Distance(s.Ponto(a), s.Ponto(b));
+                        Assert.Greater(dist, 0.30f, caso + ": pontos " + a + " e " + b);
+                    }
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(instancia);
+        }
+    }
+
+    [Test]
+    public void AjustarPocinhas_Idempotente()
+    {
+        Transform raiz = TesteUtil.Novo("Raiz das pocinhas (teste)").transform;
+        raiz.position = Origem;
+        Transform modelo = TesteUtil.Novo("Modelo (teste)").transform;
+        modelo.SetParent(raiz, false);
+        modelo.localPosition = new Vector3(0f, 0.01f, 0f);
+
+        string[] nomes = { "Agua_1", "Agua_2", "Agua_3", "Agua_4", "Agua_Centro" };
+        Transform[] filhos = new Transform[nomes.Length];
+        for (int i = 0; i < nomes.Length; i++)
+        {
+            filhos[i] = TesteUtil.Novo(nomes[i]).transform;
+            filhos[i].SetParent(modelo, false);
+            filhos[i].localPosition = new Vector3(0.05f * (i - 2), 0.19f, 0.03f * i);
+        }
+        filhos[4].localPosition = new Vector3(0f, 0.205f, 0f);
+
+        Assert.AreEqual(4, FocosBlenderBuilder.AjustarPocinhas(raiz));
+
+        Vector3[] posicoes = new Vector3[nomes.Length];
+        Vector3[] escalas = new Vector3[nomes.Length];
+        for (int i = 0; i < 4; i++)
+        {
+            Vector3 noEspacoDaRaiz = raiz.InverseTransformPoint(filhos[i].position);
+            Assert.AreEqual(FocosBlenderBuilder.AlturaDasPocinhas, noEspacoDaRaiz.y, 1e-5f, nomes[i] + ": altura");
+            Assert.AreEqual(0.05f * (i - 2), noEspacoDaRaiz.x, 1e-5f, nomes[i] + ": o x fica");
+            Assert.AreEqual(0.03f * i, noEspacoDaRaiz.z, 1e-5f, nomes[i] + ": o z fica");
+            AssertPerto(Vector3.one * FocosBlenderBuilder.EscalaDasPocinhas, filhos[i].localScale, 1e-6f,
+                        nomes[i] + ": escala");
+        }
+        for (int i = 0; i < nomes.Length; i++)
+        {
+            posicoes[i] = filhos[i].position;
+            escalas[i] = filhos[i].localScale;
+        }
+
+        Assert.AreEqual(4, FocosBlenderBuilder.AjustarPocinhas(raiz));
+        for (int i = 0; i < nomes.Length; i++)
+        {
+            AssertPerto(posicoes[i], filhos[i].position, 1e-6f, nomes[i] + ": a segunda vez não muda a posição");
+            AssertPerto(escalas[i], filhos[i].localScale, 1e-6f, nomes[i] + ": a segunda vez não muda a escala");
+        }
+
+        AssertPerto(new Vector3(0f, 0.205f, 0f), filhos[4].localPosition, 1e-6f, "o copo não muda de lugar");
+        AssertPerto(Vector3.one, filhos[4].localScale, 1e-6f, "o copo não muda de escala");
     }
 }

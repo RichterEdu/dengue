@@ -16,6 +16,9 @@ using UnityEngine;
  *      parâmetros nem transições no controller.
  *    - Com gesto, liga a emissão da partícula do item. Desligar só a
  *      emissão deixa os grãos que estão no ar terminarem de cair.
+ *    - Na vista de perto (Interactor.DePerto) a mão fica quieta, sem
+ *      gesto nem névoa: quem borrifa ali é a cópia do borrifador presa à
+ *      câmera (BorrifadorDePerto, que lê o BorrifadorNaMao).
  *    - O ombro gira com o olhar (LateUpdate, sobre a pose do Animator): o
  *      ralo e o vaso ficam no chão e, com a pose presa ao corpo, olhar
  *      para baixo subiria o item para cima do foco.
@@ -76,6 +79,9 @@ public class ItensNaMao : MonoBehaviour
     private bool animatorConferido;
     private bool avisouCamada;
     private int camada = -1;
+
+    /* O borrifador da mão: o original que o BorrifadorDePerto copia. */
+    internal Transform BorrifadorNaMao => borrifadorNaMao;
 
     internal ItemNaMao ItemAtual { get; private set; }
     internal float Peso { get; private set; }
@@ -186,7 +192,8 @@ public class ItensNaMao : MonoBehaviour
         ombroDireito.RotateAround(ombroDireito.position, transform.right, giro);
     }
 
-    private bool QuerGesticular()
+    /* Se o item da mão gesticula neste quadro (a regra, com o estado do Interactor). */
+    internal bool QuerGesticular()
     {
         if (kit == null || interactor == null)
             return false;
@@ -194,7 +201,7 @@ public class ItensNaMao : MonoBehaviour
         Interactable alvo = interactor.CurrentTarget;
         Ferramenta? necessaria = alvo != null ? alvo.FerramentaNecessaria : (Ferramenta?)null;
         return RegraDoItemNaMao.Gesticula(ItemAtual, kit.Selecionada, interactor.SkillCheckAtivo != null,
-                                          interactor.Avancando, necessaria);
+                                          interactor.Avancando, necessaria, interactor.DePerto);
     }
 
     /* Procura a camada quando o Animator fica pronto, e avisa uma vez se ela não existir. */

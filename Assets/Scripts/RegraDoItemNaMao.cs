@@ -5,7 +5,8 @@
  *  para dar pra testar no EditMode; quem aplica na cena é o ItensNaMao.
  *
  *    Qual              que item aparece para a ferramenta selecionada;
- *    Gesticula         se o agente está usando o item agora;
+ *    Gesticula         se o agente está usando o item agora (na vista
+ *                      de perto, nunca);
  *    EstadoDoAnimator  estado da camada "ItemNaMao" para o item;
  *    GiroDoOmbro       graus que o braço acompanha o olhar.
  *
@@ -49,10 +50,14 @@ public static class RegraDoItemNaMao
 
     /* O gesto toca com um item utilizável na mão, no skill check ou
      * segurando num foco que pede a ferramenta selecionada. Ponto de uso
-     * (reabastecer) não tem foco: necessariaDoAlvo vem null. */
+     * (reabastecer) não tem foco: necessariaDoAlvo vem null. Na vista de
+     * perto, nunca: quem borrifa é o BorrifadorDePerto, preso à câmera. */
     public static bool Gesticula(ItemNaMao item, Ferramenta selecionada, bool skillCheckAtivo,
-                                 bool avancando, Ferramenta? necessariaDoAlvo)
+                                 bool avancando, Ferramenta? necessariaDoAlvo, bool dePerto = false)
     {
+        if (dePerto)
+            return false;
+
         if (item == ItemNaMao.Nenhum || item == ItemNaMao.BaldeVazio)
             return false;
 

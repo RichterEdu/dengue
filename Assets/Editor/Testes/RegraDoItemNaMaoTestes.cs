@@ -4,8 +4,9 @@ using NUnit.Framework;
  *  RegraDoItemNaMaoTestes.cs
  *  ---------------------------------------------------------------------
  *  Testes EditMode da regra pura dos itens na mão: qual item aparece
- *  para cada ferramenta e carga, quando o gesto toca, que estado do
- *  Animator cada item usa e quanto o ombro gira com o olhar.
+ *  para cada ferramenta e carga, quando o gesto toca (nunca na vista de
+ *  perto), que estado do Animator cada item usa e quanto o ombro gira
+ *  com o olhar.
  *
  *  Rodar:  Window > General > Test Runner > EditMode (categoria ItensNaMao)
  *  ou      unity command run_tests --mode EditMode --filter_type category --filter ItensNaMao
@@ -40,6 +41,17 @@ public class RegraDoItemNaMaoTestes
                                        Ferramenta? necessaria, bool esperado)
     {
         Assert.AreEqual(esperado, RegraDoItemNaMao.Gesticula(item, selecionada, skillCheck, avancando, necessaria));
+    }
+
+    [Test]
+    public void DePertoNaoGesticula()
+    {
+        Assert.IsFalse(RegraDoItemNaMao.Gesticula(ItemNaMao.Borrifador, Ferramenta.AguaSanitaria, false, true,
+                                                  Ferramenta.AguaSanitaria, dePerto: true));
+        Assert.IsTrue(RegraDoItemNaMao.Gesticula(ItemNaMao.Borrifador, Ferramenta.AguaSanitaria, false, true,
+                                                 Ferramenta.AguaSanitaria, dePerto: false));
+        Assert.IsFalse(RegraDoItemNaMao.Gesticula(ItemNaMao.Borrifador, Ferramenta.AguaSanitaria, true, true,
+                                                  Ferramenta.AguaSanitaria, dePerto: true));
     }
 
     [TestCase(ItemNaMao.BaldeCheio, false, "CarregandoBalde")]

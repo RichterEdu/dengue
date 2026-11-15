@@ -15,6 +15,10 @@ using UnityEngine;
  *  OnEnable faz no jogo. O gesto entra direto no AtualizarGesto (quando
  *  ele toca é a regra pura, nos RegraDoItemNaMaoTestes).
  *
+ *  Vista de perto: com um Interactor no jogador numa sessão falsa
+ *  IMinigameDePerto agindo, o QuerGesticular é false e a névoa da mão
+ *  não sai; numa sessão comum, o gesto continua.
+ *
  *  Rodar:  Window > General > Test Runner > EditMode (categoria ItensNaMao)
  *  ou      unity command run_tests --mode EditMode --filter_type category --filter ItensNaMao
  * ============================================================ */
@@ -361,5 +365,65 @@ public class ItensNaMaoTestes
 
         Assert.AreEqual(1, avisos.Count, "um aviso só: " + string.Join(" | ", avisos));
         Assert.IsTrue(balde.activeSelf, "sem a pose, o item continua na mão");
+    }
+
+    /* ---- Vista de perto ---- */
+
+    /* Sessão falsa sempre agindo, sem estados. */
+    private class SessaoFalsa : IMinigame
+    {
+        public EstadoDoMinigame Atualizar(float dt, EntradaDoMinigame entrada) => EstadoDoMinigame.EmAndamento;
+        public float FracaoDoPasso => 0f;
+        public bool PodeSair => true;
+        public bool Agindo => true;
+    }
+
+    /* A mesma, pedindo a vista de perto. */
+    private class SessaoDePertoFalsa : SessaoFalsa, IMinigameDePerto
+    {
+        public PoseDePerto Pose => new PoseDePerto { Giro = Quaternion.identity, Fov = 40f };
+    }
+
+    /* Foco que pede água sanitária e devolve a sessão dada. */
+    private class FocoComSessao : Interactable
+    {
+        public IMinigame Sessao;
+        public override IMinigame CriarMinigame(KitDoAgente kit, int semente) => Sessao;
+    }
+
+    /* Interactor no jogador, ligado ao ItensNaMao, numa sessão de 'sessao'
+     * com o borrifador na mão, depois de um quadro do minigame. */
+    private Interactor AgirNumaSessao(IMinigame sessao)
+    {
+        Interactor interactor = jogador.gameObject.AddComponent<Interactor>();
+        TesteUtil.Setar(itens, "interactor", interactor);
+        kit.Selecionar(Ferramenta.AguaSanitaria);
+
+        FocoComSessao foco = TesteUtil.Com<FocoComSessao>("Foco (teste)");
+        TesteUtil.Setar(foco, "ferramentaNecessaria", Ferramenta.AguaSanitaria);
+        foco.Sessao = sessao;
+
+        Assert.IsTrue(interactor.IniciarMinigame(foco));
+        interactor.AvancarMinigame(0.1f, new EntradaDoMinigame(), false);
+        Assert.IsTrue(interactor.Avancando, "a sessão está agindo");
+        return interactor;
+    }
+
+    [Test]
+    public void VistaDePerto_SemGestoNemNevoa()
+    {
+        AgirNumaSessao(new SessaoDePertoFalsa());
+
+        Assert.IsFalse(itens.QuerGesticular(), "de perto, o borrifador da mão fica quieto");
+        itens.AtualizarGesto(0.1f, itens.QuerGesticular());
+        Assert.IsFalse(nevoa.emission.enabled, "a névoa da mão não sai");
+    }
+
+    [Test]
+    public void SessaoComum_ContinuaGesticulando()
+    {
+        AgirNumaSessao(new SessaoFalsa());
+
+        Assert.IsTrue(itens.QuerGesticular());
     }
 }

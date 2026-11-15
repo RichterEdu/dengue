@@ -57,7 +57,9 @@ using UnityEngine.InputSystem;
  *    mira (LargarSeVoltando) enquanto ela volta aos olhos; ao chegar
  *    (AtualizarVolta, no começo do Update), o agente é liberado e o foco
  *    ouve AoVoltarDaVistaDePerto. Sem câmera ativa, isso é na hora. O
- *    Ponteiro da sessão é o EntradaJogador.OlharSemInverter.
+ *    Ponteiro da sessão é o EntradaJogador.OlharSemInverter. No Start,
+ *    o Interactor adiciona ao Player a SkillCheckHUD, a
+ *    PontosDeBorrifarHUD e o BorrifadorDePerto, se faltarem.
  *  - Pneu nos braços: quanto a câmera mexeu é repassado a cada quadro ao
  *    pneu (BalancarPneuNosBracos), que derrama a água (sem ritmo).
  *    Largar cheio sobre a caçamba recusa (Cacamba.RecusaPneuComAgua).
@@ -250,6 +252,8 @@ public class Interactor : MonoBehaviour
             gameObject.AddComponent<SkillCheckHUD>();
         if (GetComponent<PontosDeBorrifarHUD>() == null)
             gameObject.AddComponent<PontosDeBorrifarHUD>();
+        if (GetComponent<BorrifadorDePerto>() == null)
+            gameObject.AddComponent<BorrifadorDePerto>();
     }
 
     void Update()

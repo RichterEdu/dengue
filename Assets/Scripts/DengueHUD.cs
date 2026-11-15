@@ -352,12 +352,14 @@ public class DengueHUD : MonoBehaviour
         Interactable target = interactor != null ? interactor.CurrentTarget : null;
         PontoDeUso ponto = interactor != null ? interactor.PontoAlvo : null;
 
-        // Durante o skill check, só o anel dele na tela: sem mira nem painel.
+        // Durante o skill check, só o anel dele na tela; na vista de perto
+        // (e na volta da câmera), só as bolinhas: sem mira nem painel.
         bool emSkillCheck = interactor != null && interactor.SkillCheckAtivo != null;
+        bool esconder = EscondeMiraEPainel(emSkillCheck, interactor != null && interactor.DePerto);
         if (crosshair != null)
-            Ativar(crosshair.gameObject, !emSkillCheck);
+            Ativar(crosshair.gameObject, !esconder);
 
-        if (emSkillCheck)
+        if (esconder)
         {
             if (targetGroup != null)
                 targetGroup.alpha = 0f;
@@ -376,6 +378,10 @@ public class DengueHUD : MonoBehaviour
             completeGroup.alpha = Mathf.Lerp(completeGroup.alpha, goal, k * 0.5f);
         }
     }
+
+    /* Sem mira e com o painel do alvo a zero: no skill check e na vista de
+     * perto (sessão em andamento ou câmera voltando dela). */
+    internal static bool EscondeMiraEPainel(bool emSkillCheck, bool dePerto) => emSkillCheck || dePerto;
 
     /* Alvo do fade da faixa "Todos os focos foram eliminados!": acesa com
      * todos eliminados, e apagada quando a tela final aparece. */

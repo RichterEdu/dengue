@@ -248,6 +248,8 @@ public class Interactor : MonoBehaviour
         jogador = GetComponent<ControladorJogador>();
         if (GetComponent<SkillCheckHUD>() == null)
             gameObject.AddComponent<SkillCheckHUD>();
+        if (GetComponent<PontosDeBorrifarHUD>() == null)
+            gameObject.AddComponent<PontosDeBorrifarHUD>();
     }
 
     void Update()

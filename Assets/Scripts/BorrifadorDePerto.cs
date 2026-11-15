@@ -14,8 +14,9 @@ using UnityEngine;
  *      herdada (filho "Nevoa") vira a névoa de perto: emissão desligada,
  *      gotas menores e mais lentas. Nenhum outro sistema de partículas é
  *      criado, e o original não muda.
- *    - Com sessão (Interactor.PontosAtivos): ativa a cópia, que entra
- *      deslizando de baixo e da direita em DuracaoDaEntrada.
+ *    - Com sessão (Interactor.PontosAtivos): ativa a cópia (Ativar), já
+ *      apontada para a mira, que entra deslizando de baixo e da direita
+ *      em DuracaoDaEntrada.
  *    - A cada quadro, o giro vai para GiroParaAMira (a mira como ela
  *      aparece na tela, com MergulhoGraus para dentro da cena), suavizado.
  *    - A cada borrifada nova da sessão, Emit(GotasPorBorrifada). Sessão
@@ -146,12 +147,7 @@ public class BorrifadorDePerto : MonoBehaviour
         }
 
         if (!copia.activeSelf)
-        {
-            copia.SetActive(true);
-            tempoDeEntrada = 0f;
-            if (nevoaDePerto != null && !nevoaDePerto.isPlaying)
-                nevoaDePerto.Play();
-        }
+            Ativar(sessao.Mira, camera.fieldOfView);
 
         // Entrada: desliza de baixo e da direita até a posição na câmera.
         tempoDeEntrada += dt;
@@ -171,6 +167,29 @@ public class BorrifadorDePerto : MonoBehaviour
                 nevoaDePerto.Emit(GotasPorBorrifada * (sessao.Borrifadas - borrifadasVistas));
             borrifadasVistas = sessao.Borrifadas;
         }
+    }
+
+    /* Ativa a cópia, que entra deslizando de novo, já com o bico apontado
+     * para a mira: sem a virada do giro herdado da mão (ou da sessão
+     * anterior). Sem cópia: nada. */
+    internal void Ativar(Vector2 mira, float fov)
+    {
+        if (copia == null)
+            return;
+
+        copia.SetActive(true);
+        tempoDeEntrada = 0f;
+        // O bico depende do giro: aplicar o alvo inteiro oscila; meio passo
+        // por volta converge em menos de 12 (o mesmo ponto a que o Slerp do
+        // LateUpdate chegaria).
+        for (int i = 0; i < 12; i++)
+        {
+            Quaternion giro = copia.transform.localRotation;
+            Quaternion alvo = GiroParaAMira(mira, fov, PosicaoNaCamera + giro * BicoLocal, MergulhoGraus);
+            copia.transform.localRotation = Quaternion.Slerp(giro, alvo, 0.5f);
+        }
+        if (nevoaDePerto != null && !nevoaDePerto.isPlaying)
+            nevoaDePerto.Play();
     }
 
     /* Sem sessão: limpa a névoa e desativa a cópia. */

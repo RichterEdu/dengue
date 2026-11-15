@@ -9,7 +9,8 @@ using UnityEngine.Rendering;
  *  mira como ela aparece na tela (GiroParaAMira, sem NaN com a mira em
  *  cima do bico) e a cópia do borrifador presa à câmera (Montar): filha
  *  da câmera, inativa, na PosicaoNaCamera, sem sombra e com a névoa
- *  herdada ajustada para perto, sem mexer no original.
+ *  herdada ajustada para perto, sem mexer no original. Ao ativar
+ *  (Ativar), a cópia já entra apontada para a mira, sem virar.
  *
  *  O "original" de teste imita o borrifador da mão: um objeto inativo
  *  com um filho de MeshRenderer (sombra ligada) e um filho Nevoa com
@@ -103,6 +104,21 @@ public class BorrifadorDePertoTestes
         Assert.AreEqual(ShadowCastingMode.On, corpoDoOriginal.shadowCastingMode, "e com a sombra");
 
         Assert.AreSame(copia, borrifador.Montar(camera.transform, original.transform), "monta uma vez só");
+    }
+
+    [Test]
+    public void AoAtivarJaApontaParaAMira()
+    {
+        copia = borrifador.Montar(camera.transform, original.transform);
+        copia.transform.localRotation = Quaternion.Euler(299f, 329f, 19f);   // o giro herdado da mão
+        Vector2 mira = new Vector2(0.3f, -0.2f);
+
+        borrifador.Ativar(mira, 40f);
+
+        Assert.IsTrue(copia.activeSelf);
+        Vector3 bico = BorrifadorDePerto.PosicaoNaCamera + copia.transform.localRotation * BorrifadorDePerto.BicoLocal;
+        Quaternion alvo = BorrifadorDePerto.GiroParaAMira(mira, 40f, bico, BorrifadorDePerto.MergulhoGraus);
+        Assert.Less(Quaternion.Angle(copia.transform.localRotation, alvo), 0.5f, "entra já apontado, sem virar");
     }
 
     [Test]

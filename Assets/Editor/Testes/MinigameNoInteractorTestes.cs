@@ -8,8 +8,8 @@ using UnityEngine;
  *  Testes EditMode da base comum de minigame (Minigame.cs) conduzida
  *  pelo Interactor: Passo vira AvancarCom, o último passo encerra, sair
  *  guarda os cliques (só com PodeSair), o erro chama o gancho do foco sem
- *  gastar carga, alvo destruído ou Bloqueado encerram, e a mira da sessão
- *  aponta o olhar do jogador. A sessão só começa num aperto novo
+ *  gastar carga, alvo destruído ou Bloqueado encerram, e o Avancando segue
+ *  o Agindo da sessão. A sessão só começa num aperto novo
  *  (ConferirFoco): a mira chegando com o botão já apertado não começa nem
  *  libera o segurar, e CriarMinigame (consulta) não muda o foco.
  *
@@ -49,12 +49,6 @@ public class MinigameNoInteractorTestes
         public bool PodeSair => Sai;
         public bool Age;
         public bool Agindo => Age;
-    }
-
-    /* Sessão falsa que mira sempre no mesmo ponto. */
-    private class MinigameComMiraFalso : MinigameFalso, IMinigameComMira
-    {
-        public Vector2 Mira => new Vector2(10f, -5f);
     }
 
     /* Sessão falsa que pede a vista de perto. */
@@ -219,20 +213,6 @@ public class MinigameNoInteractorTestes
         Assert.AreEqual(1, foco.CurrentClicks);
         Assert.AreEqual(areiaAntes, kit.Estoque.Quantidade(Ferramenta.Areia));
         Assert.AreEqual(1, foco.Saidas);
-    }
-
-    [Test]
-    public void MiraAplicadaNoOlhar()
-    {
-        foco.Sessao = new MinigameComMiraFalso();
-        float yaw = jogador.Yaw;
-        float pitch = jogador.Pitch;
-        interactor.IniciarMinigame(foco);
-
-        Quadro();
-
-        Assert.AreEqual(yaw + 10f, jogador.Yaw, 0.001f);
-        Assert.AreEqual(pitch - 5f, jogador.Pitch, 0.001f);
     }
 
     [Test]

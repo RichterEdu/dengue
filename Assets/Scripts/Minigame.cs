@@ -17,8 +17,6 @@ using UnityEngine;
  *    barra da HUD. PodeSair = o botão de largar sai do minigame.
  *  - Agindo = a sessão faz a sua ação neste quadro (o Avancando do
  *    Interactor: som de ação e o item na mão).
- *  - IMinigameComMira: sessão que mexe no olhar do jogador. Mira é em
- *    graus (yaw, pitch), a partir do olhar do começo do minigame.
  *  - EntradaDoMinigame.Ponteiro: o mesmo movimento do Olhar, sem o
  *    "inverter Y" (+x = direita, +y = para cima na tela), para sessões
  *    que mexem um ponteiro na tela em vez do olhar.
@@ -62,13 +60,6 @@ public interface IMinigame
      * Interactor (som de ação no SomDoKit, gesto e partículas do item na
      * mão no ItensNaMao). */
     bool Agindo { get; }
-}
-
-/* Sessão que aponta o olhar do jogador enquanto está ativa. */
-public interface IMinigameComMira
-{
-    /* Graus (yaw, pitch) a partir do olhar inicial. */
-    Vector2 Mira { get; }
 }
 
 /* Pose de câmera de uma vista de perto. */

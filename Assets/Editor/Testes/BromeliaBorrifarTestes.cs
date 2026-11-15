@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -5,78 +6,78 @@ using UnityEngine;
 /* ============================================================
  *  BromeliaBorrifarTestes.cs
  *  ---------------------------------------------------------------------
- *  Testes EditMode da bromélia no minigame do borrifador (MiraDoBorrifador):
- *  a sessão tem as pocinhas ativas, nos ângulos certos vistos do olho; a
- *  pocinha atingida é a que seca (não a da ordem fixa); o último passo
- *  seca o que sobrou; sair guarda as secas e devolve a meio caminho à
- *  escala original; retomar cobre só o que falta; o caminho antigo
- *  (Interact sem kit) mantém a ordem fixa; a dose de água sanitária só sai
- *  no fim; textos da HUD, tempo estimado e ganchos fora de ordem. Na
- *  geometria do prefab real (Bromelia.prefab, escala 1,51, olho 2 m atrás
- *  e 1,6 m acima), mirar o centro e segurar seca no máximo uma pocinha e
- *  mirar cada uma seca todas; com pitch inicial de 45° a mira aponta a
- *  câmera para a pocinha; a mira fica nos limites do pitch; a
- *  sensibilidade do Inspector chega à sessão.
+ *  Testes EditMode da bromélia no minigame dos pontos de borrifar
+ *  (SessaoDaBromelia, derivada de PontosDeBorrifar): a sessão tem as
+ *  pocinhas com água, embaralhadas pela semente e com o copo por último,
+ *  no centro do campo; os pontos são a projeção das pocinhas na pose da
+ *  vista de perto (acima do copo, com a base da tela do lado do agente);
+ *  a proporção da tela chega à sessão; o acerto seca a pocinha do ponto;
+ *  o último acerto só conclui depois do fecho; sair guarda as secas;
+ *  retomar cobre só o que falta; sair ou bloquear no fecho devolve a água
+ *  do copo; desativada no meio, larga a sessão; o enxame some ao começar
+ *  e volta com a câmera; a dose de água sanitária só sai no fim; o
+ *  caminho antigo (Interact sem kit) mantém a ordem fixa; textos da HUD,
+ *  tempo estimado e ganchos fora de ordem.
  *
- *  Câmera: os testes que passam pelo Interactor precisam do Camera.main
- *  (o CriarMinigame lê o olho dele). A cena aberta no modo batch já tem a
- *  sua "Main Camera"; sem nenhuma, o teste cria uma com a tag MainCamera
- *  pelo TesteUtil. O olho é a posição dessa câmera, e as pocinhas ficam em
- *  volta dele (a visão vem do yaw/pitch do ControladorJogador, não da
- *  rotação da câmera). Os testes só de geometria chamam CriarMira direto.
+ *  Câmera: o CriarMinigame pede o Camera.main (a proporção da tela). A
+ *  cena aberta no modo batch já tem a sua "Main Camera"; sem nenhuma, o
+ *  teste cria uma com a tag MainCamera pelo TesteUtil. A câmera da vista
+ *  de perto é uma CameraJogador de teste ligada ao Interactor
+ *  (CameraDePerto) e ao jogador; "a câmera volta" = Posicionar(Q, 1) e
+ *  AtualizarVolta.
  *
- *  A bromélia de teste tem 3 pocinhas (a última é o copo central) 1,5 m à
- *  frente do olho e 0,3 m abaixo dele, com 3 cliques: cada pocinha seca é
- *  um passo. O jogador começa olhando reto (yaw e pitch 0).
+ *  A bromélia de teste fica em Origem, com 3 pocinhas (a última é o copo)
+ *  e 3 cliques: cada pocinha seca é um passo. O jogador fica 1,5 m atrás
+ *  dela (−z). Fora do Play a pocinha some na hora (as corrotinas não
+ *  andam), e o OnDisable não roda: os testes chamam o AoDesativar.
  *
- *  Rodar:  unity test "<projeto>" --mode EditMode --filter BromeliaBorrifarTestes
+ *  Rodar:  unity command run_tests --mode EditMode --filter_type category --filter Minigames
  * ============================================================ */
 
 [Category("Minigames")]
 public class BromeliaBorrifarTestes
 {
-    private const float Quadro = 1f / 60f;
+    private const float Q = 1f / 60f;
+    private static readonly Vector3 Origem = new Vector3(20f, 0f, 20f);
     private static readonly Vector3 EscalaDaPoca = new Vector3(0.2f, 0.05f, 0.2f);
 
-    /* Deslocamentos a partir do olho. */
+    /* Deslocamentos a partir da bromélia; a última é o copo. */
     private static readonly Vector3[] TresPocinhas =
-    {
-        new Vector3(-0.4f, -0.3f, 1.5f),
-        new Vector3(0.4f, -0.3f, 1.5f),
-        new Vector3(0f, -0.3f, 1.5f)       // copo central
-    };
+        { new Vector3(-0.06f, 0.3f, 0.05f), new Vector3(0.06f, 0.3f, 0.05f), new Vector3(0f, 0.3f, 0f) };
+    private static readonly Vector3[] CincoPocinhas =
+        { new Vector3(-0.08f, 0.3f, 0.03f), new Vector3(0.08f, 0.3f, 0.03f), new Vector3(-0.05f, 0.3f, -0.07f),
+          new Vector3(0.05f, 0.3f, -0.07f), new Vector3(0f, 0.3f, 0f) };
 
     private ControladorJogador jogador;
     private KitDoAgente kit;
     private Interactor interactor;
     private Camera cameraDoTeste;    // null = a cena já tinha a sua
-    private Vector3 olho;
+    private CameraJogador cameraDePerto;
     private BromeliaInteractable bromelia;
     private GameObject[] pocas;
-
-    // O olhar do começo da sessão: a Mira conta a partir dele.
-    private Quaternion visaoDoComeco;
 
     [SetUp]
     public void Preparar()
     {
         jogador = TesteUtil.Com<ControladorJogador>("Jogador (teste)");
+        jogador.transform.position = Origem + new Vector3(0f, 0f, -1.5f);
         kit = jogador.gameObject.AddComponent<KitDoAgente>();
         kit.Selecionar(Ferramenta.AguaSanitaria);
         interactor = jogador.gameObject.AddComponent<Interactor>();
 
-        Camera principal = Camera.main;
         cameraDoTeste = null;
-        if (principal == null)
+        if (Camera.main == null)
         {
             cameraDoTeste = TesteUtil.Com<Camera>("Câmera (teste)");
             cameraDoTeste.tag = "MainCamera";
             cameraDoTeste.transform.position = new Vector3(0f, 1.5f, 0f);
-            principal = cameraDoTeste;
         }
-        olho = principal.transform.position;
 
-        Montar(olho, TresPocinhas, 3);
+        cameraDePerto = TesteUtil.Com<CameraJogador>("Câmera de perto (teste)");
+        TesteUtil.Setar(cameraDePerto, "jogador", jogador);
+        interactor.CameraDePerto = cameraDePerto;
+
+        Montar(Origem, TresPocinhas, 3);
     }
 
     [TearDown]
@@ -112,82 +113,383 @@ public class BromeliaBorrifarTestes
             .SetValue(bromelia, lista);
     }
 
-    /* (yaw, pitch) em graus de uma posição vista do olho com esta visão. */
-    private static Vector2 Angulos(Vector3 posicao, Vector3 olho, Quaternion visao)
+    /* O enxame de mosquitos da bromélia (filho com o nome do EnxameDeMosquitos). */
+    private GameObject CriarEnxame()
     {
-        Vector3 local = Quaternion.Inverse(visao) * (posicao - olho);
-        float yaw = Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg;
-        float pitch = Mathf.Atan2(-local.y, Mathf.Sqrt(local.x * local.x + local.z * local.z)) * Mathf.Rad2Deg;
-        return new Vector2(yaw, pitch);
+        GameObject enxame = TesteUtil.Novo(EnxameDeMosquitos.NomeDoFilho);
+        enxame.transform.SetParent(bromelia.transform, false);
+        return enxame;
     }
 
-    private static void Frame(MiraDoBorrifador m, Vector2 olhar, bool segurando, float dt = Quadro)
-    {
-        m.Atualizar(dt, new EntradaDoMinigame { Olhar = olhar, Segurando = segurando });
-    }
+    private Vector3 Agente => kit.transform.position;
+    private Vector3 Copo => pocas[pocas.Length - 1].transform.position;
 
-    /* Começa a sessão pelo Interactor, guardando o olhar do começo. */
-    private MiraDoBorrifador Iniciar()
+    private SessaoDaBromelia Sessao(int semente = 0)
+        => bromelia.CriarSessao(Agente, Vector3.forward, 16f / 9f, semente);
+
+    /* Começa pelo Interactor e passa da espera inicial. */
+    private SessaoDaBromelia Iniciar()
     {
-        visaoDoComeco = Quaternion.Euler(jogador.Pitch, jogador.Yaw, 0f);
         Assert.IsTrue(interactor.IniciarMinigame(bromelia), "a bromélia devia ter minigame");
-        return (MiraDoBorrifador)interactor.MinigameAtivo;
+        Esperar(0.35f);
+        return (SessaoDaBromelia)interactor.MinigameAtivo;
     }
 
-    /* Um quadro do Interactor que leva a mira até a pocinha, sem segurar. */
-    private void Mirar(MiraDoBorrifador m, GameObject poca)
+    private void Esperar(float segundos)
     {
-        Vector2 alvo = Angulos(poca.transform.position, olho, visaoDoComeco);
-        Vector2 olhar = new Vector2(alvo.x - m.Mira.x, -(alvo.y - m.Mira.y));
-        interactor.AvancarMinigame(Quadro, new EntradaDoMinigame { Olhar = olhar }, false);
+        for (float t = 0f; t < segundos && interactor.MinigameAtivo != null; t += Q)
+            interactor.AvancarMinigame(Q, new EntradaDoMinigame(), false);
     }
 
-    /* Segura parado até a pocinha sumir (ou a sessão acabar). */
-    private void SegurarAteSecar(GameObject poca)
+    /* Leva a mira à bolinha da vez e aperta, num quadro só. */
+    private void Acertar(SessaoDaBromelia s)
     {
-        for (int i = 0; i < 300 && poca.activeSelf && interactor.MinigameAtivo != null; i++)
-            Segurar(1);
-        Assert.IsFalse(poca.activeSelf, poca.name + " devia ter secado");
+        Vector2 ponteiro = (s.Ponto(s.DaVez) - s.Mira) / PontosDeBorrifar.MiraPorGrauPadrao;
+        interactor.AvancarMinigame(Q, new EntradaDoMinigame { Ponteiro = ponteiro, Apertou = true }, false);
     }
 
-    private void Segurar(int quadros, bool sair = false)
+    private void Sair() => interactor.AvancarMinigame(Q, new EntradaDoMinigame(), true);
+
+    private void CameraVolta()
     {
-        for (int i = 0; i < quadros; i++)
-            interactor.AvancarMinigame(Quadro, new EntradaDoMinigame { Segurando = true }, sair && i == quadros - 1);
+        cameraDePerto.Posicionar(Q, 1f);
+        interactor.AtualizarVolta();
     }
 
-    private void Secar(MiraDoBorrifador m, GameObject poca)
+    private static void AssertPerto(Vector2 esperado, Vector2 obtido, float tolerancia, string mensagem)
     {
-        Mirar(m, poca);
-        SegurarAteSecar(poca);
+        Assert.AreEqual(esperado.x, obtido.x, tolerancia, mensagem + " (x)");
+        Assert.AreEqual(esperado.y, obtido.y, tolerancia, mensagem + " (y)");
     }
+
+    private static void AssertPerto(Vector3 esperado, Vector3 obtido, float tolerancia, string mensagem)
+    {
+        Assert.AreEqual(0f, Vector3.Distance(esperado, obtido), tolerancia, mensagem);
+    }
+
+    /* ---------------- A sessão ---------------- */
 
     [Test]
-    public void CriaAMiraComAsPocinhasAtivas()
+    public void CriaASessaoComAsPocinhasComAgua()
     {
-        Assert.AreEqual(3, bromelia.CriarMira(olho, 0f, 0f).Total);
-        Assert.IsInstanceOf<MiraDoBorrifador>(bromelia.CriarMinigame(kit, 0));
+        IMinigame criado = bromelia.CriarMinigame(kit, 1);
+        Assert.IsInstanceOf<SessaoDaBromelia>(criado);
+        Assert.AreEqual(3, ((SessaoDaBromelia)criado).Total);
 
         pocas[0].SetActive(false);
-        Assert.AreEqual(2, bromelia.CriarMira(olho, 0f, 0f).Total, "só as ativas");
+        Assert.AreEqual(2, ((SessaoDaBromelia)bromelia.CriarMinigame(kit, 1)).Total, "só as com água");
     }
 
     [Test]
-    public void AngulosDaPocinha()
+    public void CopoPorUltimoENoCentroDoCampo()
     {
-        Montar(Vector3.zero, new[] { new Vector3(0.1f, -0.2f, 1.5f) }, 1);
+        for (int semente = 0; semente < 10; semente++)
+        {
+            SessaoDaBromelia s = Sessao(semente);
+            Assert.AreEqual(2, s.Pocas[s.Total - 1], "semente " + semente + ": o copo por último");
+            AssertPerto(Vector2.zero, s.Ponto(s.Total - 1), 1e-4f, "semente " + semente + ": o copo no centro");
+        }
+    }
 
-        MiraDoBorrifador certa = bromelia.CriarMira(Vector3.zero, 0f, 0f);
-        Frame(certa, new Vector2(3.814f, -7.578f), false);
-        for (int i = 0; i < 90; i++) Frame(certa, Vector2.zero, true);
-        Assert.AreEqual(1, certa.Secas, "mirada na pocinha, seca");
-        Assert.AreEqual(0f, certa.Umidade(0));
+    [Test]
+    public void MesmaSementeMesmaOrdem()
+    {
+        Montar(Origem, CincoPocinhas, 5);
 
-        MiraDoBorrifador longe = bromelia.CriarMira(Vector3.zero, 0f, 0f);
-        Frame(longe, new Vector2(3.814f + 6f, -7.578f), false);
-        for (int i = 0; i < 90; i++) Frame(longe, Vector2.zero, true);
-        Assert.AreEqual(0, longe.Secas, "6° fora, não seca");
-        Assert.AreEqual(1f, longe.Umidade(0));
+        CollectionAssert.AreEqual(Sessao(7).Pocas, Sessao(7).Pocas, "mesma semente, mesma ordem");
+
+        HashSet<string> ordens = new HashSet<string>();
+        for (int semente = 0; semente < 20; semente++)
+            ordens.Add(string.Join(",", Sessao(semente).Pocas));
+        Assert.GreaterOrEqual(ordens.Count, 2, "as sementes embaralham");
+    }
+
+    [Test]
+    public void PontosSaoAProjecaoDasPocinhas()
+    {
+        Montar(Origem, CincoPocinhas, 5);
+        SessaoDaBromelia s = Sessao(3);
+
+        Assert.AreEqual(5, s.Total);
+        for (int k = 0; k < s.Total; k++)
+            AssertPerto(s.Pose.NoCampo(pocas[s.Pocas[k]].transform.position), s.Ponto(k), 1e-5f, "ponto " + k);
+    }
+
+    [Test]
+    public void PoseAcimaDoCopoComABaseDaTelaDoLadoDoAgente()
+    {
+        PoseDePerto pose = bromelia.PoseDaVistaDePerto(Origem + new Vector3(0f, 0f, -1.5f), Vector3.forward);
+
+        AssertPerto(Copo + new Vector3(0f, 0.58f, -0.17f), pose.Posicao, 1e-4f, "acima do copo, recuada para o agente");
+        Assert.AreEqual(40f, pose.Fov, 1e-5f);
+        AssertPerto(Vector2.zero, pose.NoCampo(Copo), 1e-4f, "o copo no centro");
+        Assert.Less(pose.NoCampo(Copo + new Vector3(0f, 0f, -0.05f)).y, 0f, "o lado do agente fica na base da tela");
+        Assert.Greater(pose.NoCampo(Copo + new Vector3(0.05f, 0f, 0f)).x, 0f, "+x do mundo à direita");
+    }
+
+    [Test]
+    public void AgenteEmCimaDaPlantaUsaAFrenteReserva()
+    {
+        Vector3 agente = new Vector3(Copo.x, 0f, Copo.z);
+        PoseDePerto pose = bromelia.PoseDaVistaDePerto(agente, Vector3.right);
+
+        AssertPerto(Copo + new Vector3(-0.17f, 0.58f, 0f), pose.Posicao, 1e-4f, "recuada contra a frente reserva");
+        Quaternion g = pose.Giro;
+        Assert.IsTrue(float.IsFinite(g.x) && float.IsFinite(g.y) && float.IsFinite(g.z) && float.IsFinite(g.w),
+                      "giro finito");
+    }
+
+    [Test]
+    public void ProporcaoDaTelaChegaASessao()
+    {
+        SessaoDaBromelia s = bromelia.CriarSessao(Agente, Vector3.forward, 4f / 3f, 0);
+
+        s.Atualizar(Q, new EntradaDoMinigame { Ponteiro = new Vector2(1e6f, 0f) });
+
+        Assert.AreEqual(4f / 3f, s.Mira.x, 1e-5f, "a mira para na borda do campo");
+    }
+
+    /* ---------------- Pelo Interactor ---------------- */
+
+    [Test]
+    public void AcertoSecaAPocinhaCerta()
+    {
+        SessaoDaBromelia s = Iniciar();
+        int i = bromelia.PocaDoPonto(0);
+
+        Acertar(s);
+
+        Assert.IsFalse(pocas[i].activeSelf, "a pocinha do ponto secou");
+        for (int j = 0; j < pocas.Length; j++)
+            if (j != i) Assert.IsTrue(pocas[j].activeSelf, "a pocinha " + j + " continua com água");
+        Assert.AreEqual(1, bromelia.CurrentClicks);
+        Assert.IsNotNull(interactor.MinigameAtivo);
+    }
+
+    [Test]
+    public void CliqueForaNaoSecaNada()
+    {
+        SessaoDaBromelia s = Iniciar();
+
+        Vector2 ponteiro = (new Vector2(1.2f, 0.9f) - s.Mira) / PontosDeBorrifar.MiraPorGrauPadrao;
+        interactor.AvancarMinigame(Q, new EntradaDoMinigame { Ponteiro = ponteiro, Apertou = true }, false);
+
+        foreach (GameObject p in pocas)
+            Assert.IsTrue(p.activeSelf);
+        Assert.AreEqual(0, bromelia.CurrentClicks);
+    }
+
+    [Test]
+    public void UltimoAcertoSoConcluiDepoisDoFecho()
+    {
+        SessaoDaBromelia s = Iniciar();
+        for (int k = 0; k < 3; k++) Acertar(s);
+
+        foreach (GameObject p in pocas)
+            Assert.IsFalse(p.activeSelf, "as três secas");
+        Assert.IsFalse(bromelia.IsComplete, "ainda no fecho");
+        Assert.IsNotNull(interactor.MinigameAtivo);
+
+        Esperar(0.5f);
+        Assert.IsTrue(bromelia.IsComplete);
+        Assert.IsNull(interactor.MinigameAtivo);
+    }
+
+    [Test]
+    public void UltimoPassoSecaOQueSobrou()
+    {
+        bromelia.AoIniciarMinigame(Sessao());
+
+        Assert.AreEqual(ResultadoDoPasso.Avancou, bromelia.AvancarCom(kit));
+        Assert.AreEqual(ResultadoDoPasso.Avancou, bromelia.AvancarCom(kit));
+        foreach (GameObject p in pocas)
+            Assert.IsTrue(p.activeSelf, "com sessão, o passo não seca na ordem fixa");
+
+        Assert.AreEqual(ResultadoDoPasso.Concluiu, bromelia.AvancarCom(kit));
+        foreach (GameObject p in pocas)
+            Assert.IsFalse(p.activeSelf, "o último passo seca o que sobrou");
+    }
+
+    [Test]
+    public void SairGuardaAsSecas()
+    {
+        SessaoDaBromelia s = Iniciar();
+        int i = bromelia.PocaDoPonto(0);
+        Acertar(s);
+
+        Sair();
+
+        Assert.IsNull(interactor.MinigameAtivo);
+        Assert.IsFalse(pocas[i].activeSelf, "a seca continua seca");
+        AssertPerto(EscalaDaPoca, pocas[i].transform.localScale, 1e-6f, "a seca guarda a escala original (para a chuva)");
+        for (int j = 0; j < pocas.Length; j++)
+            if (j != i) Assert.IsTrue(pocas[j].activeSelf, "a pocinha " + j + " continua com água");
+        Assert.AreEqual(1, bromelia.CurrentClicks);
+    }
+
+    [Test]
+    public void RetomarUsaSoOQueFalta()
+    {
+        Montar(Origem, CincoPocinhas, 5);
+        SessaoDaBromelia s = Iniciar();
+        Acertar(s);
+        Acertar(s);
+        Assert.AreEqual(2, bromelia.CurrentClicks);
+        Sair();
+        Assert.IsNull(interactor.MinigameAtivo);
+
+        SessaoDaBromelia retomada = Iniciar();
+        Assert.AreEqual(3, retomada.Total, "só as que faltam");
+        Assert.AreEqual(4, retomada.Pocas[retomada.Total - 1], "o copo por último");
+
+        for (int k = 0; k < 3; k++) Acertar(retomada);
+        Esperar(0.5f);
+
+        Assert.IsTrue(bromelia.IsComplete);
+        Assert.AreEqual(5, bromelia.CurrentClicks);
+    }
+
+    /* Três acertos (o último entra no fecho) e então a interrupção. */
+    private void InterromperNoFecho(System.Action interromper)
+    {
+        SessaoDaBromelia s = Iniciar();
+        for (int k = 0; k < 3; k++) Acertar(s);
+        Assert.AreEqual(2, bromelia.CurrentClicks, "o terceiro passo espera o fecho");
+
+        interromper();
+
+        Assert.IsFalse(bromelia.IsComplete);
+        Assert.AreEqual(2, bromelia.CurrentClicks);
+        Assert.IsTrue(pocas[2].activeSelf, "o copo volta a ter água");
+        AssertPerto(EscalaDaPoca, pocas[2].transform.localScale, 1e-6f, "com a escala original");
+        Assert.IsFalse(pocas[0].activeSelf);
+        Assert.IsFalse(pocas[1].activeSelf);
+        Assert.AreEqual(1, ((SessaoDaBromelia)bromelia.CriarMinigame(kit, 0)).Total, "a próxima sessão é só o copo");
+    }
+
+    [Test]
+    public void SairNoFechoDevolveAAguaDoCopo()
+    {
+        InterromperNoFecho(Sair);
+    }
+
+    [Test]
+    public void BloqueioNoFechoDevolveAAguaDoCopo()
+    {
+        InterromperNoFecho(() => interactor.AoBloquear());
+    }
+
+    [Test]
+    public void DesativadaNoMeioLargaASessao()
+    {
+        GameObject enxame = CriarEnxame();
+        Iniciar();
+        Assert.IsFalse(enxame.activeSelf);
+
+        bromelia.AoDesativar();
+
+        Assert.IsTrue(enxame.activeSelf, "o enxame volta na hora");
+        Assert.AreEqual(-1, bromelia.PocaDoPonto(0), "sem sessão");
+
+        bool[] antes = new bool[pocas.Length];
+        for (int i = 0; i < pocas.Length; i++) antes[i] = pocas[i].activeSelf;
+        bromelia.AoDesativar();
+        for (int i = 0; i < pocas.Length; i++)
+            Assert.AreEqual(antes[i], pocas[i].activeSelf, "sem sessão, nenhuma pocinha muda");
+    }
+
+    /* Com o enxame: some ao começar, continua escondido enquanto a câmera
+     * volta e reaparece quando ela chega aos olhos. */
+    private void EnxameVoltaComACamera(string caso, System.Action<SessaoDaBromelia> encerrar)
+    {
+        Montar(Origem, TresPocinhas, 3);
+        GameObject enxame = CriarEnxame();
+
+        SessaoDaBromelia s = Iniciar();
+        Assert.IsFalse(enxame.activeSelf, caso + ": escondido na vista de perto");
+
+        encerrar(s);
+        Assert.IsNull(interactor.MinigameAtivo, caso + ": a sessão acabou");
+        Assert.IsTrue(interactor.Voltando, caso + ": a câmera está voltando");
+        Assert.IsFalse(enxame.activeSelf, caso + ": ainda escondido na volta");
+
+        CameraVolta();
+        Assert.IsFalse(interactor.Voltando, caso + ": a câmera chegou");
+        Assert.IsTrue(enxame.activeSelf, caso + ": o enxame volta com a câmera");
+    }
+
+    [Test]
+    public void EnxameSomeAoComecarEVoltaComACamera()
+    {
+        EnxameVoltaComACamera("sair", s => Sair());
+        EnxameVoltaComACamera("bloqueio", s => interactor.AoBloquear());
+        EnxameVoltaComACamera("concluir", s =>
+        {
+            for (int k = 0; k < 3; k++) Acertar(s);
+            Esperar(0.5f);
+            Assert.IsTrue(bromelia.IsComplete);
+        });
+        EnxameVoltaComACamera("recusa no meio", s =>
+        {
+            kit.Selecionar(Ferramenta.Areia);
+            Acertar(s);
+        });
+    }
+
+    [Test]
+    public void EnxameQueNasceNoMeioTambemSome()
+    {
+        Iniciar();
+        GameObject enxame = CriarEnxame();
+
+        Esperar(Q);
+
+        Assert.IsFalse(enxame.activeSelf);
+    }
+
+    [Test]
+    public void DoseSoNoFim()
+    {
+        int antes = kit.Estoque.Quantidade(Ferramenta.AguaSanitaria);
+        SessaoDaBromelia s = Iniciar();
+
+        Acertar(s);
+        Assert.AreEqual(antes, kit.Estoque.Quantidade(Ferramenta.AguaSanitaria), "1º acerto");
+        Acertar(s);
+        Assert.AreEqual(antes, kit.Estoque.Quantidade(Ferramenta.AguaSanitaria), "2º acerto");
+        Acertar(s);
+        Assert.AreEqual(antes, kit.Estoque.Quantidade(Ferramenta.AguaSanitaria), "3º acerto, no fecho");
+
+        Esperar(0.5f);
+        Assert.IsTrue(bromelia.IsComplete);
+        Assert.AreEqual(antes - 1, kit.Estoque.Quantidade(Ferramenta.AguaSanitaria), "a dose sai no fim");
+    }
+
+    /* ---------------- Textos, tempo e casos sem minigame ---------------- */
+
+    [Test]
+    public void ConviteEDica()
+    {
+        Assert.AreEqual("Clique para borrifar as pocinhas", bromelia.ConviteDoMinigame(kit));
+        Assert.AreEqual("Clique nas bolinhas para borrifar   |   Botão direito: sair", bromelia.DicaDoMinigame);
+
+        kit.Selecionar(Ferramenta.Areia);
+        Assert.IsNull(bromelia.ConviteDoMinigame(kit), "outra ferramenta");
+        Assert.IsNull(bromelia.ConviteDoMinigame(null), "sem kit");
+    }
+
+    [Test]
+    public void SegundosEstimadosPelasPocinhas()
+    {
+        // 0,3 (espera) + 0,45 (fecho) + 0,87 × 3
+        Assert.AreEqual(3.36f, bromelia.SegundosEstimados, 1e-4f);
+
+        Montar(Origem, CincoPocinhas, 5);
+        Assert.AreEqual(5.1f, bromelia.SegundosEstimados, 1e-4f);
+
+        DefinirPocas(new GameObject[0]);
+        Assert.AreEqual(bromelia.SegundosPorPasso * bromelia.RequiredClicks, bromelia.SegundosEstimados, 1e-4f,
+                        "sem pocinhas, o da base");
     }
 
     [Test]
@@ -228,120 +530,10 @@ public class BromeliaBorrifarTestes
         Assert.IsNull(bromelia.CriarMinigame(kit, 0));
 
         bromelia.Reencher();
-        Assert.AreEqual(3, bromelia.CriarMira(olho, 0f, 0f).Total);
+        Assert.AreEqual(3, ((SessaoDaBromelia)bromelia.CriarMinigame(kit, 0)).Total);
     }
 
-    [Test]
-    public void PocinhaAtingidaEAQueSeca()
-    {
-        MiraDoBorrifador m = Iniciar();
-
-        Mirar(m, pocas[1]);
-        for (int i = 0; i < 300 && bromelia.CurrentClicks < 1; i++)
-            Segurar(1);
-
-        Assert.AreEqual(1, bromelia.CurrentClicks, "um passo fechado");
-        Assert.IsTrue(pocas[0].activeSelf, "a 1ª da ordem fixa continua com água");
-        Assert.IsFalse(pocas[1].activeSelf, "a atingida secou");
-        Assert.IsTrue(pocas[2].activeSelf);
-        Assert.IsNotNull(interactor.MinigameAtivo);
-    }
-
-    [Test]
-    public void AvancandoSoSegurando()
-    {
-        MiraDoBorrifador m = Iniciar();
-
-        Mirar(m, pocas[0]);
-        Assert.IsFalse(interactor.Avancando, "sem segurar, sem névoa");
-        Segurar(1);
-        Assert.IsTrue(interactor.Avancando, "segurando, a névoa sai");
-    }
-
-    [Test]
-    public void VisualSegueAUmidade()
-    {
-        MiraDoBorrifador m = Iniciar();
-
-        Mirar(m, pocas[1]);
-        Segurar(15);
-
-        float u = m.Umidade(1);
-        Assert.That(u, Is.InRange(0.1f, 0.9f), "a meio caminho");
-        Vector3 escala = pocas[1].transform.localScale;
-        Assert.AreEqual(EscalaDaPoca.x * u, escala.x, 1e-4f);
-        Assert.AreEqual(EscalaDaPoca.y, escala.y, 1e-6f, "a altura fica");
-        Assert.AreEqual(EscalaDaPoca.z * u, escala.z, 1e-4f);
-    }
-
-    [Test]
-    public void UltimoPassoSecaOQueSobrou()
-    {
-        bromelia.AoIniciarMinigame(bromelia.CriarMira(olho, 0f, 0f));
-
-        Assert.AreEqual(ResultadoDoPasso.Avancou, bromelia.AvancarCom(kit));
-        Assert.AreEqual(ResultadoDoPasso.Avancou, bromelia.AvancarCom(kit));
-        foreach (GameObject p in pocas)
-            Assert.IsTrue(p.activeSelf, "com sessão, o passo não seca na ordem fixa");
-
-        Assert.AreEqual(ResultadoDoPasso.Concluiu, bromelia.AvancarCom(kit));
-        foreach (GameObject p in pocas)
-            Assert.IsFalse(p.activeSelf, "o último passo seca o que sobrou");
-        Assert.IsTrue(bromelia.IsComplete);
-    }
-
-    [Test]
-    public void SairGuardaAsSecasEDevolveAMeia()
-    {
-        MiraDoBorrifador m = Iniciar();
-        Secar(m, pocas[0]);
-
-        Mirar(m, pocas[1]);
-        Segurar(15);
-        Assert.Less(pocas[1].transform.localScale.x, EscalaDaPoca.x, "a 2ª encolheu");
-        Segurar(1, sair: true);
-
-        Assert.IsNull(interactor.MinigameAtivo);
-        Assert.IsFalse(pocas[0].activeSelf, "a seca continua seca");
-        Assert.IsTrue(pocas[1].activeSelf, "a meio caminho continua com água");
-        Assert.AreEqual(0f, Vector3.Distance(EscalaDaPoca, pocas[1].transform.localScale), 1e-6f, "escala original");
-        Assert.AreEqual(0f, Vector3.Distance(EscalaDaPoca, pocas[0].transform.localScale), 1e-6f,
-                        "a seca guarda a escala original (para a chuva)");
-        Assert.AreEqual(1, bromelia.CurrentClicks);
-    }
-
-    [Test]
-    public void RetomarUsaSoOQueFalta()
-    {
-        Montar(olho, new[]
-        {
-            new Vector3(-0.5f, -0.3f, 1.5f), new Vector3(-0.25f, -0.3f, 1.5f), new Vector3(0.25f, -0.3f, 1.5f),
-            new Vector3(0.5f, -0.3f, 1.5f), new Vector3(0f, -0.3f, 1.5f)
-        }, 5);
-
-        MiraDoBorrifador m = Iniciar();
-        Secar(m, pocas[3]);
-        Secar(m, pocas[1]);
-        Assert.AreEqual(2, bromelia.CurrentClicks);
-        Segurar(1, sair: true);
-        Assert.IsNull(interactor.MinigameAtivo);
-
-        MiraDoBorrifador retomada = Iniciar();
-        Assert.AreEqual(3, retomada.Total, "só as que faltam");
-
-        int passos = 0;
-        foreach (int i in new[] { 0, 2, 4 })
-        {
-            int antes = bromelia.CurrentClicks;
-            Secar(retomada, pocas[i]);
-            passos += bromelia.CurrentClicks - antes;
-            if (i != 4)
-                Assert.IsFalse(bromelia.IsComplete, "ainda não");
-        }
-        Assert.AreEqual(3, passos, "mais três passos");
-        Assert.IsTrue(bromelia.IsComplete);
-        Assert.IsNull(interactor.MinigameAtivo);
-    }
+    /* ---------------- Caminho antigo ---------------- */
 
     [Test]
     public void CaminhoAntigoMantemAOrdemFixa()
@@ -363,27 +555,29 @@ public class BromeliaBorrifarTestes
     [Test]
     public void CaminhoAntigoPulaAsJaSecas()
     {
-        // Secas fora de ordem (uma sessão que saiu no meio, com as de índice
-        // 1 e 3 secas): o passo sem sessão seca a próxima ATIVA do array, e a
-        // conta (ceil(5·cliques/5) secas) fecha com o que está mesmo seco.
-        Montar(olho, new[]
-        {
-            new Vector3(-0.5f, -0.3f, 1.5f), new Vector3(-0.25f, -0.3f, 1.5f), new Vector3(0.25f, -0.3f, 1.5f),
-            new Vector3(0.5f, -0.3f, 1.5f), new Vector3(0f, -0.3f, 1.5f)
-        }, 5);
-        MiraDoBorrifador m = Iniciar();
-        Secar(m, pocas[3]);
-        Secar(m, pocas[1]);
-        Segurar(1, sair: true);
+        // Secas fora de ordem (as duas primeiras da sessão, que saiu no
+        // meio): o passo sem sessão seca a próxima ATIVA do array, e a conta
+        // (ceil(5·cliques/5) secas) fecha com o que está mesmo seco.
+        Montar(Origem, CincoPocinhas, 5);
+        SessaoDaBromelia s = Iniciar();
+        Acertar(s);
+        Acertar(s);
+        Sair();
         Assert.AreEqual(2, bromelia.CurrentClicks);
 
+        List<int> comAgua = new List<int>();
+        for (int i = 0; i < pocas.Length; i++)
+            if (pocas[i].activeSelf) comAgua.Add(i);
+        Assert.AreEqual(3, comAgua.Count);
+        Assert.AreEqual(4, comAgua[2], "o copo nunca sai entre os primeiros");
+
         Assert.AreEqual(ResultadoDoPasso.Avancou, bromelia.AvancarCom(kit));
-        Assert.IsFalse(pocas[0].activeSelf, "a 1ª ativa do array");
-        Assert.IsTrue(pocas[2].activeSelf, "só uma a mais: 3 de 5 secas no 3º passo");
+        Assert.IsFalse(pocas[comAgua[0]].activeSelf, "a 1ª ativa do array");
+        Assert.IsTrue(pocas[comAgua[1]].activeSelf, "só uma a mais: 3 de 5 secas no 3º passo");
         Assert.IsTrue(pocas[4].activeSelf);
 
         Assert.AreEqual(ResultadoDoPasso.Avancou, bromelia.AvancarCom(kit));
-        Assert.IsFalse(pocas[2].activeSelf);
+        Assert.IsFalse(pocas[comAgua[1]].activeSelf);
         Assert.IsTrue(pocas[4].activeSelf);
 
         Assert.AreEqual(ResultadoDoPasso.Concluiu, bromelia.AvancarCom(kit));
@@ -391,47 +585,9 @@ public class BromeliaBorrifarTestes
     }
 
     [Test]
-    public void DoseSoNoFim()
-    {
-        int antes = kit.Estoque.Quantidade(Ferramenta.AguaSanitaria);
-        MiraDoBorrifador m = Iniciar();
-
-        Secar(m, pocas[0]);
-        Assert.AreEqual(antes, kit.Estoque.Quantidade(Ferramenta.AguaSanitaria), "1º passo");
-        Secar(m, pocas[1]);
-        Assert.AreEqual(antes, kit.Estoque.Quantidade(Ferramenta.AguaSanitaria), "2º passo");
-        Secar(m, pocas[2]);
-
-        Assert.IsTrue(bromelia.IsComplete);
-        Assert.AreEqual(antes - 1, kit.Estoque.Quantidade(Ferramenta.AguaSanitaria), "a dose sai no fim");
-    }
-
-    [Test]
-    public void ConviteEDica()
-    {
-        Assert.AreEqual("Clique para borrifar as pocinhas", bromelia.ConviteDoMinigame(kit));
-        Assert.AreEqual("Segure para borrifar as pocinhas   |   Botão direito: sair", bromelia.DicaDoMinigame);
-
-        kit.Selecionar(Ferramenta.Areia);
-        Assert.IsNull(bromelia.ConviteDoMinigame(kit), "outra ferramenta");
-        Assert.IsNull(bromelia.ConviteDoMinigame(null), "sem kit");
-    }
-
-    [Test]
-    public void SegundosEstimadosSomaOsTempos()
-    {
-        // 2 × 0,5 + 1,2 (copo central) + 0,4 × 3
-        Assert.AreEqual(3.4f, bromelia.SegundosEstimados, 1e-4f);
-
-        DefinirPocas(new GameObject[0]);
-        Assert.AreEqual(bromelia.SegundosPorPasso * bromelia.RequiredClicks, bromelia.SegundosEstimados, 1e-4f,
-                        "sem pocinhas, o da base");
-    }
-
-    [Test]
     public void GanchosForaDeOrdemNaoLancam()
     {
-        MiraDoBorrifador solta = bromelia.CriarMira(olho, 0f, 0f);
+        SessaoDaBromelia solta = Sessao();
         Assert.DoesNotThrow(() => bromelia.AoSairDoMinigame(), "sair sem ter iniciado");
         Assert.DoesNotThrow(() => bromelia.AoAtualizarMinigame(solta), "atualizar sem ter iniciado");
         Assert.DoesNotThrow(() => bromelia.AoAtualizarMinigame(null), "sessão nula");
@@ -443,132 +599,21 @@ public class BromeliaBorrifarTestes
         Assert.DoesNotThrow(() => bromelia.AoAtualizarMinigame(solta), "atualizar depois de sair");
         foreach (GameObject p in pocas)
             Assert.IsTrue(p.activeSelf);
-    }
 
-    /* ---------------- Geometria do prefab real ----------------
-     * As posições locais das pocinhas em Assets/Meus/Assets Gerados/Focos/
-     * Bromelia.prefab (Agua_1..4 entre as folhas e Agua_Centro, na ordem
-     * de 'pocas'; pais na origem, sem giro e com escala 1), a escala 1,51
-     * das instâncias da cena e o olho 2 m atrás e 1,6 m acima da planta. */
-    private static readonly Vector3[] PocasDoPrefab =
-    {
-        new Vector3(0.024947787f, 0.19f, 0.049016405f),     // Agua_1
-        new Vector3(-0.038908083f, 0.19f, 0.038873658f),    // Agua_2
-        new Vector3(-0.048994303f, 0.19f, -0.024991164f),   // Agua_3
-        new Vector3(0.008627936f, 0.19f, -0.054319046f),    // Agua_4
-        new Vector3(0f, 0.215f, 0f)                         // Agua_Centro (copo central)
-    };
-    private const float EscalaDaCena = 1.51f;
-    private static readonly Vector3 OlhoDaPlanta = new Vector3(0f, 1.6f, -2f);
+        // A sessão de outra bromélia, com um acerto, não seca nada nesta.
+        BromeliaInteractable esta = bromelia;
+        GameObject[] pocasDesta = pocas;
+        esta.AoIniciarMinigame(esta.CriarSessao(Agente, Vector3.forward, 16f / 9f, 0));
 
-    /* (yaw, pitch) de mundo, em graus, da direção d (pitch positivo = abaixo). */
-    private static Vector2 AngulosNoMundo(Vector3 d)
-    {
-        float yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
-        float pitch = Mathf.Atan2(-d.y, Mathf.Sqrt(d.x * d.x + d.z * d.z)) * Mathf.Rad2Deg;
-        return new Vector2(yaw, pitch);
-    }
+        Montar(Origem + new Vector3(3f, 0f, 0f), TresPocinhas, 3);
+        SessaoDaBromelia outra = bromelia.CriarSessao(Agente, Vector3.forward, 16f / 9f, 0);
+        for (float t = 0f; t < 0.35f; t += Q) outra.Atualizar(Q, new EntradaDoMinigame());
+        Vector2 ponteiro = (outra.Ponto(outra.DaVez) - outra.Mira) / PontosDeBorrifar.MiraPorGrauPadrao;
+        outra.Atualizar(Q, new EntradaDoMinigame { Ponteiro = ponteiro, Apertou = true });
+        Assert.AreEqual(1, outra.Acertos);
 
-    /* A bromélia do prefab, com 5 cliques; devolve o olho (no mundo). */
-    private Vector3 MontarPrefabReal()
-    {
-        Vector3 origem = new Vector3(20f, 0f, 20f);
-        Montar(origem, new Vector3[0], 5);
-        bromelia.transform.localScale = Vector3.one * EscalaDaCena;
-
-        pocas = new GameObject[PocasDoPrefab.Length];
-        for (int i = 0; i < PocasDoPrefab.Length; i++)
-        {
-            pocas[i] = TesteUtil.Novo("Agua " + i + " (teste)");
-            pocas[i].transform.SetParent(bromelia.transform, false);
-            pocas[i].transform.localPosition = PocasDoPrefab[i];
-        }
-        DefinirPocas(pocas);
-        return origem + OlhoDaPlanta;
-    }
-
-    /* A mira que leva o olhar (do começo) até a posição dada. */
-    private static Vector2 MiraPara(Vector3 posicao, Vector3 olhoDoTeste, Vector2 olharInicial)
-    {
-        Vector2 a = AngulosNoMundo(posicao - olhoDoTeste);
-        return new Vector2(Mathf.DeltaAngle(olharInicial.x, a.x), Mathf.DeltaAngle(olharInicial.y, a.y));
-    }
-
-    [Test]
-    public void PrefabReal_MirarPertoDeCadaPocinhaSeca()
-    {
-        Vector3 o = MontarPrefabReal();   // pocinhas a 1,5 m
-        Vector2 olhar = AngulosNoMundo(pocas[4].transform.position - o);
-        MiraDoBorrifador m = bromelia.CriarMira(o, olhar.x, olhar.y);
-
-        for (int k = 0; k < 5; k++)
-        {
-            Vector2 alvo = MiraPara(pocas[k].transform.position, o, olhar) + new Vector2(2f, 0f);   // 2° ao lado
-            Frame(m, new Vector2(alvo.x - m.Mira.x, -(alvo.y - m.Mira.y)), false);
-            for (int i = 0; i < 1800; i++)
-                Frame(m, Vector2.zero, true);
-        }
-
-        Assert.AreEqual(5, m.Secas, "mirar perto (2°) de cada pocinha e segurar seca todas");
-    }
-
-    [Test]
-    public void PrefabReal_MirarCadaUmaSecaTodas()
-    {
-        Vector3 o = MontarPrefabReal();
-        Vector2 olhar = AngulosNoMundo(pocas[4].transform.position - o);
-        MiraDoBorrifador m = bromelia.CriarMira(o, olhar.x, olhar.y);
-        Assert.AreEqual(5, m.Total);
-
-        for (int k = 0; k < 5; k++)
-        {
-            Vector2 alvo = MiraPara(pocas[k].transform.position, o, olhar);
-            Frame(m, new Vector2(alvo.x - m.Mira.x, -(alvo.y - m.Mira.y)), false);
-            for (int i = 0; i < 300 && m.Umidade(k) > 0f; i++)
-                Frame(m, Vector2.zero, true);
-            Assert.AreEqual(0f, m.Umidade(k), "pocinha " + k + " devia ter secado");
-            Assert.AreEqual(k + 1, m.Secas, "só a mirada seca");
-        }
-    }
-
-    [Test]
-    public void PitchInicial45_AMiraApontaParaAPocinha()
-    {
-        Vector3 deslocamento = new Vector3(0.5f, -1f, 1f);   // abaixo e ao lado
-        Montar(Vector3.zero, new[] { deslocamento }, 1);
-        const float pitchInicial = 45f;
-        MiraDoBorrifador m = bromelia.CriarMira(Vector3.zero, 0f, pitchInicial);
-
-        Vector2 alvo = MiraPara(deslocamento, Vector3.zero, new Vector2(0f, pitchInicial));
-        Frame(m, new Vector2(alvo.x, -alvo.y), false);
-
-        // O Interactor aplica a mira como yaw/pitch de mundo somados ao começo.
-        Vector3 frente = Quaternion.Euler(pitchInicial + m.Mira.y, 0f + m.Mira.x, 0f) * Vector3.forward;
-        Assert.Less(Vector3.Angle(frente, deslocamento), 0.2f, "a câmera aponta para a pocinha");
-
-        for (int i = 0; i < 120; i++)
-            Frame(m, Vector2.zero, true);
-        Assert.AreEqual(1, m.Secas, "segurando ali, ela seca");
-    }
-
-    [Test]
-    public void MiraPresaAosLimitesDoPitch()
-    {
-        Montar(Vector3.zero, new[] { new Vector3(0f, -0.3f, 1.5f) }, 1);
-        MiraDoBorrifador m = bromelia.CriarMira(Vector3.zero, 0f, 70f, -80f, 80f);
-
-        Frame(m, new Vector2(0f, -50f), false);   // olhar para baixo: Mira.y += 50
-        Assert.AreEqual(10f, m.Mira.y, 1e-4f, "70 + Mira.y não passa do limite de 80");
-    }
-
-    [Test]
-    public void SensibilidadeDaMiraChegaASessao()
-    {
-        TesteUtil.Setar(bromelia, "sensibilidadeDaMira", 2f);
-        MiraDoBorrifador m = bromelia.CriarMira(olho, 0f, 0f);
-
-        Frame(m, new Vector2(1f, 0.5f), false);
-        Assert.AreEqual(2f, m.Mira.x, 1e-5f, "o dobro do olhar");
-        Assert.AreEqual(-1f, m.Mira.y, 1e-5f);
+        Assert.DoesNotThrow(() => esta.AoAtualizarMinigame(outra));
+        foreach (GameObject p in pocasDesta)
+            Assert.IsTrue(p.activeSelf, "a sessão de outra bromélia não seca esta");
     }
 }

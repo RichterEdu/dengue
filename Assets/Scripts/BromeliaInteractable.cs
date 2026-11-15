@@ -15,19 +15,27 @@ using UnityEngine;
  *  - No último clique não sobra água nenhuma. A planta CONTINUA na cena:
  *    o certo é esvaziar a bromélia, não arrancá-la.
  *
- *  Minigame do borrifador: com a água sanitária, o clique começa uma
- *  MiraDoBorrifador (CriarMinigame) no lugar do segurar. O jogador aponta
- *  o borrifador para cada pocinha ATIVA e segura até ela secar; a sessão
- *  vê as pocinhas pelos ângulos (yaw, pitch) de mundo a partir do olho da
- *  câmera, menos o olhar do começo (CriarMira), com um raio de acerto fixo
- *  (raioDeAcerto, 2,5°: cerca de uma pocinha na tela; de longe um ponto de
- *  mira pode alcançar duas vizinhas, e seca a mais próxima). A última de 'pocas' é o copo central,
- *  que demora mais. A cada quadro a pocinha encolhe no X e no Z com a
- *  Umidade e, seca, some (AoAtualizarMinigame). Com a sessão, o passo não
- *  seca na ordem fixa; o passo que conclui seca o que sobrou. Sair guarda
- *  as secas e devolve as que estavam a meio caminho à escala original; a
- *  próxima sessão cobre só o que falta. A névoa do bico e o som seguem o
- *  Agindo da sessão (Interactor.Avancando).
+ *  Minigame do borrifador (vista de perto): com a água sanitária, o
+ *  clique começa uma SessaoDaBromelia (CriarMinigame, uma
+ *  PontosDeBorrifar) no lugar do segurar. A câmera vai para cima do copo
+ *  central (a última de 'pocas'): alturaDaCamera acima dele, recuada
+ *  recuoDaCamera para o lado do agente, olhando para o copo, com a base
+ *  da tela do lado do agente e o FOV fovDePerto (PoseDaVistaDePerto). As
+ *  pocinhas com água viram bolinhas na tela (a projeção delas nessa
+ *  pose), uma por vez: as de entre as folhas embaralhadas pela semente e
+ *  o copo por último, no centro do campo. Cada bolinha acertada seca a
+ *  pocinha dela (AoAtualizarMinigame); os passos são os cliques que
+ *  faltam. O último acerto só conclui depois do fecho (o tempo de o
+ *  último borrifo aparecer); o passo que conclui seca o que sobrou.
+ *  Enquanto a vista de perto durar, e até a câmera voltar aos olhos, o
+ *  enxame de mosquitos da planta fica escondido (a câmera atravessa o
+ *  lugar dele).
+ *
+ *  Sair, o bloqueio, a recusa no meio e a planta desativada largam a
+ *  sessão e guardam as secas; a próxima sessão cobre só o que falta.
+ *  Garantia de água: se a interrupção chega no fecho (tudo seco, mas o
+ *  passo final ainda não saiu), o copo volta a ter água, para o foco
+ *  nunca ficar sem pocinha e sem estar concluído.
  *
  *  Sem sessão (o caminho antigo Interact(), ou AvancarCom direto), a
  *  ordem fixa continua, pulando as que já estão secas. Fora do Play a
@@ -49,39 +57,50 @@ public class BromeliaInteractable : Interactable
     [Tooltip("Se marcado, após secar segue o fluxo padrão (encolhe e some).")]
     [SerializeField] private bool removeOnComplete = false;
 
-    [Header("Borrifar (minigame)")]
-    [Tooltip("Segundos borrifando para secar cada pocinha entre as folhas.")]
-    [SerializeField] private float segundosPorPoca = 0.5f;
+    [Header("Vista de perto (minigame)")]
+    [Tooltip("Metros da câmera acima do copo central.")]
+    [SerializeField] private float alturaDaCamera = 0.58f;
 
-    [Tooltip("Segundos borrifando para secar o copo central (a última de 'pocas').")]
-    [SerializeField] private float segundosDoCopoCentral = 1.2f;
+    [Tooltip("Metros que a câmera recua do copo para o lado do agente.")]
+    [SerializeField] private float recuoDaCamera = 0.17f;
 
-    [Tooltip("Graus entre a mira e a pocinha para o jato acertar (cerca do tamanho de uma pocinha na tela). Seca a mais próxima dentro do raio.")]
-    [SerializeField] private float raioDeAcerto = 2.5f;
+    [Tooltip("Campo de visão vertical da câmera de perto, em graus.")]
+    [SerializeField] private float fovDePerto = 40f;
 
-    [Tooltip("Graus que a mira pode se afastar do olhar do começo (cresce se alguma pocinha estiver mais longe).")]
-    [SerializeField] private float coneDaMira = 30f;
+    [Tooltip("Raio da bolinha, em unidades do campo (a altura da tela é 2); o acerto usa o mesmo.")]
+    [SerializeField] private float raioDaBolinha = PontosDeBorrifar.RaioPadrao;
 
-    [Tooltip("Multiplica o olhar ao mover a mira (1 = como a câmera; não finito ou <= 0 vale 1).")]
-    [SerializeField] private float sensibilidadeDaMira = 1f;
+    [Tooltip("Segundos para o anel da bolinha fechar.")]
+    [SerializeField] private float segundosDoAnel = PontosDeBorrifar.AnelPadrao;
 
-    private const string DicaDeBorrifar = "Segure para borrifar as pocinhas   |   Botão direito: sair";
+    [Tooltip("Segundos que a bolinha some depois de o anel fechar.")]
+    [SerializeField] private float pausaDaBolinha = PontosDeBorrifar.PausaPadrao;
+
+    [Tooltip("Segundos sem bolinha no começo (a câmera chegando).")]
+    [SerializeField] private float esperaInicial = PontosDeBorrifar.EsperaPadrao;
+
+    [Tooltip("Segundos entre o último acerto e a conclusão (o último borrifo aparecer).")]
+    [SerializeField] private float fecho = PontosDeBorrifar.FechoPadrao;
+
+    [Tooltip("Quanto a mira anda no campo por grau de movimento do mouse/analógico.")]
+    [SerializeField] private float miraPorGrau = PontosDeBorrifar.MiraPorGrauPadrao;
+
+    private const string DicaDeBorrifar = "Clique nas bolinhas para borrifar   |   Botão direito: sair";
     private const string ConviteDeBorrifar = "Clique para borrifar as pocinhas";
 
-    // Tempo de levar a mira de uma pocinha à outra (SegundosEstimados).
-    private const float SegundosDeMirarPorPoca = 0.4f;
+    // Tempo de mirar e acertar cada bolinha (SegundosEstimados).
+    private const float SegundosPorBolinha = 0.87f;
 
     // Pocinhas secas (inativas ou secando agora).
     private int secas;
 
-    // Pocinhas no meio da animação de secar (ainda ativas, mas já secas).
-    private readonly List<GameObject> secando = new List<GameObject>();
+    // Pocinhas no meio da animação de secar (ainda ativas, mas já secas),
+    // com a escala de antes (para devolver a água).
+    private readonly Dictionary<GameObject, Vector3> secando = new Dictionary<GameObject, Vector3>();
 
-    // Sessão do borrifador (null = nenhuma). O índice k da sessão é a
-    // pocinha pocas[indiceDaPoca[k]], que tinha a escala escalaOriginal[k].
-    private MiraDoBorrifador mira;
-    private readonly List<int> indiceDaPoca = new List<int>();
-    private readonly List<Vector3> escalaOriginal = new List<Vector3>();
+    // Sessão em andamento (null = nenhuma) e quantos acertos dela já secaram.
+    private SessaoDaBromelia sessaoAtual;
+    private int acertosSecos;
 
     private GameObject[] Pocas => pocas ?? new GameObject[0];
 
@@ -92,15 +111,16 @@ public class BromeliaInteractable : Interactable
     protected override void OnStart()
     {
         secas = 0;
-        secando.Clear();
-        foreach (GameObject p in Pocas)
-            if (p != null) p.SetActive(true);
+        DevolverAguaATodas();
+    }
+
+    void OnDisable()
+    {
+        AoDesativar();
     }
 
     /* Minigame do borrifador: a água sanitária numa bromélia com água.
-     * Fábrica pura. O olho é a câmera; o olhar do começo e os limites do
-     * pitch são os do ControladorJogador (o Interactor aplica a mira por
-     * cima dele), ou o giro da câmera sem ele. */
+     * Fábrica pura. O agente é o dono do kit; a proporção é a da câmera. */
     public override IMinigame CriarMinigame(KitDoAgente kit, int semente)
     {
         if (!TemMinigame(kit))
@@ -110,54 +130,87 @@ public class BromeliaInteractable : Interactable
         if (camera == null)
             return null;
 
-        Vector3 olho = camera.transform.position;
-        ControladorJogador jogador = kit.GetComponent<ControladorJogador>();
-        if (jogador != null)
-            return CriarMira(olho, jogador.Yaw, jogador.Pitch, jogador.PitchMinimo, jogador.PitchMaximo);
-
-        Vector3 giro = camera.transform.eulerAngles;
-        return CriarMira(olho, giro.y, Mathf.DeltaAngle(0f, giro.x));
+        return CriarSessao(kit.transform.position, kit.transform.forward, camera.aspect, semente);
     }
 
-    /* A sessão com as pocinhas ativas. Cada pocinha vira o (yaw, pitch) de
-     * mundo da direção olho → pocinha (yaw = atan2(x, z); pitch positivo =
-     * abaixo, como o ControladorJogador.Pitch) menos o olhar do começo: é a
-     * Mira que o Interactor soma ao yaw/pitch do começo (DefinirOlhar) para
-     * a câmera apontar para ela, com qualquer pitch inicial. A Mira.y fica
-     * dentro dos limites do pitch; o raio de acerto, o fixo
-     * (raioDeAcerto). Os passos são os que faltam. */
-    internal MiraDoBorrifador CriarMira(Vector3 olho, float yawInicial, float pitchInicial,
-                                        float pitchMinimo = -90f, float pitchMaximo = 90f)
+    /* A pose da vista de perto: acima do copo (a última de 'pocas'; sem
+     * ela, o próprio objeto), recuada para o lado do agente e olhando para
+     * o copo, com o topo da tela do lado oposto ao agente. Com o agente em
+     * cima da planta, vale a frenteReserva (sem o y); ainda nula, o +z. */
+    internal PoseDePerto PoseDaVistaDePerto(Vector3 agente, Vector3 frenteReserva)
     {
         GameObject[] lista = Pocas;
-        List<Vector2> angulos = new List<Vector2>();
-        List<float> segundos = new List<float>();
+        GameObject ultima = lista.Length > 0 ? lista[lista.Length - 1] : null;
+        Vector3 copo = ultima != null ? ultima.transform.position : transform.position;
 
-        for (int i = 0; i < lista.Length; i++)
+        Vector3 frente = SemAltura(copo - agente);
+        if (frente.sqrMagnitude < 1e-6f)
+            frente = SemAltura(frenteReserva);
+        if (frente.sqrMagnitude < 1e-6f)
+            frente = Vector3.forward;
+        frente.Normalize();
+
+        Vector3 posicao = copo + Vector3.up * alturaDaCamera - frente * recuoDaCamera;
+        Vector3 olhar = copo - posicao;
+        if (olhar.sqrMagnitude < 1e-8f)
+            olhar = Vector3.down;
+
+        return new PoseDePerto
         {
-            if (!Ativa(i))
-                continue;
+            Posicao = posicao,
+            Giro = Quaternion.LookRotation(olhar, frente),
+            Fov = fovDePerto
+        };
+    }
 
-            Vector3 d = lista[i].transform.position - olho;
-            float yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
-            float pitch = Mathf.Atan2(-d.y, Mathf.Sqrt(d.x * d.x + d.z * d.z)) * Mathf.Rad2Deg;
-            angulos.Add(new Vector2(Mathf.DeltaAngle(yawInicial, yaw), Mathf.DeltaAngle(pitchInicial, pitch)));
-            segundos.Add(i == lista.Length - 1 ? segundosDoCopoCentral : segundosPorPoca);
+    private static Vector3 SemAltura(Vector3 v) => new Vector3(v.x, 0f, v.z);
+
+    /* A sessão com as pocinhas com água: as de entre as folhas na ordem
+     * embaralhada pela semente, o copo (a última de 'pocas') por último.
+     * Cada ponto é a pocinha no campo da pose; os passos são os que
+     * faltam; a proporção vira a meia-largura do campo. Fábrica pura. */
+    internal SessaoDaBromelia CriarSessao(Vector3 agente, Vector3 frenteReserva, float proporcao, int semente)
+    {
+        PoseDePerto pose = PoseDaVistaDePerto(agente, frenteReserva);
+        GameObject[] lista = Pocas;
+        int copo = lista.Length - 1;
+
+        List<int> indices = new List<int>();
+        for (int i = 0; i < copo; i++)
+            if (Ativa(i)) indices.Add(i);
+
+        System.Random sorteio = new System.Random(semente);
+        for (int i = indices.Count - 1; i > 0; i--)
+        {
+            int j = sorteio.Next(i + 1);
+            (indices[i], indices[j]) = (indices[j], indices[i]);
         }
 
-        Vector2[] noCone = angulos.ToArray();
+        if (copo >= 0 && Ativa(copo))
+            indices.Add(copo);
+
+        Vector2[] pontos = new Vector2[indices.Count];
+        for (int k = 0; k < pontos.Length; k++)
+            pontos[k] = pose.NoCampo(lista[indices[k]].transform.position);
+
         int passos = Mathf.Max(1, RequiredClicks - CurrentClicks);
-        return new MiraDoBorrifador(noCone, segundos.ToArray(), passos, coneDaMira,
-                                    raioDeAcerto,
-                                    pitchMinimo - pitchInicial, pitchMaximo - pitchInicial, sensibilidadeDaMira);
+        return new SessaoDaBromelia(pontos, indices.ToArray(), pose, passos, raioDaBolinha, segundosDoAnel,
+                                    pausaDaBolinha, esperaInicial, fecho, proporcao, miraPorGrau);
+    }
+
+    /* Índice em 'pocas' do ponto k da sessão em andamento; −1 sem sessão ou fora do intervalo. */
+    internal int PocaDoPonto(int k)
+    {
+        if (sessaoAtual == null || k < 0 || k >= sessaoAtual.Pocas.Length)
+            return -1;
+        return sessaoAtual.Pocas[k];
     }
 
     public override string ConviteDoMinigame(KitDoAgente kit) => TemMinigame(kit) ? ConviteDeBorrifar : null;
 
     public override string DicaDoMinigame => DicaDeBorrifar;
 
-    /* Borrifar cada pocinha (o copo central demora mais) e levar a mira de
-     * uma à outra. */
+    /* A espera inicial, o fecho e o tempo de acertar cada bolinha. */
     public override float SegundosEstimados
     {
         get
@@ -165,7 +218,7 @@ public class BromeliaInteractable : Interactable
             int n = Pocas.Length;
             if (n == 0)
                 return base.SegundosEstimados;
-            return (n - 1) * segundosPorPoca + segundosDoCopoCentral + SegundosDeMirarPorPoca * n;
+            return esperaInicial + fecho + SegundosPorBolinha * n;
         }
     }
 
@@ -174,81 +227,82 @@ public class BromeliaInteractable : Interactable
         return kit != null && AceitaFerramenta(kit.Selecionada) && !IsComplete && TemPocaAtiva();
     }
 
-    /* Guarda o começo: quais pocinhas a sessão tem (as ativas, na ordem de
-     * 'pocas', como no CriarMira) e a escala original de cada uma. */
+    /* Guarda a sessão nova (larga a anterior) e esconde o enxame. */
     public override void AoIniciarMinigame(IMinigame sessao)
     {
-        EncerrarSessao();
-        if (!(sessao is MiraDoBorrifador nova))
+        LargarSessao();
+        if (!(sessao is SessaoDaBromelia nova))
             return;
 
-        mira = nova;
-        GameObject[] lista = Pocas;
-        for (int i = 0; i < lista.Length; i++)
-        {
-            if (!Ativa(i))
-                continue;
-            indiceDaPoca.Add(i);
-            escalaOriginal.Add(lista[i].transform.localScale);
-        }
+        sessaoAtual = nova;
+        EsconderEnxame();
     }
 
-    /* Todo quadro: cada pocinha encolhe no X e no Z com a Umidade; seca,
-     * some, já com a escala original (a chuva a devolve inteira). */
+    /* Todo quadro: cada acerto novo seca a pocinha do ponto dele. O enxame
+     * é escondido de novo (ele pode nascer no meio da sessão). */
     public override void AoAtualizarMinigame(IMinigame sessao)
     {
-        if (mira == null || sessao != mira)
+        if (sessaoAtual == null || sessao != sessaoAtual)
             return;
 
-        int n = Mathf.Min(indiceDaPoca.Count, mira.Total);
-        for (int k = 0; k < n; k++)
+        GameObject[] lista = Pocas;
+        while (acertosSecos < sessaoAtual.Acertos && acertosSecos < sessaoAtual.Pocas.Length)
         {
-            GameObject p = PocaDaSessao(k);
-            if (p == null || !p.activeSelf)
-                continue;
-
-            Vector3 original = escalaOriginal[k];
-            float umidade = mira.Umidade(k);
-            if (umidade <= 0f)
-            {
-                p.SetActive(false);
-                p.transform.localScale = original;
-            }
-            else
-            {
-                p.transform.localScale = new Vector3(original.x * umidade, original.y, original.z * umidade);
-            }
+            int i = sessaoAtual.Pocas[acertosSecos++];
+            if (Ativa(i))
+                SecarPoca(lista[i]);
         }
+        EsconderEnxame();
     }
 
-    /* Saída voluntária ou bloqueio: as secas ficam secas; as que estavam a
-     * meio caminho voltam inteiras. */
+    /* Saída voluntária ou bloqueio: as secas ficam secas. */
     public override void AoSairDoMinigame()
     {
-        EncerrarSessao();
+        LargarSessao();
+        GarantirAgua();
+    }
+
+    /* A câmera voltou aos olhos: o enxame volta. */
+    public override void AoVoltarDaVistaDePerto()
+    {
+        DevolverEnxame();
+    }
+
+    /* O que o OnDisable faz: larga a sessão em andamento. */
+    internal void AoDesativar()
+    {
+        if (sessaoAtual != null)
+        {
+            LargarSessao();
+            GarantirAgua();
+        }
+        DevolverEnxame();
     }
 
     /* Recusado no meio da sessão, o Interactor a encerra sem o
-     * AoSairDoMinigame: as pocinhas a meio caminho voltam já. (O passo que
-     * conclui já encerrou no OnInteract.) */
+     * AoSairDoMinigame: larga a sessão aqui. (O passo que conclui já
+     * largou no OnInteract.) */
     public override ResultadoDoPasso AvancarCom(KitDoAgente kit)
     {
         ResultadoDoPasso resultado = base.AvancarCom(kit);
-        if (resultado != ResultadoDoPasso.Avancou)
-            EncerrarSessao();
+        if (resultado != ResultadoDoPasso.Avancou && sessaoAtual != null)
+        {
+            LargarSessao();
+            GarantirAgua();
+        }
         return resultado;
     }
 
     protected override void OnInteract()
     {
         GameObject[] lista = Pocas;
-        if (mira != null)
+        if (sessaoAtual != null)
         {
-            // Com a sessão, quem seca é a mira. No passo que conclui, o que
-            // sobrou seca junto (a garantia).
+            // Com a sessão, quem seca são os acertos. No passo que conclui, o
+            // que sobrou seca junto (a garantia).
             if (CurrentClicks >= RequiredClicks)
             {
-                EncerrarSessao();
+                LargarSessao();
                 foreach (GameObject p in lista)
                     if (p != null && p.activeSelf) p.SetActive(false);
             }
@@ -296,16 +350,14 @@ public class BromeliaInteractable : Interactable
     protected override void AoReencher()
     {
         secas = 0;
-        secando.Clear();
-        foreach (GameObject p in Pocas)
-            if (p != null) p.SetActive(true);
+        DevolverAguaATodas();
     }
 
     /* A pocinha i tem água: existe, está ativa e não está secando. */
     private bool Ativa(int i)
     {
         GameObject[] lista = Pocas;
-        return i >= 0 && i < lista.Length && lista[i] != null && lista[i].activeSelf && !secando.Contains(lista[i]);
+        return i >= 0 && i < lista.Length && lista[i] != null && lista[i].activeSelf && !secando.ContainsKey(lista[i]);
     }
 
     private bool TemPocaAtiva()
@@ -324,59 +376,110 @@ public class BromeliaInteractable : Interactable
         return contadas;
     }
 
-    /* A pocinha do índice k da sessão (null se a lista mudou). */
-    private GameObject PocaDaSessao(int k)
+    /* Zera a sessão em andamento. O enxame continua escondido: a câmera
+     * ainda vai atravessar o lugar dele na volta. */
+    private void LargarSessao()
     {
-        if (k < 0 || k >= indiceDaPoca.Count)
-            return null;
-        int i = indiceDaPoca[k];
+        sessaoAtual = null;
+        acertosSecos = 0;
+    }
+
+    /* Não concluída, ainda aceitando passos e sem pocinha nenhuma com água
+     * (a interrupção no fecho): o copo volta a ter água. */
+    private void GarantirAgua()
+    {
+        if (IsComplete || !CanInteract || TemPocaAtiva())
+            return;
+
         GameObject[] lista = Pocas;
-        return i < lista.Length ? lista[i] : null;
+        GameObject copo = lista.Length > 0 ? lista[lista.Length - 1] : null;
+        if (copo != null)
+            DevolverAgua(copo);
     }
 
-    /* Fim da sessão: as pocinhas ainda ativas voltam à escala original (as
-     * secas já voltaram ao sumir). Pode ser chamado sem sessão. */
-    private void EncerrarSessao()
+    /* A pocinha volta a ter água: sai de 'secando' com a escala de antes e
+     * fica ativa (a corrotina dela para sem desativar). */
+    private void DevolverAgua(GameObject poca)
     {
-        for (int k = 0; k < indiceDaPoca.Count && k < escalaOriginal.Count; k++)
+        if (poca == null)
+            return;
+        if (secando.TryGetValue(poca, out Vector3 escala))
         {
-            GameObject p = PocaDaSessao(k);
-            if (p != null && p.activeSelf)
-                p.transform.localScale = escalaOriginal[k];
+            secando.Remove(poca);
+            poca.transform.localScale = escala;
         }
-        mira = null;
-        indiceDaPoca.Clear();
-        escalaOriginal.Clear();
+        poca.SetActive(true);
     }
 
-    /* Seca uma pocinha na ordem fixa: no Play, a animação; fora dele, na hora. */
+    private void DevolverAguaATodas()
+    {
+        foreach (GameObject p in Pocas)
+            DevolverAgua(p);
+        secando.Clear();   // as que não estão mais em 'pocas'
+    }
+
+    private void EsconderEnxame()
+    {
+        Transform enxame = transform.Find(EnxameDeMosquitos.NomeDoFilho);
+        if (enxame != null && enxame.gameObject.activeSelf)
+            enxame.gameObject.SetActive(false);
+    }
+
+    private void DevolverEnxame()
+    {
+        Transform enxame = transform.Find(EnxameDeMosquitos.NomeDoFilho);
+        if (enxame != null && !enxame.gameObject.activeSelf)
+            enxame.gameObject.SetActive(true);
+    }
+
+    /* Seca uma pocinha: no Play, a animação; fora dele, na hora. */
     private void SecarPoca(GameObject poca)
     {
+        if (poca == null || secando.ContainsKey(poca))
+            return;
         if (Application.isPlaying && isActiveAndEnabled && duracaoSecar > 0f)
         {
-            secando.Add(poca);
+            secando.Add(poca, poca.transform.localScale);
             StartCoroutine(Secar(poca));
             return;
         }
         poca.SetActive(false);
     }
 
+    /* Encolhe a pocinha até sumir. Se ela sair de 'secando' no meio (a
+     * água foi devolvida), para sem desativar. */
     private IEnumerator Secar(GameObject poca)
     {
         Transform t = poca.transform;
         Vector3 escala = t.localScale;
         for (float e = 0f; e < duracaoSecar; e += Time.deltaTime)
         {
-            if (poca == null)
+            if (poca == null || !secando.ContainsKey(poca))
                 yield break;
             float k = e / duracaoSecar;
             t.localScale = Vector3.Lerp(escala, new Vector3(0f, escala.y, 0f), k * k);
             yield return null;
         }
-        secando.Remove(poca);
-        if (poca == null)
+        if (poca == null || !secando.TryGetValue(poca, out Vector3 original))
             yield break;
+        secando.Remove(poca);
         poca.SetActive(false);
-        t.localScale = escala;
+        t.localScale = original;
+    }
+}
+
+/* A sessão da bromélia: os pontos, a pose da câmera e qual pocinha é cada ponto. */
+internal sealed class SessaoDaBromelia : PontosDeBorrifar, IMinigameDePerto
+{
+    public PoseDePerto Pose { get; }
+    internal int[] Pocas { get; }   // Pocas[k] = índice em BromeliaInteractable.pocas do ponto k
+
+    internal SessaoDaBromelia(Vector2[] pontos, int[] pocas, PoseDePerto pose, int passos,
+                              float raio, float segundosDoAnel, float pausa, float esperaInicial,
+                              float fecho, float meiaLargura, float miraPorGrau)
+        : base(pontos, passos, raio, segundosDoAnel, pausa, esperaInicial, fecho, meiaLargura, miraPorGrau)
+    {
+        Pose = pose;
+        Pocas = pocas ?? new int[0];
     }
 }

@@ -47,9 +47,9 @@ using UnityEngine.InputSystem;
  *    ferramenta nem de alvo. A cada quadro, AvancarMinigame: cada Passo é
  *    um AvancarCom(kit) (resultado diferente de Avancou encerra); Errou
  *    chama AoErrarMinigame(kit) e OnErrouSkillCheck; o botão de largar
- *    sai (AoSairDoMinigame) se a sessão PodeSair; sessão com mira
- *    (IMinigameComMira) aponta o olhar. Bloqueado (AoBloquear) sai sem
- *    culpa. Encerrado, segurar só volta a valer depois de soltar o botão.
+ *    sai (AoSairDoMinigame) se a sessão PodeSair. Bloqueado (AoBloquear)
+ *    sai sem culpa. Encerrado, segurar só volta a valer depois de soltar
+ *    o botão.
  *  - Vista de perto: sessão IMinigameDePerto pede a pose dela à câmera
  *    (CameraDePerto.Enquadrar) ao começar; toda saída (concluir, sair,
  *    Bloqueado, recusa, alvo desativado ou destruído) solta o
@@ -121,11 +121,8 @@ public class Interactor : MonoBehaviour
     private Component alvoConferido;
     private bool liberado;
 
-    // Minigame em andamento (null = nenhum) e o olhar do começo dele (a
-    // mira de IMinigameComMira é contada a partir daqui).
+    // Minigame em andamento (null = nenhum).
     private IMinigame minigame;
-    private float yawInicial;
-    private float pitchInicial;
 
     // Vista de perto: a câmera que enquadra, se ela ainda está voltando aos
     // olhos e o foco que ouve o AoVoltarDaVistaDePerto quando ela chegar.
@@ -444,11 +441,7 @@ public class Interactor : MonoBehaviour
         if (criado is IMinigameDePerto dePerto && CameraAtiva)
             CameraDePerto.Enquadrar(dePerto.Pose);
         if (Jogador != null)
-        {
             Jogador.Imobilizado = true;
-            yawInicial = Jogador.Yaw;
-            pitchInicial = Jogador.Pitch;
-        }
         foco.AoIniciarMinigame(criado);
         return true;
     }
@@ -477,8 +470,6 @@ public class Interactor : MonoBehaviour
         IMinigame ativo = minigame;
         EstadoDoMinigame estado = ativo.Atualizar(dt, entradaDoMinigame);
         foco.AoAtualizarMinigame(ativo);
-        if (ativo is IMinigameComMira comMira && Jogador != null)
-            Jogador.DefinirOlhar(yawInicial + comMira.Mira.x, pitchInicial + comMira.Mira.y);
 
         if (estado == EstadoDoMinigame.Passo)
         {

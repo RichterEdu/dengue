@@ -71,9 +71,6 @@ public class ControladorJogador : MonoBehaviour
 
     public float Yaw { get; private set; }
     public float Pitch { get; private set; }
-    /* Limites do Pitch (a mira do borrifador fica dentro deles). */
-    public float PitchMinimo => pitchMinimo;
-    public float PitchMaximo => pitchMaximo;
     public float VelocidadeHorizontal => velocidadeHorizontal.magnitude;
     public float VelocidadeVertical => velocidadeVertical;
     public float VelocidadeAndar => velocidadeAndar;

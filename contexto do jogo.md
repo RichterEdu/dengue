@@ -3683,6 +3683,8 @@ Como: `Application.runInBackground = true` só no teste; abertura pulada (corrot
 - **A interface vista de verdade** (bolinhas, anel, estouro, mira, dica): só pelo estado dos objetos; a captura do CLI não mostra o overlay.
 - **Movimento visto em tempo real:** a ida e a volta da câmera e a entrada do borrifador foram medidas quadro a quadro, não vistas.
 - **Acerto com o analógico:** o analógico andou a mira e o Oeste acertou, mas a mira foi posta na bolinha pelo mouse virtual.
+- **Pausa no meio da sessão:** a pausa só foi testada no fecho (logo depois do último acerto). No meio, o que foi testado é o celular e o fim de jogo, que passam pelo mesmo `AoBloquear`.
+- **Itens menores que a revisão final da branch deixou ficar:** o agente ficaria parado para sempre se a `CameraJogador` nunca saísse do enquadramento (só acontece sem `ControladorJogador` na cena); um enxame que nascer nos 0,25 s da volta da câmera aparece na frente dela; a mira normal pode aparecer no primeiro quadro da sessão; o véu de 12% da interface nova escurece de leve também a HUD de baixo.
 - **Barra do kit à mostra** junto com a sessão, e a interface em 1920 × 1080 (a Game view do Editor tinha 1097 × 495).
 - **Build exportada.**
 

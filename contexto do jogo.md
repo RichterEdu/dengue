@@ -3602,3 +3602,94 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - **O que há acima das bromélias:** o Editor estava desconectado ao escrever o plano, então a conferência (um `SphereCastAll` acima de cada uma das 4) virou o primeiro passo da tarefa da bromélia. Se alguma estiver tapada, o plano manda parar e avisar o usuário.
 - **Mudança não minha no disco:** `LiberationSans SDF - Fallback.asset` continua modificado, como já estava.
 - **Revisão do plano:** três revisores leram o plano (fatos do código, números dos testes, lacunas contra o design). Entraram por causa deles: o enxame continua escondido até a câmera voltar aos olhos, e não só até o fim da sessão (gancho novo `Interactable.AoVoltarDaVistaDePerto`); o enquadramento é solto mesmo com a câmera desligada; `Proxima` vale −1 na espera inicial e no fecho (a bolinha 1 apareceria antes de a câmera chegar); `FracaoDoPasso` vale 1 quando o passo seguinte já é devido (daria 0/0 com mais passos que pocinhas); a interface guarda o último estado para o fade de saída; e o aviso de que o `Bromelia.prefab`, ao ser salvo pelo menu das pocinhas, passa a gravar os valores padrão dos campos novos.
+
+### 2026-11-15 — Bromélia com pontos de borrifar: implementação, verificação em Play e registro
+
+**Objetivo (pedido do usuário):** o minigame da bromélia no estilo osu!, conforme o design aprovado em 2026-11-15 (`docs/superpowers/specs/2026-11-14-bromelia-pontos-de-borrifar-design.md`) e o plano (`docs/superpowers/plans/2026-11-14-bromelia-pontos-de-borrifar.md`): com a água sanitária, um clique numa bromélia com água leva a câmera para cima da planta; cada pocinha com água vira uma bolinha numerada (as de fora em ordem sorteada, o copo por último), e clicar nas bolinhas com a mira desenhada pelo jogo borrifa e seca a pocinha. O borrifador aparece na tela, preso à câmera. Errar só custa tempo. Branch `bromelia-pontos-de-borrifar` (a partir de `pneu-nos-bracos`, `99bcbad`).
+
+**Commits (`git log --oneline 99bcbad..HEAD`, sem o deste registro):**
+- `65c9c8c` Spec e plano: bromélia com pontos de borrifar
+- `912068b` Bromélia: sessão de pontos de borrifar (lógica pura)
+- `f3b64fe` Câmera: enquadramento temporário para a vista de perto
+- `c927396` Interactor: vista de perto pedida pela sessão, agente parado até a câmera voltar
+- `79fec95` Bromélia: sessão de pontos de borrifar na vista de perto; sai o minigame de mirar
+- `8388fea` Bromélia: pocinhas de fora mais altas e maiores, à vista de cima
+- `bf40de8` Bromélia: interface das bolinhas, mira, contagem e dica
+- `3f65a97` Bromélia: borrifador de perto preso à câmera; o da mão fica quieto
+- `c1b3ef6` Bromélia: borrifador de perto entra já apontado para a mira, sem virar (correção achada nesta verificação)
+
+**Arquivos novos (cada um com o `.meta`):**
+- `Assets/Scripts/PontosDeBorrifar.cs` — a sessão, em lógica pura (campo de −1 a +1 na altura, mira, bolinha da vez, anel, pausa, espera inicial, fecho, passos).
+- `Assets/Scripts/PontosDeBorrifarHUD.cs` — a interface (véu, dica, contagem, próxima, bolinha da vez com anel, estouro, mira), Canvas próprio em código, sortingOrder 45.
+- `Assets/Scripts/BorrifadorDePerto.cs` — a cópia do borrifador da mão presa à câmera, sem sombra, com a névoa herdada como borrifada.
+- `Assets/Editor/Testes/PontosDeBorrifarTestes.cs`, `PontosDeBorrifarHUDTestes.cs`, `BorrifadorDePertoTestes.cs` e `CameraJogadorTestes.cs`.
+- `docs/superpowers/specs/2026-11-14-bromelia-pontos-de-borrifar-design.md` e `docs/superpowers/plans/2026-11-14-bromelia-pontos-de-borrifar.md`.
+
+**Arquivos alterados:**
+- `Assets/Scripts/BromeliaInteractable.cs` — cria a `SessaoDaBromelia` (pose da vista de perto, pontos projetados, copo por último), seca a pocinha de cada acerto, esconde o enxame até a câmera voltar, garante água no copo se a sessão cair no fecho; dica nova.
+- `Assets/Scripts/CameraJogador.cs` — enquadramento temporário (`Enquadrar`, `SoltarEnquadramento`, `Enquadrada`), em tempo sem escala.
+- `Assets/Scripts/Interactor.cs` — pede e solta o enquadramento, segura o agente e a mira até a câmera voltar (`Voltando`, `LargarSeVoltando`, `AtualizarVolta`), passa o `Ponteiro`; adiciona a `PontosDeBorrifarHUD` e o `BorrifadorDePerto` no `Start`.
+- `Assets/Scripts/Minigame.cs` — `EntradaDoMinigame.Ponteiro`, `PoseDePerto` (com `NoCampo`), `IMinigameDePerto`; sai a `IMinigameComMira`.
+- `Assets/Scripts/EntradaJogador.cs` — `OlharSemInverter`.
+- `Assets/Scripts/DengueHUD.cs` — esconde a mira normal e o painel do alvo na vista de perto e na volta.
+- `Assets/Scripts/ItensNaMao.cs` e `RegraDoItemNaMao.cs` — a mão fica quieta (sem gesto nem névoa) na vista de perto.
+- `Assets/Scripts/Interactable.cs` (gancho `AoVoltarDaVistaDePerto`), `EnxameDeMosquitos.cs` (`NomeDoFilho` interno), `ControladorJogador.cs`, `SkillCheckHUD.cs`.
+- `Assets/Editor/FocosBlenderBuilder.cs` — menu **Dengue > Ajustar Pocinhas da Bromélia**, também aplicado no **Criar Bromélia**; `Ferramentas/Blender/gerar_focos.py` (comentário).
+- `Assets/Meus/Assets Gerados/Focos/Bromelia.prefab` — as 4 pocinhas de fora mais altas e maiores.
+- Testes: `BromeliaBorrifarTestes.cs` (reescrito), `MinigameNoInteractorTestes.cs`, `ItensNaMaoTestes.cs`, `RegraDoItemNaMaoTestes.cs`.
+
+**Arquivos apagados (com o `.meta`):** `Assets/Scripts/MiraDoBorrifador.cs` e `Assets/Editor/Testes/MiraDoBorrifadorTestes.cs`.
+
+**Configurações aplicadas (padrões no código; nenhuma cena muda):**
+- Câmera de perto: 0,58 m acima do copo, recuo de 0,17 m para o lado do agente, FOV fixo de 40°; ida em 0,3 s e volta em 0,25 s, em tempo sem escala.
+- Sessão: raio da bolinha (e do acerto) 0,14 do campo; anel de 1,5 s; pausa da bolinha de 0,35 s; espera inicial de 0,3 s; fecho de 0,45 s; mira de 0,0093 do campo por grau; `Agindo` por 0,2 s depois de cada aperto (`PontosDeBorrifar.SegundosAgindo`, sem mudança).
+- Pocinhas de fora: altura 0,22 no modelo (0,19 + 0,03) e escala 1,5 (`FocosBlenderBuilder.AlturaDasPocinhas` e `EscalaDasPocinhas`).
+- Borrifador de perto: na câmera em (0,172; −0,078; 0,36), bico em (0; 0,034; 0,088), 30° de mergulho, 24 gotas por borrifada (0,02 de tamanho, 0,8 m/s), entrada de 0,2 s.
+- Interface: dica com o centro a 172 px da base (faixa de 880 × 44), contagem a 212 px, em 1920 × 1080.
+- Textos: convite "Clique para borrifar as pocinhas" (igual); dica "Clique nas bolinhas para borrifar   |   Botão direito: sair".
+
+**Testes:** suíte EditMode inteira, **576/576** (categoria `Minigames`: 137/137). Em `99bcbad` eram 532.
+
+**Verificado em Play (SampleScene no Editor, nada salvo na cena):**
+
+Como: `Application.runInBackground = true` só no teste; abertura pulada (corrotinas das cartelas paradas, `Tocando` das cartelas falso, jogador destravado); partida não iniciada (a ocupação parada); bromélias secas reenchidas e o agente teleportado ao lado de cada uma. Entrada por **mouse virtual** do Input System (`QueueStateEvent`, movimento e botões) e, numa parte, por **controle virtual**. Para a entrada chegar ao jogo com o Editor sem foco, o `InputSystem.settings` em memória (não há asset de settings no projeto) ficou com `backgroundBehavior = IgnoreFocus` e `editorInputBehaviorInPlayMode = AllDeviceInputAlwaysGoesToGameView` só durante o teste, e voltou ao padrão no fim. Um registro quadro a quadro (`Application.onBeforeRender`) gravou o estado da sessão, da câmera, da HUD, do borrifador, das pocinhas, do enxame, das doses e o `OnFocoClicado` (o som de passo). A interface em overlay não aparece na captura: foi conferida pelo estado dos objetos (posição, tamanho, `activeSelf`, alfa, textos). Capturas em `.superpowers/sdd/2026-11-14-bromelia-pontos-de-borrifar/capturas/play_*.png` (pasta fora do git).
+
+- **Começo:** um clique real (mouse virtual → `EntradaJogador` → `Interactor`) começa a sessão; o agente fica `Imobilizado`; a câmera chega à pose em cerca de 0,27 s; o borrifador entra pelo canto de baixo, à direita, em 0,2 s; a mira nasce no centro; a mira normal e o painel do alvo somem (a mira normal ainda aparece no 1º quadro); a 1ª bolinha só aparece com a câmera parada (0,3 s).
+- **As 4 bromélias, inclusive a alta (y = 1,17):** nada tapa a vista; as 5 pocinhas aparecem; a projeção de cada ponto bate com a pocinha na captura.
+- **Acertos:** cada acerto seca a pocinha dele (animação de 0,3 s), acende o estouro e o ponto da contagem, e dispara o `OnFocoClicado` no mesmo quadro; a borrifada sai do bico na direção da mira (capturas congeladas logo depois do aperto); o som de ação (loop do `SomDoKit`) sobe a cada aperto e cai em seguida.
+- **Último acerto:** o copo termina de secar 0,30 s depois, o estouro dura 0,3 s e o foco conclui 0,45 s depois do acerto; a dose (2 → 1) só sai na conclusão; só então a câmera volta.
+- **Volta da câmera:** 0,24 s; durante ela o agente fica parado, sem alvo e sem mira normal; um clique esquerdo dado na volta não começa sessão nem acende a planta; a mira normal volta no quadro seguinte ao da chegada.
+- **Anel que fecha:** a bolinha some por 0,35 s e volta no mesmo lugar, com o anel cheio (ciclo medido de 1,50 s); nada se perde.
+- **Clique fora e na bolinha apagada:** só a borrifada (a contagem de borrifadas sobe, a de acertos não).
+- **Botão direito no meio:** sai guardando as secas; a sessão nova traz só as que faltam (5 → 3 → 2 → 1 pontos). Sair nos 0,3 s em que uma pocinha seca: ela termina seca, com a escala original (1,5).
+- **Botão direito, celular e pausa no fecho (0,1 a 0,15 s depois do último acerto):** a planta não conclui, o copo volta com água e com a escala original (1,0), e a dose não sai. Na pausa (`timeScale` 0) a câmera voltou aos olhos com o jogo parado; ao fechar o menu o agente anda.
+- **Celular no meio; fim de jogo no meio** (derrota disparada pelo `FluxoDeJogo`): sessão encerrada, sem gastar dose, câmera nos olhos; com o celular fechado o agente anda (no fim de jogo ele fica parado pela tela final, como sempre).
+- **"Inverter Y" ligado:** mouse para cima → mira para cima.
+- **FOV do menu em 60 (mínimo) e 100 (máximo):** a mesma pose (posição, giro e FOV 40) e os mesmos pontos; ao sair, a câmera volta ao FOV do menu.
+- **Estágio de mosquito** (enxame posto pelo `EnxameDeMosquitos`): escondido do começo da sessão até a câmera chegar aos olhos, e de volta depois.
+- **Agente colado na planta** (Bromélia (1), agente encostado no collider dela): o corpo não entra na vista de perto.
+- **HUD:** em tela, a dica e a contagem ficam entre a barra do kit e a bolinha mais baixa, sem tocar nelas; a barra do kit não estava à mostra no teste (a partida não tinha começado), mas a geometria dela foi conferida. O borrifador não fica atrás do ícone do celular nem da lista de focos (vértices projetados em 2,2:1 e 16:9).
+- **Chuva durante a sessão:** a sessão segue.
+- **Bromélia desativada no meio e no fecho:** nenhum erro no console ("already being activated or deactivated" não aparece); ao reativar, o enxame e o copo estão como deveriam.
+- **Primeiro quadro da interface:** o Canvas já tem a altura e a escala certas no 1º quadro.
+- **Controle virtual:** o botão Oeste começa a sessão e acerta, o analógico direito anda a mira (direita e para cima), o Norte sai.
+- **Console:** sem erros durante os testes.
+
+**Correção feita nesta verificação:** na primeira sessão, a cópia do borrifador nascia com o giro da mão e virava cerca de 50° em 0,1 s, no canto da tela (e, depois de sair com a mira longe do centro, a sessão seguinte também virava). Agora a cópia é ativada já apontada para a mira (`BorrifadorDePerto.Ativar`, em meios passos, que convergem), com o teste `AoAtivarJaApontaParaAMira`. Visto em Play: o giro é o final desde o 1º quadro.
+
+**O que NÃO foi verificado:**
+- **Partida real com mouse e com controle de verdade, pelo usuário.** A sensação de mirar com o mouse e com o analógico, o tamanho das bolinhas e o ritmo de 5 s por planta.
+- **Som:** não dá para ouvir pelo CLI. Ficou provado que o loop de ação sobe a cada aperto (fade de 0,15 s, `Agindo` de 0,2 s) e que o `OnFocoClicado` sai a cada passo. Se a borrifada quase não se ouvir, subir `PontosDeBorrifar.SegundosAgindo`.
+- **A interface vista de verdade** (bolinhas, anel, estouro, mira, dica): só pelo estado dos objetos; a captura do CLI não mostra o overlay.
+- **Movimento visto em tempo real:** a ida e a volta da câmera e a entrada do borrifador foram medidas quadro a quadro, não vistas.
+- **Acerto com o analógico:** o analógico andou a mira e o Oeste acertou, mas a mira foi posta na bolinha pelo mouse virtual.
+- **Barra do kit à mostra** junto com a sessão, e a interface em 1920 × 1080 (a Game view do Editor tinha 1097 × 495).
+- **Build exportada.**
+
+**Observações técnicas:**
+- **Brilho de mira, de perto:** o brilho pulsante amarelo deixa a água das pocinhas amarelo-clara em vez de azul (capturas `play_bromelia2_cheia_com_brilho_de_mira.png` e `play_bromelia2_cheia_sem_brilho_comparacao.png`). As bolinhas são desenhadas por cima, então a leitura delas não é tapada; o brilho ficou ligado, como o design pede (item 23). Fica para o usuário decidir.
+- **Proporção 4:3:** o borrifador de perto encosta no canto do ícone do celular (68 vértices na região dele). Em 16:9 e mais largo, não.
+- **Input System com o Editor sem foco:** além do `runInBackground`, o padrão `PointersAndKeyboardsRespectGameViewFocus` descarta o mouse e o teclado virtuais. Mudar o `InputSystem.settings` em memória e recriar o mouse virtual resolveu; nada foi gravado em disco.
+- **Abertura pulada parando as corrotinas:** o `CartelasNarrativas.Tocando` fica true e o menu de pausa se fecha sozinho no quadro seguinte. No teste, `Tocando` foi posto em false.
+- **Congelar para a captura:** `Time.timeScale = 0` para as gotas no ar, mas a câmera, a HUD e a entrada do borrifador andam em tempo sem escala.
+- **Mudança não minha no disco:** `LiberationSans SDF - Fallback.asset` continua modificado, como já estava. `PlayerSettings.runInBackground` voltou a false e nenhum arquivo de `ProjectSettings` mudou.

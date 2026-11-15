@@ -3559,3 +3559,46 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - O `BalanceamentoSimulador` passa a contar 1 s por pneu.
 - **Não verificado em Play:** a sensação com o mouse de verdade. Se esvaziar rápido ou devagar demais, ajuste `grausParaEsvaziar` no Inspector do pneu.
 
+### 2026-11-14 — Design: bromélia com pontos de borrifar (bolinhas)
+
+**Objetivo (pedido do usuário):** reformular por completo o minigame da bromélia, no estilo do jogo osu!: clicar em bolinhas para concluir. O usuário não gostou de nada do minigame de mirar o borrifador e segurar.
+
+**Decisões do usuário:**
+- A câmera vai para perto, por cima da planta.
+- O borrifador continua na tela, e as bolinhas são os pontos onde tem que borrifar.
+
+**Arquivos novos:**
+- `docs/superpowers/specs/2026-11-14-bromelia-pontos-de-borrifar-design.md`, aprovado pelo usuário em 2026-11-15.
+
+**Nenhum script, cena, prefab ou asset foi alterado nesta entrada.**
+
+**Observações técnicas:**
+- **Preview:** feito no Unity em Play, com nada salvo. Capturas em `.superpowers/sdd/2026-11-14-bromelia-pontos-de-borrifar/capturas/` (pasta fora do git), junto do `preview_aprovado.cs` que gerou a imagem aprovada.
+- **Pocinhas vistas de cima:** as folhas tapam as 4 de fora; só o copo aparece. O design prevê subi-las (no preview, 4,5 cm no mundo e 1,5× maiores).
+- **Play com o Editor sem foco:** o jogo fica parado no quadro 1 ou 2 (`runInBackground` falso). A captura funciona mesmo assim, com a câmera e os objetos postos direto por `eval_file` e `Canvas.ForceUpdateCanvases()` no fim.
+- **Texto no Canvas de preview:** com `planeDistance` de 0,06 (interface na frente das folhas), o TextMeshPro não aparece na captura; o `UnityEngine.UI.Text` aparece.
+- **Mudança não minha no disco:** `LiberationSans SDF - Fallback.asset` continua modificado, como já estava.
+- **Revisão do documento:** três revisores leram o design antes da entrega (um como quem vai construir, um conferindo os fatos com o código, um procurando lacunas). Entraram por causa deles: o fecho de 0,45 s depois do último acerto (o passo que conclui encerra a sessão no mesmo quadro, e o último acerto sumiria); o agente parado e sem mira até a câmera voltar aos olhos; o enxame de mosquitos escondido na vista de perto (a câmera ficaria dentro dele); o borrifador de perto sem sombra e o da mão quieto; a dica e a contagem acima da barra do kit; e a mira calculada com a sensibilidade da cena (0,2° por pixel, não o padrão 0,15 do código).
+
+
+### 2026-11-15 — Plano: bromélia com pontos de borrifar (bolinhas)
+
+**Objetivo:** plano de implementação do design aprovado pelo usuário em 2026-11-15 (a bromélia no estilo osu!, com vista de perto e borrifador na tela).
+
+**Arquivos novos:**
+- `docs/superpowers/plans/2026-11-14-bromelia-pontos-de-borrifar.md`, com 8 tarefas: a sessão `PontosDeBorrifar`; o enquadramento temporário do `CameraJogador`; o `Interactor` conduzindo a vista de perto; a bromélia criando a sessão nova e a saída do minigame de mirar; as pocinhas à vista; a interface das bolinhas; o borrifador de perto; a verificação em Play e o registro.
+
+**Nenhum script, cena, prefab ou asset foi alterado nesta entrada.**
+
+**Decisões do plano que o design deixava para quem constrói:**
+- **Branch:** `bromelia-pontos-de-borrifar`, a partir de `pneu-nos-bracos` (`99bcbad`).
+- **Pocinhas:** sobem e aumentam pelo `FocosBlenderBuilder` (valores absolutos no espaço da raiz do prefab, aplicados por um menu novo e também no `Criar Bromélia`), sem passar pelo Blender e sem refazer o prefab.
+- **Mira sem o "inverter Y":** a `EntradaDoMinigame` ganha o campo `Ponteiro`, alimentado por `EntradaJogador.OlharSemInverter`.
+- **Quem segura o agente na volta da câmera:** o `Interactor` (`Voltando`), liberado quando o `CameraJogador` sai do enquadramento. A ida e a volta da câmera andam em tempo sem escala, para valer na pausa.
+- **Pose e pocinha de cada ponto:** viajam na própria sessão (`SessaoDaBromelia`, que deriva de `PontosDeBorrifar`), porque `CriarMinigame` é fábrica pura.
+- **Regra a mais, que o design não tinha:** se a sessão for interrompida no meio segundo do fecho (botão direito, celular ou pausa logo depois do último acerto), o copo volta a ter água. Sem isso a planta ficaria seca e sem concluir, e sem minigame para terminar.
+
+**Observações técnicas:**
+- **O que há acima das bromélias:** o Editor estava desconectado ao escrever o plano, então a conferência (um `SphereCastAll` acima de cada uma das 4) virou o primeiro passo da tarefa da bromélia. Se alguma estiver tapada, o plano manda parar e avisar o usuário.
+- **Mudança não minha no disco:** `LiberationSans SDF - Fallback.asset` continua modificado, como já estava.
+- **Revisão do plano:** três revisores leram o plano (fatos do código, números dos testes, lacunas contra o design). Entraram por causa deles: o enxame continua escondido até a câmera voltar aos olhos, e não só até o fim da sessão (gancho novo `Interactable.AoVoltarDaVistaDePerto`); o enquadramento é solto mesmo com a câmera desligada; `Proxima` vale −1 na espera inicial e no fecho (a bolinha 1 apareceria antes de a câmera chegar); `FracaoDoPasso` vale 1 quando o passo seguinte já é devido (daria 0/0 com mais passos que pocinhas); a interface guarda o último estado para o fade de saída; e o aviso de que o `Bromelia.prefab`, ao ser salvo pelo menu das pocinhas, passa a gravar os valores padrão dos campos novos.

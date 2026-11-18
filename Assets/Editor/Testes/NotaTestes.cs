@@ -13,8 +13,8 @@ public class NotaTestes
 {
     private static RegrasDaNota Regras() => new RegrasDaNota();
 
-    private static DadosDaPartida Vitoria(float s, float pico, int reench = 0) =>
-        new DadosDaPartida { Venceu = true, Segundos = s, Pico = pico, Eliminados = 30, Total = 30, Reenchidos = reench };
+    private static DadosDaPartida Vitoria(float s, float pico, int reench = 0, int erros = 0) =>
+        new DadosDaPartida { Venceu = true, Segundos = s, Pico = pico, Eliminados = 30, Total = 30, Reenchidos = reench, Erros = erros };
 
     [Test]
     public void ExemploVitoria_6280()
@@ -55,8 +55,12 @@ public class NotaTestes
         Assert.AreEqual(cumpre, AvaliacaoDaPartida.MetaCumprida(MetaDaPartida.HospitalSobControle, Vitoria(1000f, p), Regras()));
 
     [Test]
-    public void SemRetrabalho_UmReenchido_Perde() =>
-        Assert.IsFalse(AvaliacaoDaPartida.MetaCumprida(MetaDaPartida.SemRetrabalho, Vitoria(1000f, 0.8f, 1), Regras()));
+    public void SemErros_UmErro_Perde() =>
+        Assert.IsFalse(AvaliacaoDaPartida.MetaCumprida(MetaDaPartida.SemErros, Vitoria(1000f, 0.8f, 0, 1), Regras()));
+
+    [Test]
+    public void SemErros_ReenchidoNaoDerruba() =>
+        Assert.IsTrue(AvaliacaoDaPartida.MetaCumprida(MetaDaPartida.SemErros, Vitoria(1000f, 0.8f, 3), Regras()));
 
     [Test]
     public void PartidaLonga_TempoLegivelESemBonus()
@@ -81,12 +85,12 @@ public class NotaTestes
     [Test]
     public void Detalhes_Final()
     {
-        var perdeu = Vitoria(1320f, 0.91f, 2);
+        var perdeu = Vitoria(1320f, 0.91f, 0, 2);
         Assert.AreEqual("22:00 de 20:00", AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.RespostaRapida, perdeu, Regras()));
-        Assert.AreEqual("2 reenchidos", AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.SemRetrabalho, perdeu, Regras()));
+        Assert.AreEqual("2 erros", AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.SemErros, perdeu, Regras()));
         Assert.AreEqual("pico 91% de 85%", AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.HospitalSobControle, perdeu, Regras()));
         Assert.AreEqual("pico 84%", AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.HospitalSobControle, Vitoria(900f, 0.84f), Regras()));
-        Assert.AreEqual("1 reenchido", AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.SemRetrabalho, Vitoria(900f, 0.8f, 1), Regras()));
+        Assert.AreEqual("1 erro", AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.SemErros, Vitoria(900f, 0.8f, 0, 1), Regras()));
         var derrota = new DadosDaPartida { Segundos = 700f, Pico = 1f, Eliminados = 14, Total = 30 };
         Assert.AreEqual("exige vencer", AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.RespostaRapida, derrota, Regras()));
     }
@@ -94,9 +98,9 @@ public class NotaTestes
     [Test]
     public void Detalhes_AoVivo()
     {
-        var d = new DadosDaPartida { Segundos = 582f, Pico = 0.78f, Reenchidos = 2 };
+        var d = new DadosDaPartida { Segundos = 582f, Pico = 0.78f, Erros = 2 };
         Assert.AreEqual("09:42 de 20:00", AvaliacaoDaPartida.DetalheAoVivo(MetaDaPartida.RespostaRapida, d, Regras()));
-        Assert.AreEqual("perdida: 2 reenchidos", AvaliacaoDaPartida.DetalheAoVivo(MetaDaPartida.SemRetrabalho, d, Regras()));
+        Assert.AreEqual("perdida: 2 erros", AvaliacaoDaPartida.DetalheAoVivo(MetaDaPartida.SemErros, d, Regras()));
         Assert.AreEqual("pico 78% de 85%", AvaliacaoDaPartida.DetalheAoVivo(MetaDaPartida.HospitalSobControle, d, Regras()));
     }
 
@@ -105,9 +109,9 @@ public class NotaTestes
     {
         var ok = Vitoria(1110f, 0.84f);
         Assert.AreEqual("18:30 de 20:00", AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.RespostaRapida, ok, Regras()));
-        Assert.AreEqual("0 reenchidos", AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.SemRetrabalho, ok, Regras()));
+        Assert.AreEqual("0 erros", AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.SemErros, ok, Regras()));
         Assert.AreEqual("18:30 de 20:00", AvaliacaoDaPartida.DetalheAoVivo(MetaDaPartida.RespostaRapida, ok, Regras()));
-        Assert.AreEqual("0 reenchidos", AvaliacaoDaPartida.DetalheAoVivo(MetaDaPartida.SemRetrabalho, ok, Regras()));
+        Assert.AreEqual("0 erros", AvaliacaoDaPartida.DetalheAoVivo(MetaDaPartida.SemErros, ok, Regras()));
     }
 
     [Test]

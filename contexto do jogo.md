@@ -3695,3 +3695,19 @@ Como: `Application.runInBackground = true` só no teste; abertura pulada (corrot
 - **Abertura pulada parando as corrotinas:** o `CartelasNarrativas.Tocando` fica true e o menu de pausa se fecha sozinho no quadro seguinte. No teste, `Tocando` foi posto em false.
 - **Congelar para a captura:** `Time.timeScale = 0` para as gotas no ar, mas a câmera, a HUD e a entrada do borrifador andam em tempo sem escala.
 - **Mudança não minha no disco:** `LiberationSans SDF - Fallback.asset` continua modificado, como já estava. `PlayerSettings.runInBackground` voltou a false e nenhum arquivo de `ProjectSettings` mudou.
+
+### 2026-11-17 — Meta "Sem retrabalho" trocada por "Sem erros"
+
+**Objetivo (pedido do usuário):** a estrela "Sem retrabalho" (nenhum foco reenchido pela chuva) era quase impossível, porque não dá para limpar todos os focos antes da primeira chuva. Ela passa a valer para quem não erra nenhum minigame de limpar foco (por exemplo, a tela do ralo que rasga).
+
+**Arquivos alterados:**
+- `Assets/Scripts/AvaliacaoDaPartida.cs`: `MetaDaPartida.SemRetrabalho` virou `SemErros` (nome na tela: "Sem erros"); `DadosDaPartida` ganhou `Erros`; a meta vale com `Erros == 0`; os detalhes viraram "0 erros", "1 erro" e "perdida: N erros".
+- `Assets/Scripts/PlacarDaPartida.cs`: novo campo `interactor` (vazio = o `Interactor` da cena), assinatura do `Interactor.OnErrouSkillCheck` → `HandleErrouMinigame`, que conta `Erros` e derruba a meta, só durante a partida. O reenchido continua sendo contado em `Reenchidos`, mas agora só para o desconto.
+- `Assets/Editor/Testes/NotaTestes.cs`, `PlacarTestes.cs` e `InterfaceDaNotaTestes.cs`: adaptados à meta nova. Testes novos: `SemErros_ReenchidoNaoDerruba` e `Reencher_SoConta_ErroDerruba`; `Reenchido_ForaDaPartida_NaoConta` agora confere também o erro fora da partida.
+- `Assets/Scenes/SampleScene.unity`: os 3 textos fixos "Sem retrabalho" (tela final, cartão da pausa, aviso) viraram "Sem erros". Em jogo eles já são escritos por `AvaliacaoDaPartida.Nome`.
+
+**O que não mudou:** o desconto de 100 pontos por reenchido continua na nota (linha "Reenchidos N × 100"). O enum mantém a mesma posição (1), então nada serializado muda de valor.
+
+**Verificação:** `unity test` EditMode com filtro `NotaTestes|PlacarTestes|InterfaceDaNotaTestes`: 60 de 60 passaram. **Não verificado:** a suíte inteira, Play e build; o erro real do ralo derrubando a meta em Play (o evento `OnErrouSkillCheck` é o mesmo que já mostra o toast "A tela rasgou!").
+
+**Observações técnicas:** hoje só o ralo (skill check) devolve `EstadoDoMinigame.Errou`; qualquer minigame novo que devolver `Errou` passa pelo mesmo evento e conta como erro sem mudar o placar.

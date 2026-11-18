@@ -12,6 +12,8 @@ using UnityEngine;
  *
  *    - Focos, vitória, tempo, hospital e estrelas somam; reenchidos
  *      descontam (nota nunca abaixo de zero).
+ *    - Sem erros: nenhum minigame errado na partida (a tela rasgada do
+ *      ralo conta como erro). O reenchido só desconta pontos.
  *    - Vitória, tempo, hospital e estrelas só contam com Venceu.
  *    - Comparações com o que a tela mostra: segundos por FloorToInt,
  *      pico por RoundToInt(pico x 100).
@@ -20,7 +22,7 @@ using UnityEngine;
 public enum MetaDaPartida
 {
     RespostaRapida,
-    SemRetrabalho,
+    SemErros,
     HospitalSobControle
 }
 
@@ -63,6 +65,7 @@ public struct DadosDaPartida
     public int Eliminados;
     public int Total;
     public int Reenchidos;
+    public int Erros;
 }
 
 public struct ResultadoDaNota
@@ -77,7 +80,7 @@ public struct ResultadoDaNota
     public int Penalidade;
 
     internal bool CumpriuRapida;
-    internal bool CumpriuSemRetrabalho;
+    internal bool CumpriuSemErros;
     internal bool CumpriuHospital;
 
     public bool Cumpriu(MetaDaPartida meta)
@@ -85,7 +88,7 @@ public struct ResultadoDaNota
         switch (meta)
         {
             case MetaDaPartida.RespostaRapida: return CumpriuRapida;
-            case MetaDaPartida.SemRetrabalho: return CumpriuSemRetrabalho;
+            case MetaDaPartida.SemErros: return CumpriuSemErros;
             default: return CumpriuHospital;
         }
     }
@@ -98,7 +101,7 @@ public static class AvaliacaoDaPartida
     public static readonly MetaDaPartida[] Metas =
     {
         MetaDaPartida.RespostaRapida,
-        MetaDaPartida.SemRetrabalho,
+        MetaDaPartida.SemErros,
         MetaDaPartida.HospitalSobControle
     };
 
@@ -111,7 +114,7 @@ public static class AvaliacaoDaPartida
         switch (meta)
         {
             case MetaDaPartida.RespostaRapida: return Segundos(d) <= r.limiteDeSegundos;
-            case MetaDaPartida.SemRetrabalho: return d.Reenchidos == 0;
+            case MetaDaPartida.SemErros: return d.Erros == 0;
             default: return PicoPercentual(d) <= r.limiteDePico;
         }
     }
@@ -123,7 +126,7 @@ public static class AvaliacaoDaPartida
     {
         ResultadoDaNota n = new ResultadoDaNota();
         n.CumpriuRapida = MetaCumprida(MetaDaPartida.RespostaRapida, d, r);
-        n.CumpriuSemRetrabalho = MetaCumprida(MetaDaPartida.SemRetrabalho, d, r);
+        n.CumpriuSemErros = MetaCumprida(MetaDaPartida.SemErros, d, r);
         n.CumpriuHospital = MetaCumprida(MetaDaPartida.HospitalSobControle, d, r);
 
         foreach (MetaDaPartida meta in Metas)
@@ -156,12 +159,12 @@ public static class AvaliacaoDaPartida
         switch (meta)
         {
             case MetaDaPartida.RespostaRapida: return "Resposta rápida";
-            case MetaDaPartida.SemRetrabalho: return "Sem retrabalho";
+            case MetaDaPartida.SemErros: return "Sem erros";
             default: return "Hospital sob controle";
         }
     }
 
-    private static string Reenchidos(int n) => n == 1 ? "1 reenchido" : $"{n} reenchidos";
+    private static string Erros(int n) => n == 1 ? "1 erro" : $"{n} erros";
 
     /* Detalhe de cada meta na tela final. */
     public static string DetalheFinal(MetaDaPartida meta, DadosDaPartida d, RegrasDaNota r)
@@ -174,8 +177,8 @@ public static class AvaliacaoDaPartida
         {
             case MetaDaPartida.RespostaRapida:
                 return $"{Tempo(Segundos(d))} de {Tempo(r.limiteDeSegundos)}";
-            case MetaDaPartida.SemRetrabalho:
-                return Reenchidos(d.Reenchidos);
+            case MetaDaPartida.SemErros:
+                return Erros(d.Erros);
             default:
                 return dentro ? $"pico {PicoPercentual(d)}%" : $"pico {PicoPercentual(d)}% de {r.limiteDePico}%";
         }
@@ -188,8 +191,8 @@ public static class AvaliacaoDaPartida
         {
             case MetaDaPartida.RespostaRapida:
                 return $"{Tempo(Segundos(d))} de {Tempo(r.limiteDeSegundos)}";
-            case MetaDaPartida.SemRetrabalho:
-                return d.Reenchidos == 0 ? Reenchidos(0) : $"perdida: {Reenchidos(d.Reenchidos)}";
+            case MetaDaPartida.SemErros:
+                return d.Erros == 0 ? Erros(0) : $"perdida: {Erros(d.Erros)}";
             default:
                 return $"pico {PicoPercentual(d)}% de {r.limiteDePico}%";
         }

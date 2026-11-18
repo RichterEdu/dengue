@@ -5,7 +5,7 @@ using UnityEngine;
  *  PlacarTestes.cs
  *  ---------------------------------------------------------------------
  *  Testes EditMode (Parte C) do PlacarDaPartida: o pico da ocupação, as
- *  metas que caem (uma vez só), o reenchido que derruba Sem retrabalho,
+ *  metas que caem (uma vez só), o minigame errado que derruba Sem erros,
  *  o fechamento da nota (uma vez, com recorde) e as guardas de partida
  *  não iniciada, encerrada e sem fluxo.
  *
@@ -120,14 +120,17 @@ public class PlacarTestes
     }
 
     [Test]
-    public void Esvaziar_NaoDerruba_ReencherDerruba()
+    public void Reencher_SoConta_ErroDerruba()
     {
         VasoInteractable vaso = NovoVasoEsvaziado();
         placar.Conferir();
-        Assert.IsTrue(placar.MetaViva(MetaDaPartida.SemRetrabalho));
+        Assert.IsTrue(placar.MetaViva(MetaDaPartida.SemErros));
         vaso.Reencher();
         Assert.AreEqual(1, placar.Reenchidos);
-        Assert.IsFalse(placar.MetaViva(MetaDaPartida.SemRetrabalho));
+        Assert.IsTrue(placar.MetaViva(MetaDaPartida.SemErros), "reencher não derruba mais");
+        placar.HandleErrouMinigame(vaso);
+        Assert.AreEqual(1, placar.Erros);
+        Assert.IsFalse(placar.MetaViva(MetaDaPartida.SemErros));
     }
 
     [Test]
@@ -251,13 +254,17 @@ public class PlacarTestes
 
         fluxo.DefinirEstadoParaTeste(false, false);
         naoIniciada.Reencher();
+        placar.HandleErrouMinigame(naoIniciada);
         Assert.AreEqual(0, placar.Reenchidos, "partida não iniciada");
-        Assert.IsTrue(placar.MetaViva(MetaDaPartida.SemRetrabalho));
+        Assert.AreEqual(0, placar.Erros, "partida não iniciada");
+        Assert.IsTrue(placar.MetaViva(MetaDaPartida.SemErros));
 
         fluxo.DefinirEstadoParaTeste(true, true);
         encerrada.Reencher();
+        placar.HandleErrouMinigame(encerrada);
         Assert.AreEqual(0, placar.Reenchidos, "partida encerrada");
-        Assert.IsTrue(placar.MetaViva(MetaDaPartida.SemRetrabalho));
+        Assert.AreEqual(0, placar.Erros, "partida encerrada");
+        Assert.IsTrue(placar.MetaViva(MetaDaPartida.SemErros));
     }
 
     [Test]

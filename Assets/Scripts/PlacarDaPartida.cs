@@ -9,8 +9,9 @@ using UnityEngine;
  *  a tela final leem daqui.
  *
  *  - Metas: Resposta rápida e Hospital sob controle caem quando o limite
- *    passa (Conferir, todo frame); Sem retrabalho cai no primeiro foco
- *    reenchido (OnFocoReenchido). Cada meta cai uma vez só (OnMetaPerdida)
+ *    passa (Conferir, todo frame); Sem erros cai no primeiro minigame
+ *    errado, como a tela rasgada do ralo (Interactor.OnErrouSkillCheck).
+ *    O reenchido (OnFocoReenchido) só é contado, para o desconto. Cada meta cai uma vez só (OnMetaPerdida)
  *    e só durante a partida (iniciada e não encerrada). MetaViva lê o
  *    conjunto das perdidas; não recalcula dos números.
  *  - Dados: antes de Fechar, o retrato ao vivo (Venceu = false); depois,
@@ -31,6 +32,9 @@ public class PlacarDaPartida : MonoBehaviour
     [Tooltip("Vazio = o GerenciadorDeFocos da cena.")]
     [SerializeField] private GerenciadorDeFocos gerenciador;
 
+    [Tooltip("Vazio = o Interactor da cena (avisa os minigames errados).")]
+    [SerializeField] private Interactor interactor;
+
     [Tooltip("Limites das metas e valores da nota.")]
     [SerializeField] private RegrasDaNota regras = new RegrasDaNota();
 
@@ -41,6 +45,7 @@ public class PlacarDaPartida : MonoBehaviour
     private DadosDaPartida fechados;
 
     public int Reenchidos { get; private set; }
+    public int Erros { get; private set; }
     public RegrasDaNota Regras => regras;
     public bool Fechado { get; private set; }
     public ResultadoDaNota Resultado { get; private set; }
@@ -67,11 +72,18 @@ public class PlacarDaPartida : MonoBehaviour
     {
         if (gerenciador == null) gerenciador = GerenciadorDeFocos.Obter();
         if (fluxo == null) fluxo = FindAnyObjectByType<FluxoDeJogo>();
+        if (interactor == null) interactor = FindAnyObjectByType<Interactor>();
 
         if (gerenciador != null)
         {
             gerenciador.OnFocoReenchido -= HandleFocoReenchido;
             gerenciador.OnFocoReenchido += HandleFocoReenchido;
+        }
+
+        if (interactor != null)
+        {
+            interactor.OnErrouSkillCheck -= HandleErrouMinigame;
+            interactor.OnErrouSkillCheck += HandleErrouMinigame;
         }
 
         if (fluxo != null)
@@ -93,6 +105,9 @@ public class PlacarDaPartida : MonoBehaviour
 
         if (gerenciador != null)
             gerenciador.OnFocoReenchido -= HandleFocoReenchido;
+
+        if (interactor != null)
+            interactor.OnErrouSkillCheck -= HandleErrouMinigame;
     }
 
     internal void UsarRecorde(RecordeDoJogo novo)
@@ -133,6 +148,7 @@ public class PlacarDaPartida : MonoBehaviour
         DadosDaPartida d = new DadosDaPartida();
         d.Venceu = venceu;
         d.Reenchidos = Reenchidos;
+        d.Erros = Erros;
         if (fluxo != null)
         {
             d.Segundos = fluxo.TempoDecorrido;
@@ -159,6 +175,15 @@ public class PlacarDaPartida : MonoBehaviour
             return;
 
         Reenchidos++;
-        Perder(MetaDaPartida.SemRetrabalho);
+    }
+
+    /* Um minigame errado (a tela do ralo rasgou): Sem erros cai. */
+    internal void HandleErrouMinigame(Interactable foco)
+    {
+        if (!EmPartida)
+            return;
+
+        Erros++;
+        Perder(MetaDaPartida.SemErros);
     }
 }

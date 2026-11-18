@@ -223,7 +223,7 @@ public class InterfaceDaNotaTestes
         {
             Venceu = true, Segundos = 1100f, Pico = 0.9f, Eliminados = 30, Total = 30, Reenchidos = 0
         };
-        ResultadoDaNota n = AvaliacaoDaPartida.Calcular(d, regras);   // rápida e sem retrabalho; pico 90% perde
+        ResultadoDaNota n = AvaliacaoDaPartida.Calcular(d, regras);   // rápida e sem erros; pico 90% perde
 
         tela.Mostrar(n, d, regras, true, 5000);
 
@@ -377,7 +377,7 @@ public class InterfaceDaNotaTestes
     {
         AvisoDeMeta aviso = NovoAviso(out _);
         Assert.IsFalse(aviso.Visivel);
-        aviso.Mostrar(MetaDaPartida.SemRetrabalho);
+        aviso.Mostrar(MetaDaPartida.SemErros);
         Assert.IsTrue(aviso.Visivel);
         aviso.Avancar(3.1f);
         Assert.IsFalse(aviso.Visivel);
@@ -387,8 +387,8 @@ public class InterfaceDaNotaTestes
     public void Aviso_MostraETroca_SemFila()
     {
         AvisoDeMeta aviso = NovoAviso(out TextMeshProUGUI textoMeta);
-        aviso.Mostrar(MetaDaPartida.SemRetrabalho);
-        Assert.AreEqual("Sem retrabalho", textoMeta.text);
+        aviso.Mostrar(MetaDaPartida.SemErros);
+        Assert.AreEqual("Sem erros", textoMeta.text);
         Assert.AreEqual(3f, aviso.Restante, 1e-4f);
         aviso.Avancar(2f);
         aviso.Mostrar(MetaDaPartida.RespostaRapida);
@@ -400,7 +400,7 @@ public class InterfaceDaNotaTestes
     public void Aviso_SomeDepoisDoTempo()
     {
         AvisoDeMeta aviso = NovoAviso(out _);
-        aviso.Mostrar(MetaDaPartida.SemRetrabalho);
+        aviso.Mostrar(MetaDaPartida.SemErros);
         aviso.Avancar(3.1f);
         Assert.AreEqual(0f, aviso.Restante, 1e-4f);
     }
@@ -410,7 +410,7 @@ public class InterfaceDaNotaTestes
     {
         AvisoDeMeta aviso = NovoAviso(out _);
         placar.Fechar(true);
-        aviso.Mostrar(MetaDaPartida.SemRetrabalho);
+        aviso.Mostrar(MetaDaPartida.SemErros);
         Assert.AreEqual(0f, aviso.Restante, 1e-4f);
     }
 
@@ -422,7 +422,7 @@ public class InterfaceDaNotaTestes
         TesteUtil.Setar(aviso, "grupo", grupo);
         grupo.alpha = 0f;
 
-        aviso.Mostrar(MetaDaPartida.SemRetrabalho);
+        aviso.Mostrar(MetaDaPartida.SemErros);
         aviso.Avancar(0.1f);
         Assert.Greater(grupo.alpha, 0f);
         aviso.Avancar(0.5f);
@@ -449,13 +449,12 @@ public class InterfaceDaNotaTestes
     public void Cartao_MostraMetaEPerdida()
     {
         CartaoDeMetas cartao = NovoCartao(out Image[] estrelasMetas, out TextMeshProUGUI[] detalhes);
-        VasoInteractable vaso = NovoVasoEsvaziado();
-        vaso.Reencher();
-        Assert.AreEqual(1, placar.Reenchidos);
+        placar.HandleErrouMinigame(null);
+        Assert.AreEqual(1, placar.Erros);
 
         cartao.Atualizar();
 
-        Assert.AreEqual("perdida: 1 reenchido", detalhes[1].text);
+        Assert.AreEqual("perdida: 1 erro", detalhes[1].text);
         Assert.AreSame(vazia, estrelasMetas[1].sprite);
         Assert.AreSame(cheia, estrelasMetas[0].sprite);
 
@@ -512,7 +511,7 @@ public class InterfaceDaNotaTestes
     [Test]
     public void Cartao_PartidaVencidaComMetaPerdida_UsaOResultadoFechado()
     {
-        NovoVasoEsvaziado().Reencher();     // 1 reenchido: Sem retrabalho cai
+        placar.HandleErrouMinigame(null);   // 1 erro: Sem erros cai
         placar.Fechar(true);
         CartaoDeMetas cartao = NovoCartao(out Image[] estrelas, out TextMeshProUGUI[] detalhes);
         cartao.Atualizar();
@@ -525,10 +524,10 @@ public class InterfaceDaNotaTestes
         Assert.AreEqual(cheiaCor, estrelas[0].color);
         Assert.AreEqual(fraco, detalhes[0].color);
 
-        Assert.AreSame(vazia, estrelas[1].sprite, "Sem retrabalho perdida");
+        Assert.AreSame(vazia, estrelas[1].sprite, "Sem erros perdida");
         Assert.AreEqual(perdida, estrelas[1].color);
         Assert.AreEqual(perdida, detalhes[1].color);
-        Assert.AreEqual(AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.SemRetrabalho, placar.Dados, placar.Regras), detalhes[1].text);
+        Assert.AreEqual(AvaliacaoDaPartida.DetalheFinal(MetaDaPartida.SemErros, placar.Dados, placar.Regras), detalhes[1].text);
 
         Assert.AreSame(cheia, estrelas[2].sprite);
         Assert.AreEqual(cheiaCor, estrelas[2].color);

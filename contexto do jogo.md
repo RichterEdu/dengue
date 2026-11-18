@@ -3711,3 +3711,29 @@ Como: `Application.runInBackground = true` só no teste; abertura pulada (corrot
 **Verificação:** `unity test` EditMode com filtro `NotaTestes|PlacarTestes|InterfaceDaNotaTestes`: 60 de 60 passaram. **Não verificado:** a suíte inteira, Play e build; o erro real do ralo derrubando a meta em Play (o evento `OnErrouSkillCheck` é o mesmo que já mostra o toast "A tela rasgou!").
 
 **Observações técnicas:** hoje só o ralo (skill check) devolve `EstadoDoMinigame.Errou`; qualquer minigame novo que devolver `Errou` passa pelo mesmo evento e conta como erro sem mudar o placar.
+
+
+### 2026-11-17 — Design: fotos dos focos na rede social
+
+**Objetivo (pedido do usuário):** o jogador novo não sabe onde estão os focos. Com o tempo, alguém do bairro posta na rede social a foto de um foco, e pela foto o jogador reconhece o lugar.
+
+**Decisões do usuário:**
+- A foto sai **quando o jogador empaca** (o mesmo relógio da bronca, `tempoSemFoco` = 60 s), no lugar da bronca.
+- **Fotos prontas**, geradas no Editor, **cada uma ligada a um foco específico** (pelo próprio objeto, não pelo nome).
+- Ver e aprovar as fotos antes de irem para o jogo. Feito em duas rodadas: 13 das 31 fotos foram refeitas (3 opções cada) e ele escolheu uma por foco.
+- Visual do celular aprovado: foto no card com círculo vermelho em volta do foco, selo **RESOLVIDO** quando o foco é eliminado, notificação com miniatura e "enviou uma foto".
+- Propostas aceitas: o foco mais perto do jogador que ainda não saiu em foto; focos colados num que já saiu ficam de fora; quem posta é o dono do tipo; texto sem endereço.
+
+**Arquivos novos:**
+- `docs/superpowers/specs/2026-11-17-fotos-dos-focos-design.md`, com as 31 poses aprovadas no apêndice.
+
+**Nenhum script, cena, prefab ou asset foi alterado nesta entrada.**
+
+**Observações técnicas:**
+- **Preview no Editor, sem salvar nada:** as fotos foram renderizadas em modo Edição com uma câmera `HideAndDontSave` (cópia da Main Camera, com o pós-processamento do URP) e `Camera.Render()` num `RenderTexture` 720×480; a cena ficou sem mudanças (`isDirty` falso antes e depois). O preview do celular foi feito em Play, com os canvases trocados para Screen Space Camera e o estado final das animações forçado por reflexão (o Play ficou parado no quadro 2, com o Editor sem foco).
+- **Escolha automática do ponto da câmera:** o chão do ponto precisa ser o primeiro acerto descendo de perto do foco. O "acerto mais baixo" caía no piso da sala do hospital, que fica embaixo da praça. As caixas d'água em telhado só aparecem de 4,5 a 7 m de altura ("da janela do vizinho"). Colisores não enxergam folhagem: a segunda versão renderiza com e sem o foco (`Renderer.forceRenderingOff`, que não é serializado) e mede na imagem quanto dele aparece e a luz em volta.
+- **Determinismo:** rodar o mesmo script duas vezes deu PNGs idênticos byte a byte.
+- **Nomes repetidos na cena:** há dois `pneu (5)` (um solto no quiosque da praça, um no monte) e garrafas com espaços no nome (`Garrafa `, `Garrafa  (1)`).
+- **Material fora do git:** `.superpowers/sdd/2026-11-17-fotos-dos-focos/` (fotos aprovadas, `poses.tsv`, folhas de contato, capturas do celular e os scripts de `eval_file`).
+- **Mudanças de outra sessão no disco:** a entrada "Meta 'Sem retrabalho' trocada por 'Sem erros'" logo acima, com `AvaliacaoDaPartida.cs`, `PlacarDaPartida.cs`, três testes e a `SampleScene`, está sem commit. Não foi tocada. `LiberationSans SDF - Fallback.asset` continua modificado, como já estava.
+- **Revisão do documento:** um revisor leu o design como quem vai construir. Entraram por causa dele: "mexido" passa a contar também o esvaziar com as Mãos (`OnFocoEsvaziado`, o atalho não dispara `OnClicado`) e pegar a tampa da caixa d'água (`KitDoAgente.OnTampaPega`, que não dá passo); as fotos do jogo são **cópias** das aprovadas, porque a semente do círculo vermelho do preview vinha da ordem do `FindObjectsByType` e não se reproduz; a posição de cada foco para "lugar conhecido" é a guardada no início (o pneu muda de lugar ao ser carregado).

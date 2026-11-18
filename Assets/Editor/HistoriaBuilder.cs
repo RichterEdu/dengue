@@ -15,7 +15,8 @@ using UnityEngine.UI;
  *      das telas de fim de jogo, que são 20): tela preta + texto das
  *      cartelas de abertura/epílogo, com o CartelasNarrativas.
  *    - Notificacao, DENTRO do Canvas CelularHUD já existente: banner push
- *      acima do ícone do celular, com o NotificacaoCelular.
+ *      (500 px) acima do ícone do celular, com o NotificacaoCelular e a
+ *      Miniatura da foto do foco (GarantirMiniatura).
  *    - "Historia" (objeto solto na raiz): HistoriaRedeSocial (o narrador)
  *      + HistoriaDoJogo (abertura/epílogo), com as referências ligadas.
  *    - Troca o texto do briefing antigo ("A equipe médica avisa...") por
@@ -38,6 +39,8 @@ public static class HistoriaBuilder
     private const string NomeCartelas = "CartelasCanvas";
     private const string NomeHistoria = "Historia";
     private const string NomeNotificacao = "Notificacao";
+    private const string NomeMiniatura = "Miniatura";
+    private const float LarguraNotificacao = 500f;   // era 440; mais larga para caber a miniatura
 
     private const string BriefingAntigo =
         "A equipe médica avisa: erradique os criadouros no bairro. Sem isso, o tratamento não adianta.";
@@ -246,7 +249,7 @@ public static class HistoriaBuilder
             // Canto inferior direito, logo ACIMA do ícone do celular
             // (ícone: 54×94 em x -40 / y 40 — ver CelularBuilder).
             painel = NovoRect(NomeNotificacao, hudRt, new Vector2(1f, 0f), new Vector2(1f, 0f),
-                new Vector2(-40f, 150f), new Vector2(440f, 104f));
+                new Vector2(-40f, 150f), new Vector2(LarguraNotificacao, 104f));
             painel.SetAsFirstSibling();   // o painel do celular e o ícone desenham por cima
 
             Image fundo = NovaImagem(painel, uiSprite, CorFundo);
@@ -311,7 +314,65 @@ public static class HistoriaBuilder
         Ligar(so, "texto", Achar<TextMeshProUGUI>(painel.gameObject, "Texto"), ligados);
         so.ApplyModifiedProperties();
 
+        if (GarantirMiniatura(notificacao, uiSprite))
+            criados.Append("\n  • CelularHUD/").Append(NomeNotificacao).Append('/').Append(NomeMiniatura);
+
         return notificacao;
+    }
+
+    /* Deixa o banner com 500 px e acrescenta, à direita, a miniatura da foto:
+     *   Miniatura  (96x64, direita-meio, x -14; Image fatiada + Mask sem gráfico; desligada)
+     *   └── Imagem (RawImage esticada)
+     * e liga NotificacaoCelular.miniatura/miniaturaImagem (pelo SerializedObject,
+     * que registra no Undo e marca sujo). Idempotente: se o banner já tem a
+     * "Miniatura", só completa as referências vazias. Devolve true se criou a
+     * miniatura. Também usado pelo menu "Preparar celular para fotos". */
+    internal static bool GarantirMiniatura(NotificacaoCelular notificacao, Sprite ui)
+    {
+        if (notificacao == null)
+            return false;
+
+        RectTransform painel = (RectTransform)notificacao.transform;
+        if (!Mathf.Approximately(painel.rect.width, LarguraNotificacao))
+        {
+            Undo.RecordObject(painel, "Miniatura na notificação");
+            painel.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, LarguraNotificacao);
+            EditorUtility.SetDirty(painel);
+        }
+
+        RectTransform moldura = painel.Find(NomeMiniatura) as RectTransform;
+        bool criou = moldura == null;
+        RawImage imagem;
+        if (criou)
+        {
+            // Moldura: recorta a foto nos cantos arredondados do sprite (sem desenhá-lo).
+            moldura = NovoRect(NomeMiniatura, painel, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                new Vector2(-14f, 0f), new Vector2(96f, 64f));
+            Image fundo = NovaImagem(moldura, ui, Color.white);
+            fundo.type = Image.Type.Sliced;
+            fundo.pixelsPerUnitMultiplier = 0.8f;
+            moldura.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+
+            RectTransform imagemRt = NovoRect("Imagem", moldura, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                Vector2.zero, Vector2.zero);
+            Esticar(imagemRt);
+            imagem = imagemRt.gameObject.AddComponent<RawImage>();
+            imagem.raycastTarget = false;
+
+            moldura.gameObject.SetActive(false);
+        }
+        else
+        {
+            imagem = moldura.GetComponentInChildren<RawImage>(true);
+        }
+
+        // Liga só as referências vazias (o Ligar não troca o que já está ligado).
+        SerializedObject so = new SerializedObject(notificacao);
+        Ligar(so, "miniatura", moldura.gameObject, new StringBuilder());
+        Ligar(so, "miniaturaImagem", imagem, new StringBuilder());
+        so.ApplyModifiedProperties();
+
+        return criou;
     }
 
     /* ================= Briefing ================= */

@@ -3737,3 +3737,25 @@ Como: `Application.runInBackground = true` só no teste; abertura pulada (corrot
 - **Material fora do git:** `.superpowers/sdd/2026-11-17-fotos-dos-focos/` (fotos aprovadas, `poses.tsv`, folhas de contato, capturas do celular e os scripts de `eval_file`).
 - **Mudanças de outra sessão no disco:** a entrada "Meta 'Sem retrabalho' trocada por 'Sem erros'" logo acima, com `AvaliacaoDaPartida.cs`, `PlacarDaPartida.cs`, três testes e a `SampleScene`, está sem commit. Não foi tocada. `LiberationSans SDF - Fallback.asset` continua modificado, como já estava.
 - **Revisão do documento:** um revisor leu o design como quem vai construir. Entraram por causa dele: "mexido" passa a contar também o esvaziar com as Mãos (`OnFocoEsvaziado`, o atalho não dispara `OnClicado`) e pegar a tampa da caixa d'água (`KitDoAgente.OnTampaPega`, que não dá passo); as fotos do jogo são **cópias** das aprovadas, porque a semente do círculo vermelho do preview vinha da ordem do `FindObjectsByType` e não se reproduz; a posição de cada foco para "lugar conhecido" é a guardada no início (o pneu muda de lugar ao ser carregado).
+
+### 2026-11-17 — Plano: fotos dos focos na rede social
+
+**Objetivo:** plano de implementação do design aprovado pelo usuário em 2026-11-17 (`docs/superpowers/specs/2026-11-17-fotos-dos-focos-design.md`).
+
+**Commits antes do plano (a pedido do usuário):**
+- `6926759` na `bromelia-pontos-de-borrifar`: o trabalho que a sessão "Conquista sem tela quebrada" deixou sem commit (meta "Sem erros"), só com os arquivos dela. Para separar o `contexto do jogo.md`, a entrada do design desta feature saiu do arquivo durante o commit e voltou depois.
+- Branch nova `fotos-dos-focos` a partir dali; `378022e`: o spec e a entrada do design.
+
+**Arquivos novos:**
+- `docs/superpowers/plans/2026-11-17-fotos-dos-focos.md`, com 7 tarefas: a escolha do foco (lógica pura); o narrador postando a foto; a foto e o carimbo no card; a miniatura na notificação; o builder das fotos; as 31 fotos aprovadas ligadas na cena; a verificação em Play e o registro.
+
+**Nenhum script, cena, prefab ou asset foi alterado nesta entrada.**
+
+**Decisões do plano que o design deixava para quem constrói:**
+- **Ligação pelo caminho na hierarquia:** o `poses.tsv` aprovado diz o caminho de cada foco (com os espaços dos nomes das garrafas) e o builder copia o PNG aprovado daquele número, sem regerar.
+- **Nome do arquivo:** o caminho sem o grupo do topo, com ` - ` entre as partes (ex.: `PilhadePneu - pneu (5).png`).
+- **Semente do círculo do gerador:** FNV-1a do caminho (estável entre execuções).
+- **Peças novas na cena atual** por um menu idempotente (`Dengue > Fotos dos Focos > Preparar celular para fotos`), porque o `Criar Celular` recria o `CelularHUD` e zera a `RedeSocial` editada.
+- **Testes:** categoria NUnit `Fotos`; o relógio de "empacado" vira `AvancarEmpacado(dt, posição, lendoCelular)` para os testes chamarem sem o `Update`.
+
+**Observações técnicas:** `Assets/a.unity` e `LiberationSans SDF - Fallback.asset` ficam fora dos commits desta feature.

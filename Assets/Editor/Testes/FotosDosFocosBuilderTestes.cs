@@ -20,7 +20,8 @@ using Object = UnityEngine.Object;
  *    - Importar: dois focos com o mesmo nome ("pneu (5)") são ligados
  *      pelo caminho na hierarquia, cada um ao PNG do seu número; foco sem
  *      linha e linha sem foco saem nos avisos;
- *    - Gerar: grava um PNG 720×480 e liga a textura no FotoDoFoco;
+ *    - Gerar: grava um PNG 720×480 e liga a textura no FotoDoFoco; com a
+ *      foto dividida por dois focos (Ctrl+D), não regrava o PNG do outro;
  *    - PrepararCelular: rodado duas vezes não duplica nada.
  *
  *  As fotos aprovadas de teste ficam numa pasta temporária fora do
@@ -297,6 +298,55 @@ public class FotosDosFocosBuilderTestes
         Assert.AreEqual(caminho, AssetDatabase.GetAssetPath(f.foto));
         Assert.AreEqual(720, f.foto.width, "importada sem mudar o tamanho");
         Assert.AreEqual(480, f.foto.height);
+    }
+
+    /* Cubo de teste com Interactable e FotoDoFoco, câmera a 3 m na frente. */
+    private static FotoDoFoco FocoComFoto(string nome, Vector3 posicao)
+    {
+        GameObject cubo = TesteUtil.Primitivo(PrimitiveType.Cube, nome);
+        cubo.transform.position = posicao;
+        cubo.AddComponent<Interactable>();
+        FotoDoFoco f = cubo.AddComponent<FotoDoFoco>();
+        f.posicaoDaCamera = posicao + new Vector3(0f, 0f, -3f);
+        f.rotacaoDaCamera = Vector3.zero;
+        f.campoDeVisao = 60f;
+        return f;
+    }
+
+    [Test]
+    public void Gerar_FotoDivididaComOutroFoco_NaoRegravaOArquivoDoOutro()
+    {
+        FotoDoFoco original = FocoComFoto("pneu (5)", Vector3.zero);
+        string caminhoOriginal = FotosDosFocosBuilder.Gerar(original, PastaDeTeste);
+        byte[] antes = File.ReadAllBytes(caminhoOriginal);
+
+        // O Ctrl+D copia a referência: a cópia aponta para o PNG do original.
+        FotoDoFoco copia = FocoComFoto("pneu (6)", new Vector3(10f, 0f, 0f));
+        copia.rotacaoDaCamera = new Vector3(0f, 30f, 0f);
+        copia.foto = original.foto;
+
+        string caminhoCopia = FotosDosFocosBuilder.Gerar(copia, PastaDeTeste);
+
+        Assert.AreEqual(PastaDeTeste + "/pneu (6).png", caminhoCopia, "a cópia ganha o arquivo do seu nome");
+        CollectionAssert.AreEqual(antes, File.ReadAllBytes(caminhoOriginal), "o PNG do original fica intacto");
+        Assert.AreEqual(caminhoOriginal, AssetDatabase.GetAssetPath(original.foto), "o original segue na sua foto");
+        Assert.AreEqual(caminhoCopia, AssetDatabase.GetAssetPath(copia.foto), "a cópia passa para a foto nova");
+    }
+
+    [Test]
+    public void Gerar_FotoDivididaNoDonoDoNome_RegravaOProprioArquivo()
+    {
+        FotoDoFoco original = FocoComFoto("pneu (5)", Vector3.zero);
+        string caminhoOriginal = FotosDosFocosBuilder.Gerar(original, PastaDeTeste);
+        Assert.AreEqual(caminhoOriginal, FotosDosFocosBuilder.Gerar(original, PastaDeTeste),
+            "sem ninguém dividindo, regrava o mesmo arquivo");
+
+        FotoDoFoco copia = FocoComFoto("pneu (6)", new Vector3(10f, 0f, 0f));
+        copia.foto = original.foto;
+
+        Assert.AreEqual(caminhoOriginal, FotosDosFocosBuilder.Gerar(original, PastaDeTeste),
+            "o dono do nome regrava o seu arquivo, sem criar \" (2)\"");
+        Assert.IsFalse(File.Exists(PastaDeTeste + "/pneu (5) (2).png"));
     }
 
     /* ---------------- Preparar celular ---------------- */

@@ -446,9 +446,9 @@ public static class FotosDosFocosBuilder
     }
 
     /* Renderiza, grava o PNG em 'pastaDestino', importa e liga em f.foto.
-     * Se a foto atual já está nessa pasta, regrava o mesmo arquivo; senão
-     * usa o NomeDoArquivo (com sufixo se já houver outro arquivo com ele).
-     * Devolve o caminho do asset. */
+     * Se a foto atual já está nessa pasta e é só deste foco (PodeRegravar),
+     * regrava o mesmo arquivo; senão usa o NomeDoArquivo (com sufixo se já
+     * houver outro arquivo com ele). Devolve o caminho do asset. */
     internal static string Gerar(FotoDoFoco f, string pastaDestino)
     {
         Texture2D tex = Renderizar(f);
@@ -463,15 +463,41 @@ public static class FotosDosFocosBuilder
         }
 
         MeusOrganizador.GarantirPasta(pastaDestino);
+        string nome = NomeDoArquivo(CaminhoNaHierarquia(f.transform));
         string atual = f.foto != null ? AssetDatabase.GetAssetPath(f.foto) : null;
         string destino = !string.IsNullOrEmpty(atual) && atual.StartsWith(pastaDestino + "/", StringComparison.Ordinal)
                 && atual.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                && PodeRegravar(f, atual, nome)
             ? atual
-            : CaminhoLivre(pastaDestino, NomeDoArquivo(CaminhoNaHierarquia(f.transform)), c => File.Exists(NoDisco(c)));
+            : CaminhoLivre(pastaDestino, nome, c => File.Exists(NoDisco(c)));
 
         File.WriteAllBytes(NoDisco(destino), png);
         GravarFoto(f, ImportarFoto(destino));
         return destino;
+    }
+
+    /* O Gerar pode regravar o arquivo 'atual' da foto de 'f'? Um Ctrl+D (ou
+     * Paste Component Values) copia a referência 'foto', e aí dois focos
+     * apontam para o mesmo PNG: regravar trocaria, calado, a foto do outro.
+     * Por isso: sim se nenhum outro FotoDoFoco carregado (inclusive os
+     * escondidos e os inativos; prefabs em disco não contam) usa a mesma
+     * textura; se outros usam, só o dono do nome — o único entre eles cujo
+     * NomeDoArquivo é o nome do arquivo — regrava; os outros ganham arquivo
+     * próprio. */
+    private static bool PodeRegravar(FotoDoFoco f, string atual, string nome)
+    {
+        string arquivo = Path.GetFileName(atual);
+        bool dividida = false;
+        bool outroDono = false;
+        foreach (FotoDoFoco outro in Resources.FindObjectsOfTypeAll<FotoDoFoco>())
+        {
+            if (outro == f || outro.foto != f.foto || EditorUtility.IsPersistent(outro))
+                continue;
+            dividida = true;
+            if (string.Equals(NomeDoArquivo(CaminhoNaHierarquia(outro.transform)), arquivo, StringComparison.OrdinalIgnoreCase))
+                outroDono = true;
+        }
+        return !dividida || (!outroDono && string.Equals(nome, arquivo, StringComparison.OrdinalIgnoreCase));
     }
 
     private static void GerarVarias(IEnumerable<FotoDoFoco> fotos)

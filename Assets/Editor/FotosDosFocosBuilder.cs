@@ -33,6 +33,11 @@ using Object = UnityEngine.Object;
  *      foto e o selo, e ao banner a miniatura, ligando as referências
  *      (CelularBuilder.GarantirFotoNoCard e HistoriaBuilder.GarantirMiniatura).
  *
+ *  Nenhum menu roda em Play (só um aviso no Console). O "Gerar fotos
+ *  (todos os focos)" pede confirmação antes de sobrescrever as fotos
+ *  aprovadas e pula os focos inativos; sem Main Camera na cena, nenhum
+ *  "Gerar" grava foto.
+ *
  *  Arquivos: Assets/Meus/Assets Gerados/Fotos dos Focos/, um PNG 720×480
  *  por foco, com o nome tirado do caminho na hierarquia (sem o grupo do
  *  topo, "/" vira " - "). Importação: Default, sem mipmaps, Clamp, sRGB,
@@ -65,9 +70,23 @@ public static class FotosDosFocosBuilder
 
     /* ================= Menus ================= */
 
+    /* Em Play (ou entrando nele) os menus não rodam: o gerador fotografaria
+     * o estado da partida (focos sumidos, pneus fora do lugar) e gravaria
+     * isso em disco, e o FotoDoFoco mudado em Play se perde ao sair. */
+    private static bool EmPlay(string menu)
+    {
+        if (!EditorApplication.isPlayingOrWillChangePlaymode)
+            return false;
+        Debug.LogWarning(Log + "Saia do Play Mode antes de rodar \"" + menu + "\": em Play as fotos sairiam do "
+            + "estado da partida (focos eliminados, pneus fora do lugar) e as mudanças no FotoDoFoco se perderiam.");
+        return true;
+    }
+
     [MenuItem(Menu + "Importar fotos aprovadas")]
     private static void MenuImportar()
     {
+        if (EmPlay("Importar fotos aprovadas"))
+            return;
         Interactable[] focos = Object.FindObjectsByType<Interactable>(FindObjectsInactive.Exclude);
         StringBuilder avisos = new StringBuilder();
         int ligados = Importar(Path.Combine(RaizDoProjeto, PastaAprovadasPadrao), PastaDasFotos, focos, avisos);
@@ -80,12 +99,30 @@ public static class FotosDosFocosBuilder
     [MenuItem(Menu + "Gerar fotos (todos os focos)")]
     private static void MenuGerarTodas()
     {
-        GerarVarias(Object.FindObjectsByType<FotoDoFoco>(FindObjectsInactive.Include));
+        if (EmPlay("Gerar fotos (todos os focos)"))
+            return;
+
+        // As fotos do jogo são as que o usuário aprovou: refazer todas troca
+        // os PNG por renders novos (diferentes fora do círculo, ver R4′), e o
+        // Undo não desfaz arquivo gravado.
+        if (!EditorUtility.DisplayDialog("Gerar fotos de todos os focos",
+                "Isto SOBRESCREVE as fotos aprovadas pelo usuário em \"" + PastaDasFotos + "\" com renders novos, "
+                + "tirados da pose guardada em cada FotoDoFoco. O resultado não é idêntico às fotos aprovadas, "
+                + "e o Desfazer (Ctrl+Z) não traz os arquivos antigos de volta.\n\n"
+                + "Para refazer só uma foto, use \"Gerar foto (focos selecionados)\".\n\nGerar todas mesmo assim?",
+                "Sobrescrever todas", "Cancelar"))
+            return;
+
+        // Só os focos ativos: um foco inativo sairia como foto sem o foco.
+        GerarVarias(Object.FindObjectsByType<FotoDoFoco>(FindObjectsInactive.Exclude));
     }
 
     [MenuItem(Menu + "Gerar foto (focos selecionados)")]
     private static void MenuGerarSelecionados()
     {
+        if (EmPlay("Gerar foto (focos selecionados)"))
+            return;
+
         List<FotoDoFoco> fotos = new List<FotoDoFoco>();
         foreach (GameObject go in Selection.gameObjects)
         {
@@ -105,6 +142,9 @@ public static class FotosDosFocosBuilder
     [MenuItem(Menu + "Usar a vista da Scene no foco selecionado")]
     private static void MenuUsarVistaDaScene()
     {
+        if (EmPlay("Usar a vista da Scene no foco selecionado"))
+            return;
+
         GameObject go = Selection.activeGameObject;
         if (go == null || go.GetComponent<Interactable>() == null)
         {
@@ -129,6 +169,9 @@ public static class FotosDosFocosBuilder
     [MenuItem(Menu + "Preparar celular para fotos")]
     private static void MenuPrepararCelular()
     {
+        if (EmPlay("Preparar celular para fotos"))
+            return;
+
         FeedRedeSocial feed = Object.FindAnyObjectByType<FeedRedeSocial>(FindObjectsInactive.Include);
         NotificacaoCelular notificacao = Object.FindAnyObjectByType<NotificacaoCelular>(FindObjectsInactive.Include);
         Sprite ui = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
@@ -362,9 +405,11 @@ public static class FotosDosFocosBuilder
             hideFlags = HideFlags.HideAndDontSave,
         };
         Texture2D tex = new Texture2D(Largura, Altura, TextureFormat.RGB24, false) { hideFlags = HideFlags.HideAndDontSave };
+        RenderTexture anterior = RenderTexture.active;
+        Camera camera = null;
         try
         {
-            Camera camera = go.AddComponent<Camera>();
+            camera = go.AddComponent<Camera>();
             Camera principal = Camera.main;
             if (principal != null)
                 camera.CopyFrom(principal);
@@ -391,19 +436,16 @@ public static class FotosDosFocosBuilder
             go.transform.SetPositionAndRotation(f.posicaoDaCamera, Quaternion.Euler(f.rotacaoDaCamera));
             camera.Render();
 
-            RenderTexture anterior = RenderTexture.active;
             RenderTexture.active = rt;
             tex.ReadPixels(new Rect(0, 0, Largura, Altura), 0, 0);
             tex.Apply();
-            RenderTexture.active = anterior;
+            RenderTexture.active = anterior;   // de novo no finally, se o ReadPixels falhar
 
             Color32[] px = tex.GetPixels32();
             DesenharCirculo(px, Largura, Altura, RetanguloNaFoto(camera, f.gameObject),
                 SementeDe(CaminhoNaHierarquia(f.transform)));
             tex.SetPixels32(px);
             tex.Apply();
-
-            camera.targetTexture = null;
             return tex;
         }
         catch
@@ -413,6 +455,12 @@ public static class FotosDosFocosBuilder
         }
         finally
         {
+            // Mesmo com exceção: devolve o RenderTexture.active e solta a
+            // câmera e a RenderTexture temporárias.
+            if (RenderTexture.active == rt)
+                RenderTexture.active = anterior;
+            if (camera != null)
+                camera.targetTexture = null;
             Object.DestroyImmediate(rt);
             Object.DestroyImmediate(go);
         }
@@ -502,6 +550,15 @@ public static class FotosDosFocosBuilder
 
     private static void GerarVarias(IEnumerable<FotoDoFoco> fotos)
     {
+        // A foto copia a Main Camera (pós-processamento, antialiasing,
+        // sombras). Sem ela, o render não seria o da foto aprovada.
+        if (Camera.main == null)
+        {
+            Debug.LogWarning(Log + "Nenhuma Main Camera (câmera ativa com a tag MainCamera) na cena aberta: "
+                + "nenhuma foto foi gerada. Abra a SampleScene e rode o menu de novo.");
+            return;
+        }
+
         int geradas = 0;
         foreach (FotoDoFoco f in fotos)
         {

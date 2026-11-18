@@ -12,8 +12,9 @@ using UnityEngine;
  *  tipo posta a foto do foco escolhido pelo EscolhaDaFoto, com o foco
  *  ligado ao post. Cobre o relógio (antes do limite, celular aberto),
  *  a foto recusada pela janela de conflito (não gasta e tenta de novo
- *  em 1 s), a bronca antiga sem foco com foto, o foco "mexido" pelo
- *  jogador (passo, esvaziar, pneu pego, tampa pega), o foco destruído,
+ *  em 1 s, e a eliminação que zera essa espera), a bronca antiga sem
+ *  foco com foto, o foco "mexido" pelo jogador (passo, esvaziar, pneu
+ *  pego, tampa pega), o foco destruído (fora da foto, mas lugar conhecido),
  *  o tipo sem dono (perfil da UPA), a ordem dos textos, o
  *  CompletarPersonagens e o PostRedeSocial sem foto/foco no JSON.
  *
@@ -203,6 +204,32 @@ public class HistoriaFotoTestes
         Assert.IsTrue(historia.FoiFotografado(vaso));
     }
 
+    /* Foco eliminado depois de uma recusa: o relógio zera e a espera de 1 s
+     * da foto recusada também (a foto sai assim que o relógio chega ao limite). */
+    [Test]
+    public void Empacado_EliminacaoDepoisDaRecusa_ZeraAEspera()
+    {
+        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
+        Interactable lata = Foco<Interactable>("Lata (teste)", new Vector3(-20f, 0f, 0f));
+        Registrar(vaso, lata, Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f)));
+
+        TesteUtil.Setar(rede, "janelaConflito", 100f);
+        Assert.IsTrue(rede.Postar(new PostRedeSocial { texto = "Aviso Alta de antes." }, PrioridadePost.Alta));
+        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        Assert.IsFalse(historia.FoiFotografado(vaso), "dentro da janela, a foto tinha que ser recusada");
+
+        TesteUtil.Setar(rede, "janelaConflito", 0f);
+        MethodInfo eliminado = typeof(HistoriaRedeSocial).GetMethod("HandleFocoEliminado", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(eliminado, "HistoriaRedeSocial.HandleFocoEliminado não encontrado");
+        eliminado.Invoke(historia, new object[] { lata });
+
+        historia.AvancarEmpacado(59.5f, Vector3.zero, false);
+        Assert.IsFalse(historia.FoiFotografado(vaso), "a eliminação zera o relógio");
+        historia.AvancarEmpacado(0.6f, Vector3.zero, false);
+        Assert.IsTrue(historia.FoiFotografado(vaso), "no limite, a foto sai sem a espera da recusa de antes");
+        Assert.AreSame(vaso, Ultimo.foco);
+    }
+
     [Test]
     public void Empacado_SemFocoComFoto_SaiABronca()
     {
@@ -292,6 +319,24 @@ public class HistoriaFotoTestes
 
         Assert.AreEqual(1, rede.Publicados.Count);
         Assert.AreSame(pneu, rede.Publicados[0].foco, "o foco destruído fica de fora");
+    }
+
+    /* Só o Interactable.FinishRemoval (depois de concluir) destrói um foco:
+     * destruído = eliminado, e o lugar dele continua conhecido (spec §4). */
+    [Test]
+    public void Empacado_FocoDestruido_ContinuaLugarConhecido()
+    {
+        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
+        Interactable lata = Foco<Interactable>("Lata (teste)", new Vector3(12f, 0f, 0f));
+        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f));
+        Registrar(vaso, lata, pneu);
+
+        Object.DestroyImmediate(lata.gameObject);
+        historia.AvancarEmpacado(60f, Vector3.zero, false);
+
+        Assert.AreEqual(1, rede.Publicados.Count);
+        Assert.AreSame(pneu, rede.Publicados[0].foco,
+            "o vaso a 2 m do foco destruído fica fora da 1ª passada; sai o pneu, longe");
     }
 
     [Test]

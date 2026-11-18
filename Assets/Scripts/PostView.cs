@@ -39,6 +39,6 @@ public class PostView : MonoBehaviour
     [HideInInspector] public string usuarioBase = "";  // "@fulano" sem o tempo
     [HideInInspector] public float instante;           // Time.time da publicação
     [HideInInspector] public float anim;               // 0..1 da animação de entrada
-    [HideInInspector] public Interactable foco;        // foco da foto (runtime)
+    [System.NonSerialized] public Interactable foco;   // foco da foto (só em runtime, não vai para a cena/prefab)
     [HideInInspector] public float animSelo = 1f;      // 0..1 do "pop" do selo
 }

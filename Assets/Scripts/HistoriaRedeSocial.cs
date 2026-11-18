@@ -515,6 +515,7 @@ public class HistoriaRedeSocial : MonoBehaviour
         eliminadosPorTipo[tipo] = Contar(eliminadosPorTipo, tipo) + 1;
         jaChegouPerto.Add(tipo);   // não faz sentido "estou vendo o agente chegando" depois de limpo
         timerSemFoco = 0f;
+        esperaDaFoto = 0f;         // o relógio recomeça do zero, sem a espera de uma foto recusada antes
 
         bool sequencia = Time.time - ultimoFocoTempo <= janelaCombo;
         ultimoFocoTempo = Time.time;
@@ -857,12 +858,14 @@ public class HistoriaRedeSocial : MonoBehaviour
     }
 
     /* O candidato à foto do foco de índice i. Foco destruído: fora da
-     * escolha e não conta como lugar conhecido. */
+     * escolha, mas continua lugar conhecido — só o Interactable.FinishRemoval,
+     * depois de concluir, destrói um foco, então destruído = eliminado
+     * (spec §4). */
     private CandidatoDaFoto Candidato(int i)
     {
         Interactable foco = focos[i];
         if (foco == null)
-            return new CandidatoDaFoto { posicao = posicaoInicial[i] };
+            return new CandidatoDaFoto { posicao = posicaoInicial[i], conhecido = true };
 
         FotoDoFoco foto = fotoDe[i];
         bool concluido = foco.IsComplete;

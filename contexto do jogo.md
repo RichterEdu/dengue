@@ -3830,3 +3830,19 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 - **Achados menores adiados** (testes que faltam, avisos do importar, guardas de Play nos menus etc.) estão listados em `.superpowers/sdd/2026-11-17-fotos-dos-focos/progress.md` para a revisão final da branch.
 - **Material fora do git, mantido no disco:** `.superpowers/sdd/2026-11-17-fotos-dos-focos/` (fotos aprovadas, `poses.tsv`, capturas, scripts de `eval_file`).
 - **Mudanças não minhas no disco:** `LiberationSans SDF - Fallback.asset` continua modificado e `Assets/a.unity` continua sem commit, como já estavam.
+
+### 2026-11-18 — Fotos dos focos: correções da revisão final
+
+**Objetivo (pedido do usuário):** corrigir os achados da revisão final da branch `fotos-dos-focos` (`.superpowers/sdd/2026-11-17-fotos-dos-focos/final-review.md`): os dois *Important* e os quatro *minors* de uma linha recomendados.
+
+**Arquivos alterados:**
+- `Assets/Scripts/HistoriaRedeSocial.cs` — `Candidato`: foco destruído continua **lugar conhecido** (`conhecido = true`, fora da escolha). Só o `Interactable.FinishRemoval`, depois de concluir, destrói um foco, então destruído = eliminado (spec §4). Antes, eliminar uma `Lata 001` (`destroyOnComplete`) esquecia o lugar, e a 1ª passada podia mandar a foto de um foco a menos de 4 m dali. `HandleFocoEliminado` zera também o `esperaDaFoto` junto com o `timerSemFoco` (sem o atraso de até 1 s de uma foto recusada antes).
+- `Assets/Editor/FotosDosFocosBuilder.cs` — os 5 menus não rodam em Play (`EditorApplication.isPlayingOrWillChangePlaymode`: só um aviso no Console, porque a foto sairia do estado da partida). "Gerar fotos (todos os focos)" pede confirmação (`DisplayDialog`: sobrescreve as fotos aprovadas pelo usuário com renders novos, sem Desfazer) e usa `FindObjectsInactive.Exclude` (foco inativo sairia como foto sem o foco). Os dois "Gerar" param com um aviso quando não há Main Camera. No `Renderizar`, o `RenderTexture.active` volta ao anterior e a câmera e a RenderTexture temporárias são soltas no `finally`, mesmo com exceção.
+- `Assets/Scripts/PostView.cs` — `foco` virou `[System.NonSerialized]` (só em runtime; antes ia como null no `ModeloPost`).
+- `Assets/Editor/Testes/HistoriaFotoTestes.cs` — 2 testes novos: `Empacado_FocoDestruido_ContinuaLugarConhecido` (foco destruído a 2 m do vaso: o vaso fica fora da 1ª passada e sai o pneu, longe; falhava antes da correção) e `Empacado_EliminacaoDepoisDaRecusa_ZeraAEspera`. O `Empacado_FocoDestruido_Ignora` continua passando.
+
+**Testes:** suíte EditMode inteira, **623/623** (eram 621; +2 da categoria `Fotos`), rodada numa cena vazia. Conferido também por `eval_file`, numa cena vazia, o aviso de "Nenhuma Main Camera" do `GerarVarias` (nenhuma foto gravada). Os menus em Play e o diálogo de confirmação não foram exercitados (o Editor não entrou em Play e o diálogo é modal).
+
+**Observações técnicas:**
+- Nada de cena foi salvo; a `SampleScene` e as 31 fotos aprovadas não mudaram.
+- Continua pendente o aceite do usuário sobre a R4′ (gerador × aprovadas fora do círculo), registrado na entrada anterior.

@@ -1059,24 +1059,13 @@ public class HistoriaRedeSocial : MonoBehaviour
         if (p.aoEliminar == null || p.aoEliminar.Count == 0)
             return p.aoEliminarUltimo;
 
-        int i = Contar(proximaFala, tipo);
-        proximaFala[tipo] = i + 1;
-        if (i < p.aoEliminar.Count)
-        {
-            ultimaFalaSorteada[tipo] = i;
-            return p.aoEliminar[i];
-        }
-
-        // Acabaram as falas em ordem: sorteia sem repetir a última.
-        if (p.aoEliminar.Count == 1)
-            return p.aoEliminar[0];
-
-        int anterior = ultimaFalaSorteada.TryGetValue(tipo, out int u) ? u : -1;
-        int sorteio;
-        do { sorteio = Random.Range(0, p.aoEliminar.Count); }
-        while (sorteio == anterior);
-        ultimaFalaSorteada[tipo] = sorteio;
-        return p.aoEliminar[sorteio];
+        // Em ordem; acabadas, sorteia sem repetir a última.
+        int proxima = Contar(proximaFala, tipo);
+        int ultima = ultimaFalaSorteada.TryGetValue(tipo, out int u) ? u : -1;
+        string fala = FalaEmOrdemDepoisSorteada(p.aoEliminar, ref proxima, ref ultima);
+        proximaFala[tipo] = proxima;
+        ultimaFalaSorteada[tipo] = ultima;
+        return fala;
     }
 
     /* Posta o próximo post da lista SE ele sair — só então o índice anda

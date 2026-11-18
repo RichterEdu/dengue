@@ -3759,3 +3759,74 @@ Como: `Application.runInBackground = true` só no teste; abertura pulada (corrot
 - **Testes:** categoria NUnit `Fotos`; o relógio de "empacado" vira `AvancarEmpacado(dt, posição, lendoCelular)` para os testes chamarem sem o `Update`.
 
 **Observações técnicas:** `Assets/a.unity` e `LiberationSans SDF - Fallback.asset` ficam fora dos commits desta feature.
+
+### 2026-11-17 — Fotos dos focos: implementação, verificação em Play e registro
+
+**Objetivo (pedido do usuário):** implementar o design aprovado em 2026-11-17 (`docs/superpowers/specs/2026-11-17-fotos-dos-focos-design.md`) pelo plano (`docs/superpowers/plans/2026-11-17-fotos-dos-focos.md`): quando o jogador empaca (`tempoSemFoco` = 60 s sem eliminar foco), alguém do bairro posta na rede social a foto de um foco, com um círculo vermelho em volta; a notificação mostra a miniatura e "enviou uma foto"; quando o foco é eliminado, o card ganha o selo **RESOLVIDO**. Branch `fotos-dos-focos` (a partir de `378022e`).
+
+**Commits (`git log --oneline 378022e..HEAD`, sem o deste registro):**
+- `dc02264` Plano: fotos dos focos na rede social
+- `1de4589` Fotos dos focos: escolha do foco (lógica pura)
+- `8bb9fe3` Fotos dos focos: narrador posta a foto quando o jogador empaca
+- `7c50c67` Fotos dos focos: FalaAoEliminar usa o FalaEmOrdemDepoisSorteada
+- `be06e77` Fotos dos focos: foto e selo Resolvido no card do feed
+- `8938bdf` Fotos dos focos: miniatura da foto na notificação
+- `da9f292` Fotos dos focos: builder (importar, gerar, vista da Scene, preparar celular)
+- `d76cc25` Fotos dos focos: Gerar não regrava o PNG de outro foco que divide a foto
+- `f3bfd5a` Fotos dos focos: as 31 fotos aprovadas ligadas aos focos
+
+**Arquivos novos (cada um com o `.meta`):**
+- `Assets/Scripts/EscolhaDaFoto.cs` — a escolha do foco, em lógica pura (`Escolher(candidatos, posição do jogador, raio, última foto)`): o mais perto que ainda não saiu em foto e não está a até `raioLugarConhecido` de um lugar conhecido; se não houver, uma 2ª passada repete um já fotografado, menos o da última foto; empate, o de menor índice.
+- `Assets/Scripts/FotoDoFoco.cs` — componente no foco: a foto (`Texture2D`) e a pose da câmera que a gerou (posição, rotação, campo de visão).
+- `Assets/Editor/FotosDosFocosBuilder.cs` — menus **Dengue > Fotos dos Focos >** "Importar fotos aprovadas", "Gerar fotos (todos os focos)", "Gerar foto (focos selecionados)", "Usar a vista da Scene no foco selecionado" e "Preparar celular para fotos". O importar lê o `poses.tsv`, liga cada linha ao foco pelo caminho na hierarquia e **copia** o PNG aprovado (não regera).
+- `Assets/Meus/Assets Gerados/Fotos dos Focos/` — as 31 fotos aprovadas (720×480, sem mipmaps, `npotScale` None), com nome = caminho sem o grupo do topo, partes separadas por ` - ` (ex.: `PilhadePneu - pneu (5).png`).
+- Testes (categoria NUnit `Fotos`): `EscolhaDaFotoTestes.cs` (6), `HistoriaFotoTestes.cs` (16), `FeedFotoTestes.cs` (8), `NotificacaoFotoTestes.cs` (3) e `FotosDosFocosBuilderTestes.cs` (11).
+- `docs/superpowers/plans/2026-11-17-fotos-dos-focos.md`.
+
+**Arquivos alterados:**
+- `Assets/Scripts/HistoriaRedeSocial.cs` — o relógio de "empacado" virou `AvancarEmpacado(dt, posição, lendoCelular)` (para com o celular aberto, zera a cada foco eliminado); no limite, `TentarFotoDeFoco`: **Saiu** zera o relógio; **SemFoco** posta a bronca antiga (`aoDemorarSemFoco`); **Recusada** pela janela de conflito tenta de novo 1 s depois sem gastar o foco nem o texto. Quem posta é o dono do tipo (`aoMandarFoto`, novo em cada personagem); tipo sem dono ou dono sem texto, a UPA (`aoMandarFotoSemDono`). "Mexido" (passo, esvaziar com as Mãos, tampa pega, pneu pego) tira o foco da foto e o torna lugar conhecido. `UltimaFoto` (interno). O `FalaAoEliminar` passou a usar o `FalaEmOrdemDepoisSorteada` (mesma ordem e sorteio).
+- `Assets/Scripts/RedeSocial.cs` — `PostRedeSocial.foto` e `PostRedeSocial.foco` (`[NonSerialized]`).
+- `Assets/Scripts/FeedRedeSocial.cs` e `PostView.cs` — moldura da foto no card (ligada só com foto) e o carimbo: no `OnFocoEliminado`, a foto escurece e o selo entra com "pop"; post de foco já eliminado entra carimbado, sem pop.
+- `Assets/Scripts/NotificacaoCelular.cs` — miniatura e cabeçalho "enviou uma foto"; sem a miniatura na cena, o post com foto aparece como os outros.
+- `Assets/Editor/CelularBuilder.cs` — `GarantirFotoNoCard` (idempotente; cria a moldura "Foto" e o selo "Resolvido" no `ModeloPost` e liga as referências do `PostView`).
+- `Assets/Editor/HistoriaBuilder.cs` — `GarantirMiniatura` (idempotente; cria "Miniatura" no banner, liga as referências e alarga o banner).
+- `Assets/Scenes/SampleScene.unity` — rodados os menus "Preparar celular para fotos" e "Importar fotos aprovadas": `ModeloPost/Foto` (com o selo), `Notificacao/Miniatura` e um `FotoDoFoco` em cada um dos 31 focos.
+
+**Configurações aplicadas (padrões no código):**
+- `tempoSemFoco` 60 s (já existia; a cena tem 60); `raioLugarConhecido` 4 m; nova tentativa da foto recusada em 1 s.
+- Post da foto: prioridade `Normal`, humor `Neutro`, curtidas sorteadas (`-1`).
+- Foto: 720×480, FOV 60, near 0,1, far 400 (cópia da Main Camera, com o pós-processamento do URP).
+- Card: moldura com altura 237 e a largura do card (356 px de conteúdo, 3:2); selo 176×44, cor (0,20; 0,68; 0,30; 0,95), giro de 8°, "RESOLVIDO" em TMP 22 negrito branco, espaçamento 6; foto carimbada com a cor (0,62; 0,62; 0,62; 1); pop do selo 1,3 → 1 em 0,25 s, em tempo sem escala.
+- Notificação: banner com 500 px de largura (era 440); miniatura 96×64, âncora direita-meio, x −14, com `Mask`; área do texto termina em −118 com foto (−18 sem); cabeçalho com `sizeDelta.x` −190 com foto (−90 sem), texto `<b>{autor}</b>  <color=#FFFFFF80>enviou uma foto</color>`.
+
+**Testes:** suíte EditMode inteira, **621/621** (categoria `Fotos`: 44/44), rodada numa cena vazia.
+
+**Verificado em Play (SampleScene no Editor, nada salvo na cena):**
+
+Como: `Application.runInBackground = true` só durante o teste (em runtime; o `PlayerSettings` ficou false); abertura pulada como no preview (`CartelasNarrativas` desligada, `Time.timeScale = 1`, `ControleAtivo` true, `Interactor.Bloqueado` false, `CelularController` ligado); a saída do hospital refeita como o `SaidaDoHospital` faz (teleporte para a `posicaoNoBairro` (−6,23; 1,69; −20,04) e `FluxoDeJogo.IniciarPartida()`). Os quadros andaram (cerca de 400 por segundo), então nenhuma animação foi forçada. Capturas com os canvases trocados para Screen Space Camera e a Main Camera renderizada num `RenderTexture` 1920×1080, em `.superpowers/sdd/2026-11-17-fotos-dos-focos/verificacao/` (pasta fora do git).
+
+- **Agente parado 60 s de verdade:** no limite do relógio, Dona Neusa postou a foto do `Vaso de Flor`, o foco com foto mais perto do agente (13,5 m, a previsão feita antes pelas distâncias), com o texto "Agente, olha esse vaso. Pratinho com água é convite pro mosquito."; o card entrou no topo do feed com a foto; `UltimaFoto` = `Vaso de Flor`.
+- **Foco eliminado** (`Interact()` 10 vezes, até `IsComplete`): o card daquele foco ganhou o selo, a foto escureceu para 0,62 e o pop terminou em escala 1 (lido 2 s depois); o relógio zerou; saiu o post de eliminação da Dona Neusa.
+- **Limite repetido** (`timerSemFoco` posto em 59,7 por reflexão): Seu Osvaldo postou a foto do `Ralo (4)` (o 2º mais perto, 14,2 m), outro foco; notificação com a miniatura do ralo, "enviou uma foto", cabeçalho −190 e texto −118. Uma 3ª vez (para a captura, porque o banner do ralo já tinha saído em 4,5 s): Lúcia Andrade com a `Bromelia (1)` (18,8 m).
+- **Capturas:** `1 - celular fechado, notificacao com a foto.png` (banner da bromélia com a miniatura), `2 - celular aberto, post com a foto.png` (card da bromélia no topo, com o círculo vermelho), `3 - celular aberto, card carimbado.png` (card do vaso, escurecido, com o selo RESOLVIDO; o feed foi rolado até ele por código).
+- **Console:** nenhum erro do jogo. O único erro novo é do próprio CLI ("Failed to handle /api/exec request: Main thread operation timed out after 5000ms"), no momento da entrada no Play.
+- Fora do Play: `runInBackground` false e a `SampleScene` sem mudanças (`isDirty` falso).
+
+**O que NÃO foi verificado:**
+- **Partida real pelo usuário,** com mouse e teclado: se a foto ajuda mesmo a achar o foco (o objetivo do design), o tamanho da miniatura e o ritmo de 60 s.
+- **Em Play, só nos testes EditMode:** a foto recusada pela janela de conflito (nova tentativa em 1 s), a bronca quando não há foco com foto, o post da UPA (os 7 tipos da cena têm dono), o relógio parado com o celular aberto, os "mexidos" (passo, esvaziar, tampa, pneu pego) e um foco destruído ao concluir.
+- **Eliminar pelo kit:** o foco foi eliminado por `Interact()` (o caminho sem kit). Um pneu não conclui assim (precisa da caçamba).
+- **A tela de verdade:** as capturas usam Screen Space Camera, não o Overlay do jogo; a Game view do Editor não foi vista.
+- **Build exportada.**
+- **Step 3 da Task 6 (gerador × aprovadas), aceite do usuário pendente.** As 31 fotos do jogo são as aprovadas byte a byte (hash). Mas uma foto regerada a partir da pose guardada no `poses.tsv` sai deslocada por menos de um pixel, porque o `poses.tsv` (formato do spec) guarda a pose com 3 casas e em ângulos de Euler: fora da faixa do círculo, máx. Δ 145/157/169, médio 0,246/0,190/0,058 e Δ>2 em 0,22/0,24/0,20% dos pixels (focos 04 Bromélia (4), 15 pneu (10) do monte, 24 Ralo (1)). Com a pose exata que o gerador dá (o quaternion do `LookRotation`), Δ = 0: a receita do gerador reproduz as aprovadas. O critério ficou como decisão do controlador (R4′, em `.superpowers/sdd/2026-11-17-fotos-dos-focos/contexto-execucao.md`), sem aceite do usuário; a página `capturas/decisao-step3-fotos-dos-focos.html` mostra a tabela e as opções: (a) aceitar como está, ou (b) guardar a pose em quaternion com posição completa, o que muda o spec (seção 3 e apêndice), o importar e o `FotoDoFoco`. Só importa se o usuário refizer uma foto sem mudar a pose.
+
+**Observações técnicas:**
+- **Post de "parado" cobre a foto:** com o agente parado, o post de `aoFicarParado` (a cada 35 s) saiu cerca de 10 s depois da foto, empurrou o card para a 2ª posição e trocou o banner. É o comportamento de antes (o design só troca a bronca `aoDemorarSemFoco` pela foto), mas pode esconder a ajuda de quem está parado. Fica para o usuário decidir.
+- **Auto save de terceiros:** o `EditorAutoSave` (`Assets/IntenseNation/Editor Auto Save/`) salva as cenas abertas por tempo. Na Task 6 foi ele que salvou a `SampleScene` (antes do `SaveScene` do plano); conferido que só entraram os 31 `FotoDoFoco` e os 6 objetos de UI. Em tarefas futuras, uma cena mexida por teste pode ser salva sem pedido.
+- **Cena re-serializada** no primeiro save depois de mudanças antigas de código: 8 `PneuInteractable` perderam campos órfãos da onda (removida em `99bcbad`) e ganharam `grausParaEsvaziar: 150`; apareceram `KitDoAgente.multiplicadorCheio` 0,5, `SomDosFocos.kit`, `PlacarDaPartida.interactor` e `FeedRedeSocial.gerenciador` vazios. São os padrões do código ou têm busca em runtime; o comportamento não muda.
+- **Textos das fotos no Inspector:** `aoMandarFoto` dos 7 personagens e `aoMandarFotoSemDono` estão salvos vazios na cena; o `Awake` preenche os textos do spec em runtime (o mesmo padrão dos outros textos novos). Fora do Play o Inspector mostra as listas vazias.
+- **Miniatura sem mipmaps:** a foto de 720×480 cai 7,5 vezes na miniatura de 96×64; bordas finas podem serrilhar na animação do banner. Se aparecer, ligar os mipmaps custa cerca de 1,8 MB.
+- **Erro do CLI no Console:** "Main thread operation timed out after 5000ms" aparece quando um comando chega durante um domain reload ou um menu demorado; não é do jogo.
+- **Achados menores adiados** (testes que faltam, avisos do importar, guardas de Play nos menus etc.) estão listados em `.superpowers/sdd/2026-11-17-fotos-dos-focos/progress.md` para a revisão final da branch.
+- **Material fora do git, mantido no disco:** `.superpowers/sdd/2026-11-17-fotos-dos-focos/` (fotos aprovadas, `poses.tsv`, capturas, scripts de `eval_file`).
+- **Mudanças não minhas no disco:** `LiberationSans SDF - Fallback.asset` continua modificado e `Assets/a.unity` continua sem commit, como já estavam.

@@ -23,9 +23,9 @@ using Object = UnityEngine.Object;
  *      do jogo e põe ou atualiza o FotoDoFoco do foco com a pose e a foto.
  *      Linha sem foco na cena, ou foco da cena sem linha, sai num aviso.
  *    - Gerar fotos (todos os focos) / Gerar foto (focos selecionados):
- *      renderiza da pose do FotoDoFoco, desenha o círculo vermelho, grava o
- *      PNG, importa e liga em 'foto'. Câmera e círculo são os do preview
- *      aprovado, com a semente do círculo tirada do caminho do foco.
+ *      renderiza da pose do FotoDoFoco, grava o PNG, importa e liga em
+ *      'foto'. A câmera é a do preview aprovado. A foto sai limpa, sem o
+ *      círculo vermelho do preview (pedido do usuário, 2026-11-18).
  *    - Usar a vista da Scene no foco selecionado: copia a câmera da última
  *      Scene view para o FotoDoFoco do foco (cria se faltar). Para corrigir
  *      uma foto: enquadrar na Scene, rodar este menu e o "Gerar foto".
@@ -62,7 +62,6 @@ public static class FotosDosFocosBuilder
     private const int Altura = 480;
     private const float Perto = 0.1f;
     private const float Longe = 400f;
-    private static readonly Color32 Vermelho = new Color32(232, 30, 30, 255);
 
     internal struct Pose { public int numero; public string caminho; public Vector3 posicao; public Vector3 rotacao; public float fov; }
 
@@ -103,8 +102,9 @@ public static class FotosDosFocosBuilder
             return;
 
         // As fotos do jogo são as que o usuário aprovou: refazer todas troca
-        // os PNG por renders novos (diferentes fora do círculo, ver R4′), e o
-        // Undo não desfaz arquivo gravado.
+        // os PNG por renders novos (a pose guardada tem 3 casas, então a foto
+        // pode sair deslocada uma fração de pixel), e o Undo não desfaz
+        // arquivo gravado.
         if (!EditorUtility.DisplayDialog("Gerar fotos de todos os focos",
                 "Isto SOBRESCREVE as fotos aprovadas pelo usuário em \"" + PastaDasFotos + "\" com renders novos, "
                 + "tirados da pose guardada em cada FotoDoFoco. O resultado não é idêntico às fotos aprovadas, "
@@ -252,54 +252,6 @@ public static class FotosDosFocosBuilder
         return float.Parse(texto, NumberStyles.Float, CultureInfo.InvariantCulture);
     }
 
-    /* FNV-1a de 32 bits sobre os chars do caminho, como int não negativo:
-     * a mesma semente para o mesmo foco em toda execução. */
-    internal static int SementeDe(string caminho)
-    {
-        uint hash = 2166136261u;
-        foreach (char c in caminho)
-        {
-            hash ^= c;
-            hash = unchecked(hash * 16777619u);
-        }
-        return (int)(hash & 0x7FFFFFFFu);
-    }
-
-    /* ================= Círculo ================= */
-
-    /* O círculo vermelho "à mão" em volta do retângulo do foco (em pixels da
-     * foto, origem embaixo à esquerda): elipse com raios
-     * max(meia largura × 1,3 + 14, 30) e max(meia altura × 1,3 + 14, 26),
-     * traço de raio ≈ 2,6 px, 1,1 volta, oscilação 0,035 × sen(3t + fase) e
-     * abertura de 7% ao longo do traço; fase = (semente × 1,7) mod 6,28. */
-    internal static void DesenharCirculo(Color32[] px, int largura, int altura, Rect retangulo, int semente)
-    {
-        float cx = retangulo.center.x, cy = retangulo.center.y;
-        float rx = Mathf.Max(retangulo.width * 0.5f * 1.3f + 14f, 30f);
-        float ry = Mathf.Max(retangulo.height * 0.5f * 1.3f + 14f, 26f);
-        float fase = (float)((semente * 1.7) % 6.28);
-
-        const int passos = 900;
-        for (int k = 0; k <= passos; k++)
-        {
-            float u = k / (float)passos;
-            float t = fase + u * Mathf.PI * 2f * 1.1f;
-            float escala = 1f + 0.035f * Mathf.Sin(3f * t + fase) + 0.07f * u;
-            float x = cx + Mathf.Cos(t) * rx * escala;
-            float y = cy + Mathf.Sin(t) * ry * escala;
-            for (int dx = -3; dx <= 3; dx++)
-                for (int dy = -3; dy <= 3; dy++)
-                {
-                    if (dx * dx + dy * dy > 7)
-                        continue;
-                    int ix = Mathf.RoundToInt(x) + dx, iy = Mathf.RoundToInt(y) + dy;
-                    if (ix < 0 || iy < 0 || ix >= largura || iy >= altura)
-                        continue;
-                    px[iy * largura + ix] = Vermelho;
-                }
-        }
-    }
-
     /* ================= Importar ================= */
 
     /* Liga cada linha do poses.tsv de 'pastaAprovadas' ao foco com o mesmo
@@ -392,8 +344,8 @@ public static class FotosDosFocosBuilder
 
     /* ================= Gerar ================= */
 
-    /* A foto do foco, renderizada da pose do FotoDoFoco: 720×480, com o
-     * círculo vermelho em volta dos Renderers do foco. Quem chama destrói. */
+    /* A foto do foco, renderizada da pose do FotoDoFoco: 720×480, limpa.
+     * Quem chama destrói. */
     internal static Texture2D Renderizar(FotoDoFoco f)
     {
         // Câmera temporária copiada da Main Camera, com o pós-processamento,
@@ -440,12 +392,6 @@ public static class FotosDosFocosBuilder
             tex.ReadPixels(new Rect(0, 0, Largura, Altura), 0, 0);
             tex.Apply();
             RenderTexture.active = anterior;   // de novo no finally, se o ReadPixels falhar
-
-            Color32[] px = tex.GetPixels32();
-            DesenharCirculo(px, Largura, Altura, RetanguloNaFoto(camera, f.gameObject),
-                SementeDe(CaminhoNaHierarquia(f.transform)));
-            tex.SetPixels32(px);
-            tex.Apply();
             return tex;
         }
         catch
@@ -464,33 +410,6 @@ public static class FotosDosFocosBuilder
             Object.DestroyImmediate(rt);
             Object.DestroyImmediate(go);
         }
-    }
-
-    /* Retângulo, em pixels da foto, dos 8 cantos do Renderer.bounds do foco
-     * (sem ParticleSystemRenderer); sem Renderer, o ponto do próprio foco. */
-    private static Rect RetanguloNaFoto(Camera camera, GameObject foco)
-    {
-        Bounds b = new Bounds(foco.transform.position, Vector3.zero);
-        bool tem = false;
-        foreach (Renderer r in foco.GetComponentsInChildren<Renderer>())
-        {
-            if (r is ParticleSystemRenderer)
-                continue;
-            if (!tem) { b = r.bounds; tem = true; }
-            else b.Encapsulate(r.bounds);
-        }
-
-        float xmin = float.MaxValue, xmax = float.MinValue, ymin = float.MaxValue, ymax = float.MinValue;
-        for (int i = 0; i < 8; i++)
-        {
-            Vector3 canto = new Vector3((i & 1) == 0 ? b.min.x : b.max.x,
-                (i & 2) == 0 ? b.min.y : b.max.y,
-                (i & 4) == 0 ? b.min.z : b.max.z);
-            Vector3 sp = camera.WorldToScreenPoint(canto);
-            xmin = Mathf.Min(xmin, sp.x); xmax = Mathf.Max(xmax, sp.x);
-            ymin = Mathf.Min(ymin, sp.y); ymax = Mathf.Max(ymax, sp.y);
-        }
-        return Rect.MinMaxRect(xmin, ymin, xmax, ymax);
     }
 
     /* Renderiza, grava o PNG em 'pastaDestino', importa e liga em f.foto.

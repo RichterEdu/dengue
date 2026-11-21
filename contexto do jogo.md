@@ -3846,3 +3846,20 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 **Observações técnicas:**
 - Nada de cena foi salvo; a `SampleScene` e as 31 fotos aprovadas não mudaram.
 - Continua pendente o aceite do usuário sobre a R4′ (gerador × aprovadas fora do círculo), registrado na entrada anterior.
+
+### 2026-11-21 — Fotos dos focos sem círculo e nova foto do Vaso de Flor (4)
+
+**Objetivo (pedidos do usuário):** aceitar o gerador de fotos como está ("aceito"), tirar o círculo vermelho das fotos ("pode tirar o círculo das fotos") e trocar só a foto do Vaso de Flor (4), escolhendo a opção 31E entre 4 ângulos novos.
+
+**Arquivos alterados:**
+- `Assets/Editor/FotosDosFocosBuilder.cs`: o gerador não desenha mais o círculo; saíram `SementeDe`, `DesenharCirculo`, `RetanguloNaFoto` e a cor `Vermelho`. Comentários atualizados.
+- `Assets/Editor/Testes/FotosDosFocosBuilderTestes.cs`: saíram os 2 testes do círculo (`SementeDe_Estavel`, `DesenharCirculo_PintaABordaENaoOCentro`).
+- `Assets/Meus/Assets Gerados/Fotos dos Focos/*.png`: as 31 fotos regeradas sem círculo, das poses guardadas (mesmos ângulos aprovados).
+- `Assets/Scenes/SampleScene.unity`: pose do `FotoDoFoco` do Vaso de Flor (4) trocada pela 31E — posição (−30,477; 1,893; 16,720), rotação (3,54; 330; 0), FOV 60. Também saiu do card modelo o campo `foco` (agora `[NonSerialized]`, do commit anterior; o Unity regravou a cena ao fechar).
+- `docs/superpowers/specs/2026-11-17-fotos-dos-focos-design.md`: bloco "Mudanças depois da implementação" no topo.
+
+**Verificação:** suíte EditMode inteira 621/621 (eram 623, menos os 2 testes do círculo). Diff da cena conferido linha a linha: só a pose do Vaso de Flor (4) e o `foco: {fileID: 0}` do card. A foto nova do Vaso de Flor (4) conferida contra a opção 31E. **Não verificado:** Play depois da troca (a lógica não mudou, só as imagens).
+
+**Observações técnicas:**
+- `.superpowers/sdd/2026-11-17-fotos-dos-focos/aprovadas/` agora guarda as fotos limpas e o `poses.tsv` com a linha 31 nova, para o menu "Importar fotos aprovadas" não trazer de volta as fotos com círculo; as antigas ficaram em `aprovadas/com-circulo-2026-11-17/`.
+- Um `eval_file` que gera as 31 fotos passa do limite de 5 s do Pipeline e devolve erro, mas o Unity termina o trabalho; conferir pelo `git status` antes de repetir.

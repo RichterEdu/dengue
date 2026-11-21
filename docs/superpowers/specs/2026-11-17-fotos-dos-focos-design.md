@@ -14,6 +14,19 @@ Material de apoio, fora do git, em `.superpowers/sdd/2026-11-17-fotos-dos-focos/
 As capturas do celular renderizam a Main Camera com os canvases trocados para Screen Space Camera; o "Ocupação 6%"
 da captura 3 não é real (a abertura foi pulada no preview).
 
+> **Mudanças depois da implementação (decisões do usuário, 2026-11-18 e 2026-11-21) — valem sobre o resto do
+> documento:**
+> - **Sem círculo vermelho.** As fotos saem limpas: o gerador não desenha mais o círculo, e as 31 fotos do jogo
+>   foram regeradas da pose guardada. As menções ao círculo abaixo (seções 1, 3, verificação, escolhas 13) ficam
+>   só como histórico.
+> - **Gerador aceito como está (R4′).** Regerar da pose guardada (3 casas no `poses.tsv`) pode deslocar a foto
+>   uma fração de pixel em relação à aprovada; o usuário aceitou. As fotos do jogo deixaram de ser cópias byte a
+>   byte das aprovadas com círculo: `aprovadas/` agora guarda as fotos limpas (as antigas, com círculo, estão em
+>   `aprovadas/com-circulo-2026-11-17/`).
+> - **Vaso de Flor (4) com outro ângulo** (opção "31E", escolhida pelo usuário): pose (−30,477; 1,893; 16,720),
+>   rotação (3,540; 330; 0), FOV 60 — de perto, o vaso na mureta ao lado do prédio vermelho. A linha 31 do
+>   Apêndice fica como histórico.
+
 ## Por quê
 
 Pedido do usuário: "o jogador novo vai entrar no jogo e não vai saber onde tá cada foco, por isso quero que com o

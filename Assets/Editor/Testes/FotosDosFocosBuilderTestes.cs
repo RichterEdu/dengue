@@ -15,8 +15,6 @@ using Object = UnityEngine.Object;
  *    - NomeDoArquivo: sem o grupo do topo, "/" vira " - ", espaços
  *      repetidos viram um;
  *    - LerPoses: lê o TSV aprovado sem tirar os espaços do caminho;
- *    - SementeDe: estável e diferente para caminhos diferentes;
- *    - DesenharCirculo: pinta a borda em volta do retângulo, não o centro;
  *    - Importar: dois focos com o mesmo nome ("pneu (5)") são ligados
  *      pelo caminho na hierarquia, cada um ao PNG do seu número; foco sem
  *      linha e linha sem foco saem nos avisos;
@@ -112,9 +110,7 @@ public class FotosDosFocosBuilderTestes
         return lida.GetPixels32()[0];
     }
 
-    private static Color32 Cinza => new Color32(128, 128, 128, 255);
-
-    /* ---------------- Nome, poses e semente ---------------- */
+    /* ---------------- Nome e poses ---------------- */
 
     [Test]
     public void NomeDoArquivo_TiraOGrupoEJuntaComTraco()
@@ -155,45 +151,6 @@ public class FotosDosFocosBuilderTestes
         Assert.AreEqual(195f, p.rotacao.y, 1e-4f);
         Assert.AreEqual(0f, p.rotacao.z, 1e-4f);
         Assert.AreEqual(60f, p.fov, 1e-4f);
-    }
-
-    [Test]
-    public void SementeDe_Estavel()
-    {
-        int a1 = FotosDosFocosBuilder.SementeDe("--- FOCOS ---/pneu (5)");
-        int a2 = FotosDosFocosBuilder.SementeDe("--- FOCOS ---/pneu (5)");
-        int b = FotosDosFocosBuilder.SementeDe("--- FOCOS ---/PilhadePneu/pneu (5)");
-
-        Assert.AreEqual(a1, a2, "o mesmo caminho dá a mesma semente");
-        Assert.AreNotEqual(a1, b, "caminhos diferentes dão sementes diferentes");
-        Assert.GreaterOrEqual(a1, 0);
-        Assert.GreaterOrEqual(b, 0);
-    }
-
-    /* ---------------- Círculo ---------------- */
-
-    [Test]
-    public void DesenharCirculo_PintaABordaENaoOCentro()
-    {
-        const int largura = 200, altura = 100;
-        Color32[] px = new Color32[largura * altura];
-        for (int i = 0; i < px.Length; i++)
-            px[i] = Cinza;
-
-        FotosDosFocosBuilder.DesenharCirculo(px, largura, altura, new Rect(90f, 40f, 20f, 20f), 12345);
-
-        Assert.AreEqual(Cinza, px[50 * largura + 100], "o centro continua cinza");
-
-        bool achou = false;
-        for (int y = 0; y < altura && !achou; y++)
-            for (int x = 0; x < largura && !achou; x++)
-            {
-                Color32 c = px[y * largura + x];
-                float dx = x - 100f, dy = y - 50f;
-                if (c.r == 232 && c.g == 30 && c.b == 30 && dx * dx + dy * dy >= 25f * 25f)
-                    achou = true;
-            }
-        Assert.IsTrue(achou, "há traço vermelho (232, 30, 30) a 25 px ou mais do centro");
     }
 
     /* ---------------- Importar ---------------- */

@@ -3892,3 +3892,11 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 **Nenhum script, cena, prefab ou asset foi alterado nesta entrada.**
 
 **Propostas minhas aceitas com o design:** começo escalonado (o 1º tipo vence aos 90 s e os seguintes a cada 15 s, na ordem do enum `TipoFoco`); o "empacado" geral sai e a bronca `aoDemorarSemFoco` fica sem uso (o texto estaria errado para quem limpa outros tipos); tipo sem foco elegível zera o relógio sem postar.
+
+### 2026-11-21 — Plano: fotos dos focos por tipo
+
+**Arquivos novos:** `docs/superpowers/plans/2026-11-21-fotos-por-tipo.md`, com 2 tarefas: o relógio por tipo no `HistoriaRedeSocial` (com os testes do "empacado" trocados pelos por tipo) e a verificação em Play com o registro.
+
+**Nenhum script, cena, prefab ou asset foi alterado nesta entrada.**
+
+**Decisões do plano:** campos novos `tempoPorTipo` (90), `intervaloEntreTipos` (15) e `temposPorTipo` (lista tipo → segundos); `AvancarEmpacado`/`TentarFotoDeFoco` viram `AvancarRelogiosDosTipos`/`TentarFotoDoTipo`; a 2ª passada da escolha evita a última foto **do tipo**; vários tipos vencidos juntos saem um por vez pela janela de conflito.

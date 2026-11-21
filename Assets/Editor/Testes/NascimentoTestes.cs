@@ -448,4 +448,23 @@ public class NascimentoTestes
         gerenciador.SortearNascimento(new System.Random(2));
         Assert.AreEqual(1, ContarComAgua(focos), "o sorteio conta só quem pode nascer seco");
     }
+
+    /* A bromélia também nasce sempre com água: sem água não há minigame. */
+    [Test]
+    public void Bromelia_NasceSempreComAgua_ForaDoSorteio()
+    {
+        List<Interactable> focos = NovosFocos(3);
+        BromeliaInteractable bromelia = TesteUtil.Com<BromeliaInteractable>("Bromélia (teste)");
+        gerenciador.Registrar(new List<Interactable>(focos) { bromelia });
+
+        TesteUtil.Setar(gerenciador, "fracaoNascendoComAgua", 0f);
+        gerenciador.SortearNascimento(new System.Random(1));
+        Assert.AreEqual(0, ContarComAgua(focos), "os comuns nascem secos");
+        Assert.IsTrue(bromelia.SempreNasceComAgua);
+        Assert.IsTrue(gerenciador.NasceComAgua(bromelia), "a bromélia fica sempre com água");
+
+        TesteUtil.Setar(gerenciador, "fracaoNascendoComAgua", 0.4f);
+        gerenciador.SortearNascimento(new System.Random(2));
+        Assert.AreEqual(1, ContarComAgua(focos), "o sorteio conta só quem pode nascer seco");
+    }
 }

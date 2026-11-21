@@ -3863,3 +3863,20 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 **Observações técnicas:**
 - `.superpowers/sdd/2026-11-17-fotos-dos-focos/aprovadas/` agora guarda as fotos limpas e o `poses.tsv` com a linha 31 nova, para o menu "Importar fotos aprovadas" não trazer de volta as fotos com círculo; as antigas ficaram em `aprovadas/com-circulo-2026-11-17/`.
 - Um `eval_file` que gera as 31 fotos passa do limite de 5 s do Pipeline e devolve erro, mas o Unity termina o trabalho; conferir pelo `git status` antes de repetir.
+
+### 2026-11-21 — Bromélia sempre nasce com água
+
+**Objetivo (pedido do usuário):** toda bromélia do mapa deve ter o minigame. Antes, metade dos focos nascia sem água pelo sorteio do começo da partida, e uma bromélia sem água não tem minigame.
+
+**Arquivos alterados:**
+- `Assets/Scripts/BromeliaInteractable.cs`: `SempreNasceComAgua` passa a `true`, como no ralo. O cabeçalho do arquivo diz isso.
+- `Assets/Editor/Testes/NascimentoTestes.cs`: teste novo `Bromelia_NasceSempreComAgua_ForaDoSorteio`.
+
+**Configurações aplicadas:** nenhuma. A `fracaoNascendoComAgua` (0,5 na `SampleScene`) continua valendo para os outros focos.
+
+**Testes:** suíte EditMode inteira, 622/622.
+
+**Observações técnicas:**
+- **Balanceamento:** as 4 bromélias saem do sorteio, como o ralo. A fração de 0,5 passa a valer só para os focos que sobram, então o mapa começa com mais focos com água do que antes.
+- **Não verificado em Play.**
+- A chuva continua podendo encher uma bromélia já esvaziada, e o `NascerVazio` continua existindo, embora a bromélia não passe mais por ele no começo da partida.

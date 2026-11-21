@@ -9,7 +9,8 @@ using UnityEngine;
  *
  *  Comportamento ("bromélia com água -> interagir -> bromélia seca"):
  *  - A planta começa com água parada no copo central e em pocinhas
- *    entre as folhas.
+ *    entre as folhas. Nasce sempre com água (SempreNasceComAgua), fora
+ *    do sorteio do nascimento seco, como o ralo.
  *  - A cada clique algumas pocinhas secam (encolhem e somem), das de
  *    fora para a do centro.
  *  - No último clique não sobra água nenhuma. A planta CONTINUA na cena:
@@ -107,6 +108,10 @@ public class BromeliaInteractable : Interactable
     /* Sem secar pela metade, a chuva enche de novo (nasceu seco e o
      * jogador não começou a secar: o resto secaria por cima da água). */
     public override bool PodeReencher => base.PodeReencher && CurrentClicks == 0;
+
+    /* A bromélia nasce sempre com água, como o ralo: fica fora do sorteio
+     * do nascimento seco do começo da partida (sem água, não há minigame). */
+    public override bool SempreNasceComAgua => true;
 
     protected override void OnStart()
     {

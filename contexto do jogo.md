@@ -3900,3 +3900,18 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 **Nenhum script, cena, prefab ou asset foi alterado nesta entrada.**
 
 **Decisões do plano:** campos novos `tempoPorTipo` (90), `intervaloEntreTipos` (15) e `temposPorTipo` (lista tipo → segundos); `AvancarEmpacado`/`TentarFotoDeFoco` viram `AvancarRelogiosDosTipos`/`TentarFotoDoTipo`; a 2ª passada da escolha evita a última foto **do tipo**; vários tipos vencidos juntos saem um por vez pela janela de conflito.
+
+### 2026-11-21 — HUD sem contagem de focos: a informação fica só no celular
+
+**Objetivo (pedido do usuário):** a HUD não deve mostrar quantos focos faltam; o jogador se informa só pelo celular (subtítulo do VizinhApp `{eliminados}/{total} focos eliminados` e os posts com `{restantes}`/`{restantesTipo}`).
+
+**Arquivos alterados:**
+- `Assets/Scenes/SampleScene.unity`: `m_IsActive` 1 → 0 em três GameObjects da `DengueHUD`: `FocoListaPanel` (lista "Focos faltantes" do Tab, com o componente `FocoListaHUD`), `FocoListaDica` ("TAB — focos restantes") e `CounterPanel` ("FOCOS ELIMINADOS x/y").
+
+**Configurações aplicadas:** nenhuma outra. Nenhum script mudou.
+
+**Observações técnicas:**
+- Os objetos foram **desativados, não apagados**: a `DengueHUD` continua contando (escreve no `CounterText` inativo sem erro; a validação dela só acusa referência nula), o aviso "Foco eliminado!" continua usando `FocoListaHUD.Categoria()` (estático) e o `NotaBuilder` acha o `FocoListaHUD` inativo (`FindObjectsInactive.Include`). Para voltar, basta reativar os três objetos.
+- Com o `FocoListaPanel` inativo, o Tab não faz mais nada e o `comecarAberto` deixa de importar.
+- Os builders (`Dengue > Criar Lista de Focos (Tab)`, Criar HUD) não chamam `SetActive(true)`, então rodá-los de novo não religa os painéis.
+- **Não verificado em Play** (edição direta do YAML da cena; ela é LFS).

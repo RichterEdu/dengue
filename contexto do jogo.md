@@ -3880,3 +3880,15 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 - **Balanceamento:** as 4 bromélias saem do sorteio, como o ralo. A fração de 0,5 passa a valer só para os focos que sobram, então o mapa começa com mais focos com água do que antes.
 - **Não verificado em Play.**
 - A chuva continua podendo encher uma bromélia já esvaziada, e o `NascerVazio` continua existindo, embora a bromélia não passe mais por ele no começo da partida.
+
+### 2026-11-21 — Design: fotos dos focos por tipo
+
+**Objetivo (pedido do usuário):** o jogador costuma ir limpando focos antes de a foto sair (ela só saía depois de 60 s sem eliminar nenhum foco). A foto passa a sair por tipo: se o jogador não elimina nenhum foco de um tipo (ex.: vaso) em 90 s, alguém posta a foto de um foco daquele tipo.
+
+**Decisões do usuário:** relógio por tipo de foco, 90 s para todos (ajustável por tipo no Inspector), abordagem "relógio por tipo no narrador".
+
+**Arquivos novos:** `docs/superpowers/specs/2026-11-21-fotos-por-tipo-design.md` (aprovado pelo usuário). Branch `fotos-por-tipo`, a partir da `main` em `c1806e5`.
+
+**Nenhum script, cena, prefab ou asset foi alterado nesta entrada.**
+
+**Propostas minhas aceitas com o design:** começo escalonado (o 1º tipo vence aos 90 s e os seguintes a cada 15 s, na ordem do enum `TipoFoco`); o "empacado" geral sai e a bronca `aoDemorarSemFoco` fica sem uso (o texto estaria errado para quem limpa outros tipos); tipo sem foco elegível zera o relógio sem postar.

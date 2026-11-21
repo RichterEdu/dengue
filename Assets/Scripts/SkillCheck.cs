@@ -10,8 +10,13 @@ using System;
  *  - SkillCheck: um check. Apertar fora da zona, ou a volta terminar sem
  *    aperto, é erro.
  *  - SessaoDeSkillCheck: a sequência de checks de uma ação. Cada acerto
- *    passa para o próximo, com a zona menor. Quem aplica o resultado no
- *    foco é o Interactor.cs.
+ *    passa para o próximo, com a zona menor.
+ *  - MinigameDeSkillCheck: o adaptador para a base comum (IMinigame, em
+ *    Minigame.cs). O aperto é um Apertar, senão o ponteiro anda; acerto
+ *    vira Passo e erro vira Errou. Não dá para sair (PodeSair false) e a
+ *    barra não enche dentro do check (FracaoDoPasso 0), nem há som de
+ *    ação (Agindo false). Quem aplica o resultado no foco é o
+ *    Interactor.cs.
  * ============================================================ */
 
 public enum ResultadoDoCheck
@@ -106,4 +111,34 @@ public class SessaoDeSkillCheck
         float inicio = InicioMinimoDaZona + (float)sorteio.NextDouble() * folga;
         return new SkillCheck(inicio, tamanho, segundosPorVolta);
     }
+}
+
+/* O skill check do ralo como minigame (criado pelo RaloInteractable). */
+public class MinigameDeSkillCheck : IMinigame
+{
+    public SessaoDeSkillCheck Sessao { get; }
+
+    public MinigameDeSkillCheck(SessaoDeSkillCheck sessao)
+    {
+        Sessao = sessao;
+    }
+
+    public EstadoDoMinigame Atualizar(float dt, EntradaDoMinigame entrada)
+    {
+        ResultadoDoCheck resultado = entrada.Apertou ? Sessao.Apertar() : Sessao.Atualizar(dt);
+        switch (resultado)
+        {
+            case ResultadoDoCheck.Acertou: return EstadoDoMinigame.Passo;
+            case ResultadoDoCheck.Errou: return EstadoDoMinigame.Errou;
+            default: return EstadoDoMinigame.EmAndamento;
+        }
+    }
+
+    public float FracaoDoPasso => 0f;
+
+    /* O botão de largar não sai do ralo: a regra do anel não muda. */
+    public bool PodeSair => false;
+
+    /* Dentro do check não há som de ação nem gesto do item na mão. */
+    public bool Agindo => false;
 }

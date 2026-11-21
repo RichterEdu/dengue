@@ -19,6 +19,10 @@ using UnityEngine.UI;
  *  - Celular aberto = banner some (o jogador já está vendo tudo no feed).
  *  - O texto passa pelos mesmos marcadores do feed ({eliminados}...),
  *    então banner e card mostram exatamente a mesma coisa.
+ *  - Post com foto (a foto de um foco, ver HistoriaRedeSocial): a
+ *    miniatura da foto liga à direita do banner, o cabeçalho diz "enviou
+ *    uma foto" e o texto termina antes dela. Post sem foto: miniatura
+ *    desligada, cabeçalho com o @ e o texto até a borda, como antes.
  *
  *  Fica dentro do Canvas CelularHUD. Criado pelo menu
  *  Dengue > Configurar Historia  (Assets/Editor/HistoriaBuilder.cs).
@@ -37,6 +41,11 @@ public class NotificacaoCelular : MonoBehaviour
     [SerializeField] private TextMeshProUGUI cabecalho;
     [SerializeField] private TextMeshProUGUI texto;
 
+    [Header("Foto do foco")]
+    [Tooltip("Moldura da miniatura (com Mask), à direita do banner. Ligada só nos posts com foto.")]
+    [SerializeField] private GameObject miniatura;
+    [SerializeField] private RawImage miniaturaImagem;
+
     [Header("Tempo (segundos)")]
     [Tooltip("Quanto um banner fica na tela.")]
     [SerializeField] private float duracao = 4.5f;
@@ -44,11 +53,19 @@ public class NotificacaoCelular : MonoBehaviour
     [Tooltip("De quantos pixels à direita o banner entra deslizando.")]
     [SerializeField] private float deslocamento = 80f;
 
+    // Onde terminam o texto (offsetMax.x) e o cabeçalho (sizeDelta.x), sem e
+    // com a miniatura de 96 px (margem 14) à direita.
+    private const float FimDoTexto = -18f;
+    private const float FimDoTextoComFoto = -118f;
+    private const float FimDoCabecalho = -90f;
+    private const float FimDoCabecalhoComFoto = -190f;
+
     private struct Aviso
     {
         public string autor;
         public string usuario;
         public string texto;
+        public Texture foto;
     }
 
     private bool mostrando;
@@ -85,7 +102,7 @@ public class NotificacaoCelular : MonoBehaviour
             rede.OnAviso -= HandlePost;
     }
 
-    private void HandlePost(PostRedeSocial post)
+    internal void HandlePost(PostRedeSocial post)
     {
         if (post == null || CelularAberto)
             return;
@@ -94,7 +111,7 @@ public class NotificacaoCelular : MonoBehaviour
         // (igual ao card do feed, que também é criado neste instante).
         string corpo = feed != null ? feed.Marcadores(post.texto) : post.texto;
         bool trocando = mostrando;
-        Mostrar(new Aviso { autor = post.autor, usuario = post.usuario, texto = corpo });
+        Mostrar(new Aviso { autor = post.autor, usuario = post.usuario, texto = corpo, foto = post.foto });
         if (trocando)
             anim = Mathf.Min(anim, 0.5f);   // reentra do meio: dá pra ver que mudou
     }
@@ -133,10 +150,28 @@ public class NotificacaoCelular : MonoBehaviour
         saindo = false;
         tempoNaTela = 0f;
 
+        // Sem a miniatura na cena (celular ainda não preparado para fotos),
+        // o post com foto aparece como os outros.
+        bool comFoto = aviso.foto != null && miniatura != null && miniaturaImagem != null;
+        if (miniaturaImagem != null)
+            miniaturaImagem.texture = comFoto ? aviso.foto : null;
+        if (miniatura != null)
+            miniatura.SetActive(comFoto);
+
         if (cabecalho != null)
-            cabecalho.text = $"<b>{aviso.autor}</b>  <color=#FFFFFF80>{aviso.usuario}</color>";
+        {
+            cabecalho.text = comFoto
+                ? $"<b>{aviso.autor}</b>  <color=#FFFFFF80>enviou uma foto</color>"
+                : $"<b>{aviso.autor}</b>  <color=#FFFFFF80>{aviso.usuario}</color>";
+            RectTransform cabRt = cabecalho.rectTransform;
+            cabRt.sizeDelta = new Vector2(comFoto ? FimDoCabecalhoComFoto : FimDoCabecalho, cabRt.sizeDelta.y);
+        }
         if (texto != null)
+        {
             texto.text = aviso.texto;
+            RectTransform textoRt = texto.rectTransform;
+            textoRt.offsetMax = new Vector2(comFoto ? FimDoTextoComFoto : FimDoTexto, textoRt.offsetMax.y);
+        }
         if (avatar != null && feed != null)
             avatar.color = feed.CorDoAutor(aviso.autor);
         if (inicial != null)

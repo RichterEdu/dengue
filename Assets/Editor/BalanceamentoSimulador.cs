@@ -103,10 +103,14 @@ public static class BalanceamentoSimulador
         float pesoOvo = gerenciador.PesoDoEstagio(EstagioDoFoco.Ovo);
         float pesoMosquito = gerenciador.PesoDoEstagio(EstagioDoFoco.Mosquito);
         sb.AppendLine($"Taxa depois da rampa: {PctS(fluxo.TaxaPara(TempoMaximo, pesoOvo, false))} com todos em ovo · {PctS(fluxo.TaxaPara(TempoMaximo, pesoMosquito, false))} com todos em mosquito · a ocupação começa a descer com {FocosParaDescer(fluxo, total, pesoMosquito)} focos restantes em mosquito");
+        // As regras da nota vêm do placar da cena; sem placar, a tabela sai sem nota.
+        PlacarDaPartida placar = Object.FindAnyObjectByType<PlacarDaPartida>(FindObjectsInactive.Include);
+        RegrasDaNota regras = placar != null ? placar.Regras : null;
+
         sb.AppendLine($"Ritmo + custo do kit (s/foco; os últimos levam até {1f + FatorUltimos:0.0}x; custo do kit {custoDoKit:0.0} s/foco; maioria de {Sementes} sementes):");
         foreach (float ritmo in Ritmos)
-            sb.AppendLine($"  {ritmo,2:0} s + {custoDoKit:0.0} s → {SimularRitmo(fluxo, gerenciador, total, ritmo + custoDoKit)}");
-        sb.AppendLine($"  parado → {SimularRitmo(fluxo, gerenciador, total, float.PositiveInfinity)}");
+            sb.AppendLine($"  {ritmo,2:0} s + {custoDoKit:0.0} s → {SimularRitmo(fluxo, gerenciador, total, ritmo + custoDoKit, regras)}");
+        sb.AppendLine($"  parado → {SimularRitmo(fluxo, gerenciador, total, float.PositiveInfinity, regras)}");
         sb.AppendLine(rotaMinima);
         sb.AppendLine(rotaComKit);
         sb.Append(PneusECacambas());
@@ -115,12 +119,12 @@ public static class BalanceamentoSimulador
     }
 
     /* A linha de um ritmo: as Sementes partidas, resumidas. */
-    private static string SimularRitmo(FluxoDeJogo fluxo, GerenciadorDeFocos gerenciador, int total, float ritmo)
+    private static string SimularRitmo(FluxoDeJogo fluxo, GerenciadorDeFocos gerenciador, int total, float ritmo, RegrasDaNota regras)
     {
         Partida[] partidas = new Partida[Sementes];
         for (int i = 0; i < Sementes; i++)
             partidas[i] = SimularSemente(fluxo, gerenciador, total, ritmo, i + 1);
-        return Resumir(partidas, total);
+        return Resumir(partidas, total, regras);
     }
 
     /* Uma partida do início sorteado pela semente até o fim. A posição no
@@ -186,8 +190,9 @@ public static class BalanceamentoSimulador
      * e os números são a média das que tiveram esse resultado, com os limites
      * entre parênteses. A semente que muda o resultado é a mais longe dele: a
      * derrota mais cedo, numa média que vence; a vitória de menor pico, numa
-     * média que perde. */
-    internal static string Resumir(IReadOnlyList<Partida> partidas, int total)
+     * média que perde. Com regras (Parte C), a linha mostra a nota do jogador
+     * médio; sem elas, não. */
+    internal static string Resumir(IReadOnlyList<Partida> partidas, int total, RegrasDaNota regras = null)
     {
         List<Partida> vencem = new List<Partida>();
         List<Partida> perdem = new List<Partida>();
@@ -201,15 +206,15 @@ public static class BalanceamentoSimulador
 
         string sementes = $"{vencem.Count}/{partidas.Count} sementes vencem";
         if (vencem.Count * 2 > partidas.Count)
-            return LinhaDeVitoria(vencem, perdem, total, sementes);
+            return LinhaDeVitoria(vencem, perdem, total, sementes, regras);
         if (perdem.Count > 0)
-            return LinhaDeDerrota(perdem, vencem, total, sementes);
+            return LinhaDeDerrota(perdem, vencem, total, sementes, regras);
         return vencem.Count == 0
             ? "não termina em 1 h (a ocupação estabiliza abaixo de 100%)"
             : $"não termina em 1 h em parte das sementes · {sementes}";
     }
 
-    private static string LinhaDeVitoria(List<Partida> vencem, List<Partida> perdem, int total, string sementes)
+    private static string LinhaDeVitoria(List<Partida> vencem, List<Partida> perdem, int total, string sementes, RegrasDaNota regras)
     {
         float duracao = 0f, picoMedio = 0f, final = 0f, picoMinimo = 1f, picoMaximo = 0f;
         foreach (Partida partida in vencem)
@@ -222,6 +227,8 @@ public static class BalanceamentoSimulador
         }
 
         string linha = $"vence em {Tempo(duracao)} · pico {Pct(picoMedio)} ({Pct(picoMinimo)}–{Pct(picoMaximo)}) · final {Pct(final)} · {sementes}";
+        if (regras != null)
+            linha += NotaDaLinha(true, duracao, picoMedio, total, total, regras);
         if (perdem.Count == 0)
             return linha;
 
@@ -232,18 +239,21 @@ public static class BalanceamentoSimulador
         return linha + $" · semente {pior.Semente} muda: PERDE aos {Tempo(pior.Duracao)} com {pior.Eliminados}/{total} focos";
     }
 
-    private static string LinhaDeDerrota(List<Partida> perdem, List<Partida> vencem, int total, string sementes)
+    private static string LinhaDeDerrota(List<Partida> perdem, List<Partida> vencem, int total, string sementes, RegrasDaNota regras)
     {
-        float duracao = 0f, eliminados = 0f, duracaoMinima = float.MaxValue, duracaoMaxima = 0f;
+        float duracao = 0f, eliminados = 0f, picoMedio = 0f, duracaoMinima = float.MaxValue, duracaoMaxima = 0f;
         foreach (Partida partida in perdem)
         {
             duracao += partida.Duracao / perdem.Count;
             eliminados += (float)partida.Eliminados / perdem.Count;
+            picoMedio += partida.Pico / perdem.Count;
             duracaoMinima = Mathf.Min(duracaoMinima, partida.Duracao);
             duracaoMaxima = Mathf.Max(duracaoMaxima, partida.Duracao);
         }
 
         string linha = $"PERDE aos {Tempo(duracao)} ({Tempo(duracaoMinima)}–{Tempo(duracaoMaxima)}) com {Mathf.RoundToInt(eliminados)}/{total} focos · {sementes}";
+        if (regras != null)
+            linha += NotaDaLinha(false, duracao, picoMedio, Mathf.RoundToInt(eliminados), total, regras);
         if (vencem.Count == 0)
             return linha;
 
@@ -252,6 +262,20 @@ public static class BalanceamentoSimulador
             if (partida.Pico < melhor.Pico)
                 melhor = partida;
         return linha + $" · semente {melhor.Semente} muda: vence em {Tempo(melhor.Duracao)} · pico {Pct(melhor.Pico)}";
+    }
+
+    /* A nota do jogador médio da linha, para a calibragem: " · nota 6.280 ·
+     * 2 estrelas". Sem reenchidos (quem joga "do jeito certo" não esvazia
+     * nada). Na derrota, só os focos contam e as estrelas são 0. */
+    internal static string NotaDaLinha(bool venceu, float segundos, float pico, int eliminados, int total, RegrasDaNota regras)
+    {
+        ResultadoDaNota nota = AvaliacaoDaPartida.Calcular(new DadosDaPartida
+        {
+            Venceu = venceu, Segundos = segundos, Pico = pico,
+            Eliminados = eliminados, Total = total, Reenchidos = 0,
+        }, regras);
+        string estrelas = nota.Estrelas == 1 ? "1 estrela" : $"{nota.Estrelas} estrelas";
+        return $" · nota {AvaliacaoDaPartida.Formatar(nota.Pontos)} · {estrelas}";
     }
 
     /* Maior número de focos ativos, todos com este peso, com que a taxa
@@ -305,7 +329,8 @@ public static class BalanceamentoSimulador
     /* A rota com o kit da Parte A, no mesmo vizinho mais próximo a partir da
      * partida, correndo, com o estoque do KitDoAgente da cena (começa cheio,
      * saco vazio):
-     *   - ação de cada foco: SegundosPorPasso × passos (garrafas: um passo
+     *   - ação de cada foco: o SegundosEstimados dele (SegundosPorPasso ×
+     *     passos; ralo: uma volta do ponteiro por check; garrafas: um passo
      *     por garrafa; pneu: o tempo de esvaziar, com água);
      *   - consumível zerado: antes de ir ao foco, desvia para o ponto de
      *     reabastecimento mais perto que tenha a ferramenta;
@@ -388,7 +413,7 @@ public static class BalanceamentoSimulador
                 continue;
             }
 
-            segundosSegurando += foco.SegundosPorPasso * foco.RequiredClicks;
+            segundosSegurando += foco.SegundosEstimados;
             estoque.Consumir(ferramenta);
 
             if (foco is PneuInteractable)

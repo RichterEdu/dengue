@@ -50,6 +50,8 @@ using Object = UnityEngine.Object;
  *  controller do zero e destrói o "Modelo" (com o PontoDeCarga e o
  *  SacoNaMao, que são filhos dos ossos). Depois dele, rodar o
  *  GarantirAssets E o Aplicar.
+ *  Os itens do kit também somem: rodar ainda Dengue > Configurar Itens
+ *  na Mão (ItensNaMaoBuilder), que refaz a camada "ItemNaMao".
  *
  *  Poses e saco: gerados por Ferramentas/Blender/gerar_agente.py (ações
  *  Carregando e CarregandoSaco) e gerar_saco.py.
@@ -204,7 +206,7 @@ public static class PoseDeCarga
     }
 
     /* Osso pelo nome, em qualquer profundidade (o primeiro achado). */
-    private static Transform AcharOsso(Transform raiz, string nome)
+    internal static Transform AcharOsso(Transform raiz, string nome)
     {
         return raiz.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == nome);
     }
@@ -223,13 +225,19 @@ public static class PoseDeCarga
     /* Os takes "Carregando" e "CarregandoSaco" do AgenteSaude.fbx viram clipes. */
     public static string GarantirClipesDeCarga()
     {
+        return GarantirClipes(new[] { NomeClipe, NomeClipeSaco });
+    }
+
+    /* Os takes com esses nomes viram clipes do AgenteSaude.fbx (os que já são ficam como estão). */
+    internal static string GarantirClipes(IEnumerable<string> nomes)
+    {
         var imp = AssetImporter.GetAtPath(CaminhoFbxAgente) as ModelImporter;
         if (imp == null)
             return "[Carga] ERRO: não achei " + CaminhoFbxAgente;
 
         List<ModelImporterClipAnimation> clipes = imp.clipAnimations.ToList();
         var adicionados = new List<string>();
-        foreach (string nome in new[] { NomeClipe, NomeClipeSaco })
+        foreach (string nome in nomes)
         {
             if (clipes.Any(c => c.name == nome))
                 continue;
@@ -254,7 +262,7 @@ public static class PoseDeCarga
         }
 
         if (adicionados.Count == 0)
-            return "[Carga] clipes de carga já importados";
+            return "[Carga] clipes já importados";
 
         imp.clipAnimations = clipes.ToArray();
         imp.SaveAndReimport();
@@ -354,7 +362,7 @@ public static class PoseDeCarga
 
     /* Camada recriada a cada vez, com peso 0 e a máscara: o RemoveLayer apaga
      * a máquina de estados antiga (estados e transições) do asset. */
-    private static AnimatorStateMachine RecriarCamada(AnimatorController controller, string nome, AvatarMask mascara)
+    internal static AnimatorStateMachine RecriarCamada(AnimatorController controller, string nome, AvatarMask mascara)
     {
         int existente = Array.FindIndex(controller.layers, l => l.name == nome);
         if (existente >= 0)
@@ -371,7 +379,7 @@ public static class PoseDeCarga
     }
 
     /* Máscara de transforms do rig Generic: só os ossos pedidos ativos. */
-    private static AvatarMask GarantirMascara(string caminhoMascara, string[] ossos)
+    internal static AvatarMask GarantirMascara(string caminhoMascara, string[] ossos)
     {
         GameObject modelo = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoFbxAgente);
         if (modelo == null)

@@ -14,14 +14,21 @@ using UnityEngine;
  *      1–5 (Selecionar) ou pela roda do mouse / LB-RB (Proxima/Anterior,
  *      dando a volta na lista);
  *    - o pneu que está sendo carregado (PneuCarregado). Pegar o põe no
- *      PontoDeCarga e limita o jogador (velocidade × multiplicadorCarregando,
- *      sem pular); enquanto carrega, não troca de ferramenta. O Shift corre
+ *      PontoDeCarga e limita o jogador (velocidade × MultiplicadorComPneu:
+ *      0,5 cheio de água até 0,85 vazio, sem pular); enquanto carrega, não troca de ferramenta. O Shift corre
  *      gastando a Stamina (StaminaDeCarga): zerada, só anda até recuperar.
  *      De mãos livres a corrida não gasta nada, e a stamina volta sozinha.
  *      LargarPneu (no chão, na frente do agente e fora do corpo dele) e
  *      EntregarPneu (na caçamba da picape, onde o foco conclui e o pneu
  *      vai para uma vaga da carroceria) devolvem o movimento normal.
  *      Largar em cima da caçamba é entregar.
+ *    - a tampa da caixa d'água nos braços (TampaCarregada: a caixa dona
+ *      dela). PegarTampa a põe no PontoDeCarga (CaixaDaguaInteractable
+ *      faz o visual) com os mesmos limites do pneu; DevolverTampa (o
+ *      botão de largar) a leva de volta à lateral da caixa, e a caixa
+ *      chama SoltarTampaColocada ao ser tampada. Pneu e tampa não
+ *      coexistem: MaosOcupadas é qualquer um dos dois, e com ele não
+ *      troca de ferramenta nem pega o outro.
  *
  *  Quem mexe no estoque passa por aqui (Consumir, Reabastecer,
  *  GuardarGarrafa, EsvaziarSaco — este, na lixeira) para a HUD ficar sabendo: OnMudou
@@ -53,6 +60,9 @@ public class KitDoAgente : MonoBehaviour
     [Tooltip("Multiplica a velocidade do jogador enquanto carrega um pneu, andando ou correndo (sem pular).")]
     [SerializeField] private float multiplicadorCarregando = 0.85f;
 
+    [Tooltip("Multiplicador de velocidade com o pneu cheio de água nos braços (esvaziando, sobe até o multiplicadorCarregando).")]
+    [SerializeField] private float multiplicadorCheio = 0.5f;
+
     [Tooltip("Segundos correndo com o pneu até a stamina zerar.")]
     [SerializeField] private float segundosDeCorrida = 6f;
 
@@ -77,7 +87,7 @@ public class KitDoAgente : MonoBehaviour
     private EstoqueDoKit estoque;
     private StaminaDeCarga stamina;
 
-    /* Qualquer mudança no kit (ferramenta, cargas, saco, pneu): a HUD se redesenha. */
+    /* Qualquer mudança no kit (ferramenta, cargas, saco, pneu, tampa): a HUD se redesenha. */
     public event Action OnMudou;
     public event Action OnStaminaEsgotada;
     public event Action<Ferramenta> OnFerramentaTrocada;
@@ -90,6 +100,11 @@ public class KitDoAgente : MonoBehaviour
     public event Action<PneuInteractable> OnPneuPego;
     public event Action<PneuInteractable> OnPneuLargado;
     public event Action<PneuInteractable> OnPneuEntregue;
+
+    /* Tampa da caixa nos braços, de volta à lateral e colocada na boca. */
+    public event Action<CaixaDaguaInteractable> OnTampaPega;
+    public event Action<CaixaDaguaInteractable> OnTampaDevolvida;
+    public event Action<CaixaDaguaInteractable> OnTampaColocada;
 
     /* Criado no primeiro acesso, com os números do Inspector. */
     public EstoqueDoKit Estoque
@@ -106,6 +121,12 @@ public class KitDoAgente : MonoBehaviour
 
     /* Pneu nos braços do agente (null = mãos livres). */
     public PneuInteractable PneuCarregado { get; private set; }
+
+    /* A caixa cuja tampa está nos braços do agente (null = nenhuma). */
+    public CaixaDaguaInteractable TampaCarregada { get; private set; }
+
+    /* Pneu ou tampa nos braços: não troca de ferramenta nem pega outra coisa. */
+    public bool MaosOcupadas => PneuCarregado != null || TampaCarregada != null;
 
     public Transform PontoDeCarga
     {
@@ -130,17 +151,29 @@ public class KitDoAgente : MonoBehaviour
         AvancarStamina(Time.deltaTime, controlador != null && controlador.Correndo);
     }
 
-    /* Só gasta correndo com o pneu. Com ele, a corrida depende da stamina;
-     * sem ele, o movimento é o normal (LimitarMovimento já devolveu). */
+    /* Só gasta correndo com o pneu ou a tampa. Com um deles, a corrida
+     * depende da stamina; de mãos livres, o movimento é o normal
+     * (LimitarMovimento já devolveu). */
     internal void AvancarStamina(float dt, bool correndo)
     {
-        bool comPneu = PneuCarregado != null;
-        if (Stamina.Avancar(dt, correndo && comPneu))
+        bool carregando = MaosOcupadas;
+        if (Stamina.Avancar(dt, correndo && carregando))
             OnStaminaEsgotada?.Invoke();
 
         ControladorJogador controlador = Jogador;
-        if (comPneu && controlador != null)
+        if (carregando && controlador != null)
             controlador.PodeCorrer = Stamina.PodeCorrer;
+
+        // O pneu pesa pela água que ainda tem: esvaziando, o agente anda mais leve.
+        if (PneuCarregado != null && controlador != null)
+            controlador.MultiplicadorVelocidade = MultiplicadorComPneu(PneuCarregado.NivelDeAgua);
+    }
+
+    /* Velocidade com o pneu nos braços: cheio (nível 1) = multiplicadorCheio,
+     * vazio (0) = multiplicadorCarregando. */
+    internal float MultiplicadorComPneu(float nivel)
+    {
+        return Mathf.Lerp(multiplicadorCarregando, multiplicadorCheio, Mathf.Clamp01(nivel));
     }
 
     /* O ControladorJogador do campo ou, vazio, o deste objeto (achado no primeiro uso). */
@@ -169,10 +202,10 @@ public class KitDoAgente : MonoBehaviour
         }
     }
 
-    /* Troca de ferramenta. False se está carregando pneu ou se ela já era a selecionada. */
+    /* Troca de ferramenta. False com as mãos ocupadas (pneu ou tampa) ou se ela já era a selecionada. */
     public bool Selecionar(Ferramenta ferramenta)
     {
-        if (PneuCarregado != null || ferramenta == Selecionada)
+        if (MaosOcupadas || ferramenta == Selecionada)
             return false;
 
         Selecionada = ferramenta;
@@ -248,15 +281,16 @@ public class KitDoAgente : MonoBehaviour
     }
 
     /* Põe o pneu nos braços (o pneu chama no fim do segurar). False se já
-     * carrega um. Sem PontoDeCarga, o pneu fica preso a este objeto. */
+     * carrega um pneu ou uma tampa. Sem PontoDeCarga, o pneu fica preso a
+     * este objeto. */
     public bool Pegar(PneuInteractable pneu)
     {
-        if (pneu == null || PneuCarregado != null)
+        if (pneu == null || MaosOcupadas)
             return false;
 
         PneuCarregado = pneu;
         pneu.PrenderEm(pontoDeCarga != null ? pontoDeCarga : transform);
-        LimitarMovimento(multiplicadorCarregando, Stamina.PodeCorrer, false);
+        LimitarMovimento(MultiplicadorComPneu(pneu.NivelDeAgua), Stamina.PodeCorrer, false);
 
         OnPneuPego?.Invoke(pneu);
         OnMudou?.Invoke();
@@ -266,7 +300,8 @@ public class KitDoAgente : MonoBehaviour
     /* Larga o pneu no chão, na frente dos pés e fora do corpo do agente
      * (PneuInteractable.OndeCai). Se ele cairia na caçamba (o agente
      * encostado nela, achando que joga dentro), é entrega (EntregarPneu),
-     * e o foco conclui. False se não carrega nenhum. */
+     * e o foco conclui, mas só com o pneu esvaziado: cheio, devolve false e
+     * o pneu fica nos braços. False também se não carrega nenhum. */
     public bool LargarPneu(Vector3 pes, Vector3 frente)
     {
         PneuInteractable pneu = PneuCarregado;
@@ -275,7 +310,12 @@ public class KitDoAgente : MonoBehaviour
 
         pneu.OndeCai(pes, frente, RaioDoAgente, out Vector3 posicao, out Quaternion giro, out Cacamba cacamba);
         if (cacamba != null)
+        {
+            // Pneu com água não vai na caçamba: continua nos braços.
+            if (!pneu.Esvaziado)
+                return false;
             return EntregarPneu(cacamba);
+        }
 
         PneuCarregado = null;
         LimitarMovimento(1f, true, true);
@@ -304,6 +344,55 @@ public class KitDoAgente : MonoBehaviour
         OnPneuEntregue?.Invoke(pneu);
         OnMudou?.Invoke();
         return true;
+    }
+
+    /* Põe a tampa da caixa nos braços (a caixa chama no passo de pegar).
+     * False com as mãos ocupadas. Sem PontoDeCarga, a tampa fica presa a
+     * este objeto. Os limites de movimento são os do pneu. */
+    public bool PegarTampa(CaixaDaguaInteractable caixa)
+    {
+        if (caixa == null || MaosOcupadas)
+            return false;
+
+        TampaCarregada = caixa;
+        caixa.PrenderTampaEm(pontoDeCarga != null ? pontoDeCarga : transform);
+        LimitarMovimento(multiplicadorCarregando, Stamina.PodeCorrer, false);
+
+        OnTampaPega?.Invoke(caixa);
+        OnMudou?.Invoke();
+        return true;
+    }
+
+    /* Devolve a tampa à lateral da caixa dona dela (o botão de largar).
+     * False se não carrega nenhuma. */
+    public bool DevolverTampa()
+    {
+        CaixaDaguaInteractable caixa = TampaCarregada;
+        if (caixa == null)
+            return false;
+
+        TampaCarregada = null;
+        LimitarMovimento(1f, true, true);
+        caixa.DevolverTampaALateral();
+
+        OnTampaDevolvida?.Invoke(caixa);
+        OnMudou?.Invoke();
+        return true;
+    }
+
+    /* A caixa foi tampada (ela mesma assenta a tampa): as mãos ficam livres
+     * antes do OnCompleted da caixa, como na entrega do pneu. */
+    internal void SoltarTampaColocada()
+    {
+        CaixaDaguaInteractable caixa = TampaCarregada;
+        if (caixa == null)
+            return;
+
+        TampaCarregada = null;
+        LimitarMovimento(1f, true, true);
+
+        OnTampaColocada?.Invoke(caixa);
+        OnMudou?.Invoke();
     }
 
     /* Limites de movimento do jogador (sem ControladorJogador, nada a fazer). */

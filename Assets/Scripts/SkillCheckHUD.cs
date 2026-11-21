@@ -248,11 +248,11 @@ public class SkillCheckHUD : MonoBehaviour
         grupo.blocksRaycasts = false;
         grupo.interactable = false;
 
-        Sprite disco = GerarAnel(-1f, 0.97f, 0.03f);
-        Sprite trilho = GerarAnel(0.745f, 0.775f, 0.008f);
-        Sprite faixa = GerarAnel(0.70f, 0.82f, 0.012f);
-        Sprite halo = GerarAnel(0.64f, 0.88f, 0.09f);
-        spriteDoPonto = GerarAnel(-1f, 0.82f, 0.12f);
+        Sprite disco = GerarAnel(-1f, 0.97f, 0.03f, gerados);
+        Sprite trilho = GerarAnel(0.745f, 0.775f, 0.008f, gerados);
+        Sprite faixa = GerarAnel(0.70f, 0.82f, 0.012f, gerados);
+        Sprite halo = GerarAnel(0.64f, 0.88f, 0.09f, gerados);
+        spriteDoPonto = GerarAnel(-1f, 0.82f, 0.12f, gerados);
 
         Camada("Disco", disco, CorDoDisco, TamanhoNaTela, conteudo);
         Camada("Trilho", trilho, CorDoTrilho, TamanhoNaTela, conteudo);
@@ -298,8 +298,10 @@ public class SkillCheckHUD : MonoBehaviour
     }
 
     /* Anel branco com bordas suaves (raios em frações da metade da textura).
-     * Raio interno negativo = disco cheio. A cor vem da Image. */
-    private Sprite GerarAnel(float raioInterno, float raioExterno, float suavidade)
+     * Raio interno negativo = disco cheio. A cor vem da Image. A textura
+     * e o sprite entram em 'gerados', para quem chamou destruir depois
+     * (a PontosDeBorrifarHUD também gera os dela por aqui). */
+    internal static Sprite GerarAnel(float raioInterno, float raioExterno, float suavidade, List<Object> gerados)
     {
         float centro = (TexturaDoAnel - 1) * 0.5f;
         Color32[] pixels = new Color32[TexturaDoAnel * TexturaDoAnel];
@@ -316,7 +318,7 @@ public class SkillCheckHUD : MonoBehaviour
             }
         }
 
-        return CriarSprite(pixels, TexturaDoAnel, TexturaDoAnel);
+        return CriarSprite(pixels, TexturaDoAnel, TexturaDoAnel, gerados);
     }
 
     /* Ponteiro afilado para o centro, com a ponta de fora mais larga. */
@@ -337,10 +339,10 @@ public class SkillCheckHUD : MonoBehaviour
             }
         }
 
-        return CriarSprite(pixels, LarguraDoPonteiro, AlturaDoPonteiro);
+        return CriarSprite(pixels, LarguraDoPonteiro, AlturaDoPonteiro, gerados);
     }
 
-    private Sprite CriarSprite(Color32[] pixels, int largura, int altura)
+    private static Sprite CriarSprite(Color32[] pixels, int largura, int altura, List<Object> gerados)
     {
         Texture2D textura = new Texture2D(largura, altura, TextureFormat.RGBA32, true)
         {

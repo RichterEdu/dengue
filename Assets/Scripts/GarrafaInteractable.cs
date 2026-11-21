@@ -157,6 +157,13 @@ public class GarrafaInteractable : Interactable
         }
     }
 
+    /* Nasce seco: o mesmo do esvaziar (a chuva devolve essas águas no
+     * AoReencher). O OnStart já juntou as garrafas: ele roda antes. */
+    protected override void AoNascerVazio()
+    {
+        AoEsvaziar();
+    }
+
     /* Reenchido (a chuva): volta a água das garrafas que ainda estão aí. */
     protected override void AoReencher()
     {

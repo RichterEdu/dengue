@@ -27,6 +27,12 @@ using UnityEngine;
  *      cada um com um tempo sorteado dentro do estágio (as eclosões não
  *      acontecem todas juntas). A regra em si é o SortearEstagios, sem
  *      foco nenhum: o simulador de balanceamento usa a mesma.
+ *    - Nascimento seco (SortearNascimento): em Play, uma fração fixa dos
+ *      focos nasce com água e o resto seco (NasceComAgua pergunta ao
+ *      Interactable no Start dele). A contagem é fixa, não uma chance por
+ *      foco: sempre sai a mesma quantidade, sorteando quem. O sorteio é
+ *      preguiçoso, na primeira pergunta (todas as Awake já rodaram e os
+ *      focos da cena já estão registrados).
  *
  *  No EditMode o Awake/Start/Update não rodam: os testes chamam
  *  Registrar, Avancar e SortearInicio direto, e o FluxoDeJogo do campo
@@ -71,6 +77,10 @@ public class GerenciadorDeFocos : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float fracaoLarvaNoInicio = 1f / 3f;
 
+    [Tooltip("Fração dos focos que nasce com água (contagem fixa, arredondada, no mínimo 1); o resto nasce seco, como se já tivesse sido esvaziado.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float fracaoNascendoComAgua = 0.5f;
+
     /* Um foco eliminado (conta uma vez por foco). */
     public event Action<Interactable> OnFocoEliminado;
 
@@ -97,6 +107,12 @@ public class GerenciadorDeFocos : MonoBehaviour
 
     // O jogo está fechando: Obter() não cria gerenciador novo (sobraria na cena).
     private static bool saindo;
+
+    // Focos sorteados para nascer secos no começo (o resto nasce com água).
+    private HashSet<Interactable> nascidosSecos;
+
+    // O sorteio do nascimento já foi feito (de novo só chamando direto).
+    private bool sorteouNascimento;
 
     public IReadOnlyList<Interactable> Focos => focos;
     public int Total => focos.Count;
@@ -327,6 +343,68 @@ public class GerenciadorDeFocos : MonoBehaviour
             reenchidos++;
         }
         return reenchidos;
+    }
+
+    /* O foco nasce com água? Em Play, o Interactable pergunta no Start
+     * dele; a resposta vem do sorteio do começo. Foco fora dele (nascido
+     * depois, sem sorteio) nasce com água, como sempre nasceu. O ralo
+     * (SempreNasceComAgua) também, sempre. */
+    internal bool NasceComAgua(Interactable foco)
+    {
+        if (foco == null || foco.SempreNasceComAgua)
+            return true;
+
+        if (!sorteouNascimento)
+            SortearNascimento(null);
+        return !nascidosSecos.Contains(foco);
+    }
+
+    /* Sorteia quem nasce seco: de 'quantos' focos de pé que podem nascer
+     * secos (o ralo não pode, fica fora), ComAguaNoNascimento(quantos)
+     * nascem com água (contagem fixa) e o resto seco, cada um sorteado
+     * (Fisher-Yates). Reordenar a lista de focos depois do sorteio não
+     * muda a resposta de ninguém. */
+    internal void SortearNascimento(System.Random rng)
+    {
+        if (rng == null)
+            rng = new System.Random();
+
+        sorteouNascimento = true;
+        nascidosSecos = new HashSet<Interactable>();
+
+        List<Interactable> candidatos = new List<Interactable>();
+        foreach (Interactable foco in focos)
+        {
+            if (foco != null && !foco.IsComplete && !foco.SempreNasceComAgua)
+                candidatos.Add(foco);
+        }
+
+        int quantos = candidatos.Count;
+        int comAgua = ComAguaNoNascimento(quantos);
+        if (comAgua >= quantos)
+            return;   // todos com água: ninguém nasce seco
+
+        // Embaralha (Fisher-Yates): os primeiros 'comAgua' ficam com água.
+        int[] ordem = new int[quantos];
+        for (int i = 0; i < quantos; i++)
+            ordem[i] = i;
+        for (int i = quantos - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (ordem[i], ordem[j]) = (ordem[j], ordem[i]);
+        }
+
+        for (int i = comAgua; i < quantos; i++)
+            nascidosSecos.Add(candidatos[ordem[i]]);
+    }
+
+    /* Quantos focos nascem com água, de 'total': round(fracao × total),
+     * no mínimo 1 (com fração > 0 e total > 0) e no máximo o total. */
+    internal int ComAguaNoNascimento(int total)
+    {
+        if (total <= 0 || fracaoNascendoComAgua <= 0f)
+            return 0;
+        return Mathf.Clamp(Mathf.RoundToInt(fracaoNascendoComAgua * total), 1, total);
     }
 
     /* Começo da partida: aplica o SortearEstagios nos focos de pé e com água. */

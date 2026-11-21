@@ -1,0 +1,474 @@
+using System.Collections.Generic;
+using NUnit.Framework;
+using UnityEngine;
+
+/* ============================================================
+ *  MinigameNoInteractorTestes.cs
+ *  ---------------------------------------------------------------------
+ *  Testes EditMode da base comum de minigame (Minigame.cs) conduzida
+ *  pelo Interactor: Passo vira AvancarCom, o último passo encerra, sair
+ *  guarda os cliques (só com PodeSair), o erro chama o gancho do foco sem
+ *  gastar carga, alvo destruído ou Bloqueado encerram, e o Avancando segue
+ *  o Agindo da sessão. A sessão só começa num aperto novo
+ *  (ConferirFoco): a mira chegando com o botão já apertado não começa nem
+ *  libera o segurar, e CriarMinigame (consulta) não muda o foco.
+ *
+ *  Vista de perto (IMinigameDePerto): a sessão pede o enquadramento à
+ *  câmera de teste; toda saída (concluir, sair, Bloqueado, recusa, alvo
+ *  desativado ou destruído) solta, e o agente fica parado, sem mira, até
+ *  a câmera voltar aos olhos (Posicionar + AtualizarVolta). Câmera
+ *  desligada não prende o agente.
+ *
+ *  O foco de teste (FocoDeTeste) devolve um MinigameFalso, que responde
+ *  uma fila de estados, e conta as chamadas dos ganchos. Ele pede Areia
+ *  (o kit tem uma carga), para o teste ver se alguma carga foi gasta.
+ *
+ *  O Start não roda no EditMode e as corrotinas não andam: o foco tem
+ *  punchScale 0 e shrinkDuration 0 (concluir só desativa o objeto), e o
+ *  Interactor acha kit e ControladorJogador no primeiro uso. O kit e o
+ *  Interactor ficam no objeto do ControladorJogador, como no Player.
+ *
+ *  Rodar:  unity test --mode EditMode --filter MinigameNoInteractorTestes
+ * ============================================================ */
+
+[Category("Minigames")]
+public class MinigameNoInteractorTestes
+{
+    /* Sessão falsa: devolve os estados da fila (vazia = EmAndamento). */
+    private class MinigameFalso : IMinigame
+    {
+        public readonly Queue<EstadoDoMinigame> Fila = new Queue<EstadoDoMinigame>();
+        public bool Sai = true;
+
+        public EstadoDoMinigame Atualizar(float dt, EntradaDoMinigame entrada)
+        {
+            return Fila.Count > 0 ? Fila.Dequeue() : EstadoDoMinigame.EmAndamento;
+        }
+
+        public float FracaoDoPasso => 0f;
+        public bool PodeSair => Sai;
+        public bool Age;
+        public bool Agindo => Age;
+    }
+
+    /* Sessão falsa que pede a vista de perto. */
+    private class MinigameDePertoFalso : MinigameFalso, IMinigameDePerto
+    {
+        public PoseDePerto Pose => new PoseDePerto
+        {
+            Posicao = new Vector3(2f, 0.9f, 1f),
+            Giro = Quaternion.LookRotation(Vector3.down, Vector3.forward),
+            Fov = 40f
+        };
+    }
+
+    /* Um quadro de 60 Hz. */
+    private const float Q = 1f / 60f;
+
+    private ControladorJogador jogador;
+    private KitDoAgente kit;
+    private Interactor interactor;
+    private FocoDeTeste foco;
+
+    [SetUp]
+    public void Preparar()
+    {
+        jogador = TesteUtil.Com<ControladorJogador>("Jogador (teste)");
+        kit = jogador.gameObject.AddComponent<KitDoAgente>();
+        kit.Selecionar(Ferramenta.Areia);
+        interactor = jogador.gameObject.AddComponent<Interactor>();
+
+        foco = TesteUtil.Com<FocoDeTeste>("Foco (teste)");
+        TesteUtil.Setar(foco, "ferramentaNecessaria", Ferramenta.Areia);
+        TesteUtil.Setar(foco, "requiredClicks", 3);
+        TesteUtil.Setar(foco, "punchScale", 0f);
+        TesteUtil.Setar(foco, "shrinkDuration", 0f);
+    }
+
+    [TearDown]
+    public void Limpar()
+    {
+        TesteUtil.LimparTudo();
+    }
+
+    /* Um quadro do minigame, sem sair. */
+    private void Quadro(bool sair = false)
+    {
+        interactor.AvancarMinigame(0.1f, new EntradaDoMinigame(), sair);
+    }
+
+    /* Câmera de teste ligada ao Interactor; começa a sessão de perto no foco, com 'fila' na sessão nova. */
+    private CameraJogador IniciarDePerto(params EstadoDoMinigame[] fila)
+    {
+        CameraJogador camera = TesteUtil.Com<CameraJogador>("Câmera (teste)");
+        TesteUtil.Setar(camera, "jogador", jogador);
+        interactor.CameraDePerto = camera;
+        foco.Sessao = new MinigameDePertoFalso();
+        foreach (EstadoDoMinigame estado in fila) foco.Sessao.Fila.Enqueue(estado);
+        Assert.IsTrue(interactor.IniciarMinigame(foco));
+        return camera;
+    }
+
+    /* A câmera volta aos olhos (um quadro sem escala de 1 s) e o Interactor confere. */
+    private void CameraVolta(CameraJogador camera)
+    {
+        camera.Posicionar(Q, 1f);
+        interactor.AtualizarVolta();
+    }
+
+    [Test]
+    public void PassoViraAvancarCom()
+    {
+        foco.Sessao.Fila.Enqueue(EstadoDoMinigame.Passo);
+        Assert.IsTrue(interactor.IniciarMinigame(foco));
+
+        Quadro();
+
+        Assert.AreEqual(1, foco.CurrentClicks);
+        Assert.IsNotNull(interactor.MinigameAtivo);
+    }
+
+    [Test]
+    public void UltimoPassoEncerra()
+    {
+        TesteUtil.Setar(foco, "requiredClicks", 1);
+        foco.Sessao.Fila.Enqueue(EstadoDoMinigame.Passo);
+        interactor.IniciarMinigame(foco);
+
+        Quadro();
+
+        Assert.IsTrue(foco.IsComplete);
+        Assert.IsNull(interactor.MinigameAtivo);
+    }
+
+    [Test]
+    public void SairMantemOsCliques()
+    {
+        foco.Sessao.Fila.Enqueue(EstadoDoMinigame.Passo);
+        interactor.IniciarMinigame(foco);
+
+        Quadro();
+        Quadro(sair: true);
+
+        Assert.AreEqual(1, foco.CurrentClicks);
+        Assert.AreEqual(1, foco.Saidas);
+        Assert.IsNull(interactor.MinigameAtivo);
+    }
+
+    [Test]
+    public void SairIgnoradoSemPodeSair()
+    {
+        foco.Sessao.Sai = false;
+        interactor.IniciarMinigame(foco);
+
+        Quadro(sair: true);
+
+        Assert.IsNotNull(interactor.MinigameAtivo);
+    }
+
+    [Test]
+    public void ErroChamaOGanchoENaoGastaCarga()
+    {
+        int areiaAntes = kit.Estoque.Quantidade(Ferramenta.Areia);
+        foco.Sessao.Fila.Enqueue(EstadoDoMinigame.Errou);
+        interactor.IniciarMinigame(foco);
+
+        Quadro();
+
+        Assert.AreEqual(1, foco.Erros);
+        Assert.AreEqual(areiaAntes, kit.Estoque.Quantidade(Ferramenta.Areia));
+    }
+
+    [Test]
+    public void AlvoDestruidoEncerraSemExcecao()
+    {
+        interactor.IniciarMinigame(foco);
+        Object.DestroyImmediate(foco.gameObject);
+
+        Assert.DoesNotThrow(() => Quadro());
+        Assert.IsNull(interactor.MinigameAtivo);
+    }
+
+    [Test]
+    public void FocoSemMinigameNaoInicia()
+    {
+        Interactable puro = TesteUtil.Com<Interactable>("Foco puro (teste)");
+
+        Assert.IsFalse(interactor.IniciarMinigame(puro));
+        Assert.IsNull(interactor.MinigameAtivo);
+    }
+
+    [Test]
+    public void BloqueioEncerraSemGastarCarga()
+    {
+        int areiaAntes = kit.Estoque.Quantidade(Ferramenta.Areia);
+        foco.Sessao.Fila.Enqueue(EstadoDoMinigame.Passo);
+        interactor.IniciarMinigame(foco);
+        Quadro();
+
+        interactor.Bloqueado = true;
+        interactor.AoBloquear();
+
+        Assert.IsNull(interactor.MinigameAtivo);
+        Assert.AreEqual(1, foco.CurrentClicks);
+        Assert.AreEqual(areiaAntes, kit.Estoque.Quantidade(Ferramenta.Areia));
+        Assert.AreEqual(1, foco.Saidas);
+    }
+
+    [Test]
+    public void AvancandoSegueOAgindoDaSessao()
+    {
+        interactor.IniciarMinigame(foco);
+
+        foco.Sessao.Age = false;
+        Quadro();
+        Assert.IsFalse(interactor.Avancando, "a sessão não está agindo");
+
+        foco.Sessao.Age = true;
+        Quadro();
+        Assert.IsTrue(interactor.Avancando, "a sessão está agindo");
+    }
+
+    [Test]
+    public void ApertoNovoIniciaOMinigame()
+    {
+        interactor.ConferirFoco(foco, true);
+
+        Assert.IsNotNull(interactor.MinigameAtivo);
+        Assert.AreEqual(1, foco.Iniciadas);
+    }
+
+    [Test]
+    public void SegurarSemApertoNaoIniciaOMinigame()
+    {
+        // A mira chegou ao foco com o botão já apertado: nada começa e o
+        // segurar fica preso até soltar.
+        bool liberado = interactor.ConferirFoco(foco, false);
+
+        Assert.IsFalse(liberado);
+        Assert.IsNull(interactor.MinigameAtivo);
+        Assert.AreEqual(0, foco.Iniciadas);
+        Assert.AreEqual(0, foco.CurrentClicks);
+    }
+
+    [Test]
+    public void FocoSemMinigameSegueNoSegurar()
+    {
+        Interactable puro = TesteUtil.Com<Interactable>("Foco puro (teste)");
+        TesteUtil.Setar(puro, "ferramentaNecessaria", Ferramenta.Areia);
+
+        Assert.IsTrue(interactor.ConferirFoco(puro, false));
+        Assert.IsNull(interactor.MinigameAtivo);
+    }
+
+    [Test]
+    public void CriarMinigameNaoMudaOFoco()
+    {
+        kit.Selecionar(Ferramenta.Tela);
+        RaloInteractable ralo = TesteUtil.Com<RaloInteractable>("Ralo (teste)");
+        TesteUtil.Setar(ralo, "ferramentaNecessaria", Ferramenta.Tela);
+        TesteUtil.Setar(ralo, "requiredClicks", 3);
+        TesteUtil.Setar(ralo, "punchScale", 0f);
+        ralo.AvancarCom(kit);
+        int cliques = ralo.CurrentClicks;
+        float fechamento = ralo.Fechamento;
+        int telas = kit.Estoque.Quantidade(Ferramenta.Tela);
+
+        ralo.CriarMinigame(kit, 1);
+        ralo.CriarMinigame(kit, 2);
+
+        Assert.AreEqual(cliques, ralo.CurrentClicks);
+        Assert.AreEqual(fechamento, ralo.Fechamento);
+        Assert.AreEqual(telas, kit.Estoque.Quantidade(Ferramenta.Tela));
+    }
+
+    [Test]
+    public void ConviteDoRaloEhOTextoDoSkillCheck()
+    {
+        RaloInteractable ralo = TesteUtil.Com<RaloInteractable>("Ralo (teste)");
+
+        Assert.AreEqual(DengueHUD.AcaoSkillCheck, ralo.ConviteDoMinigame(kit));
+        Assert.IsNull(foco.ConviteDoMinigame(kit), "foco sem convite próprio");
+    }
+
+    [Test]
+    public void SessaoDePertoPedeOEnquadramento()
+    {
+        CameraJogador camera = IniciarDePerto();
+
+        Assert.IsTrue(camera.Enquadrada);
+        Assert.IsTrue(interactor.DePerto);
+        Assert.IsTrue(jogador.Imobilizado);
+    }
+
+    [Test]
+    public void SessaoComumNaoEnquadra()
+    {
+        CameraJogador camera = TesteUtil.Com<CameraJogador>("Câmera (teste)");
+        TesteUtil.Setar(camera, "jogador", jogador);
+        interactor.CameraDePerto = camera;
+
+        Assert.IsTrue(interactor.IniciarMinigame(foco));
+
+        Assert.IsFalse(camera.Enquadrada);
+        Assert.IsFalse(interactor.DePerto);
+    }
+
+    [Test]
+    public void ConcluirSoltaESeguraOAgenteAteACameraVoltar()
+    {
+        TesteUtil.Setar(foco, "requiredClicks", 1);
+        CameraJogador camera = IniciarDePerto(EstadoDoMinigame.Passo);
+        camera.Posicionar(Q, 1f);
+
+        Quadro();
+
+        Assert.IsNull(interactor.MinigameAtivo);
+        Assert.IsTrue(interactor.Voltando);
+        Assert.IsTrue(interactor.DePerto);
+        Assert.IsTrue(jogador.Imobilizado);
+        Assert.AreEqual(0, foco.Voltas);
+
+        interactor.AtualizarVolta();   // a câmera não andou
+        Assert.IsTrue(interactor.Voltando);
+        Assert.IsTrue(interactor.DePerto);
+        Assert.IsTrue(jogador.Imobilizado);
+        Assert.AreEqual(0, foco.Voltas);
+
+        CameraVolta(camera);
+        Assert.IsFalse(interactor.Voltando);
+        Assert.IsFalse(interactor.DePerto);
+        Assert.IsFalse(jogador.Imobilizado);
+        Assert.AreEqual(1, foco.Voltas);
+    }
+
+    [Test]
+    public void SemMiraDuranteAVolta()
+    {
+        TesteUtil.Setar(foco, "requiredClicks", 1);
+        CameraJogador camera = IniciarDePerto(EstadoDoMinigame.Passo);
+        camera.Posicionar(Q, 1f);
+        Quadro();
+        Assert.IsTrue(interactor.Voltando);
+
+        Assert.IsTrue(interactor.LargarSeVoltando());
+        Assert.IsNull(interactor.CurrentTarget);
+        Assert.AreEqual(0f, interactor.ProgressoContinuo);
+        Assert.IsFalse(interactor.Avancando);
+
+        CameraVolta(camera);
+        Assert.IsFalse(interactor.LargarSeVoltando());
+    }
+
+    [Test]
+    public void SairSolta()
+    {
+        CameraJogador camera = IniciarDePerto();
+
+        Quadro(sair: true);
+
+        Assert.IsTrue(interactor.Voltando);
+        Assert.AreEqual(1, foco.Saidas);
+        CameraVolta(camera);
+        Assert.IsFalse(jogador.Imobilizado);
+    }
+
+    [Test]
+    public void BloquearSolta()
+    {
+        CameraJogador camera = IniciarDePerto();
+
+        interactor.Bloqueado = true;
+        interactor.AoBloquear();
+
+        Assert.IsNull(interactor.MinigameAtivo);
+        Assert.IsTrue(interactor.Voltando);
+        Assert.AreEqual(1, foco.Saidas);
+        CameraVolta(camera);
+        Assert.IsFalse(jogador.Imobilizado);
+    }
+
+    [Test]
+    public void RecusaNoMeioSolta()
+    {
+        IniciarDePerto(EstadoDoMinigame.Passo);
+        kit.Selecionar(Ferramenta.Tela);
+
+        Quadro();
+
+        Assert.IsNull(interactor.MinigameAtivo);
+        Assert.IsTrue(interactor.Voltando);
+    }
+
+    [Test]
+    public void AlvoDesativadoSolta()
+    {
+        IniciarDePerto();
+        foco.gameObject.SetActive(false);
+
+        Quadro();
+
+        Assert.IsNull(interactor.MinigameAtivo);
+        Assert.IsTrue(interactor.Voltando);
+    }
+
+    [Test]
+    public void AlvoDestruidoSolta()
+    {
+        CameraJogador camera = IniciarDePerto();
+        Object.DestroyImmediate(foco.gameObject);
+
+        Assert.DoesNotThrow(() => Quadro());
+        Assert.IsTrue(interactor.Voltando);
+        Assert.DoesNotThrow(() => CameraVolta(camera));
+        Assert.IsFalse(jogador.Imobilizado);
+    }
+
+    [Test]
+    public void CameraDesligadaNaoPrendeOAgente()
+    {
+        CameraJogador camera = IniciarDePerto();
+        camera.enabled = false;
+
+        Quadro(sair: true);
+
+        Assert.IsFalse(interactor.Voltando);
+        Assert.IsFalse(jogador.Imobilizado);
+        Assert.AreEqual(1, foco.Voltas);
+
+        camera.enabled = true;
+        camera.Posicionar(Q, 1f);
+        Assert.IsFalse(camera.Enquadrada, "o pedido foi solto mesmo com a câmera desligada");
+    }
+
+    [Test]
+    public void NovaSessaoNaVoltaEnquadraDeNovo()
+    {
+        CameraJogador camera = IniciarDePerto();
+        Quadro(sair: true);
+        Assert.IsTrue(interactor.Voltando);
+
+        Assert.IsTrue(interactor.IniciarMinigame(foco));
+
+        Assert.IsFalse(interactor.Voltando);
+        Assert.IsTrue(camera.Enquadrada);
+        Assert.IsTrue(jogador.Imobilizado);
+    }
+
+    /* Foco que devolve a sessão falsa e conta os ganchos. */
+    private class FocoDeTeste : Interactable
+    {
+        public MinigameFalso Sessao = new MinigameFalso();
+        public int Iniciadas;
+        public int Erros;
+        public int Saidas;
+        public int Voltas;
+
+        public override void AoVoltarDaVistaDePerto() => Voltas++;
+
+        public override IMinigame CriarMinigame(KitDoAgente kit, int semente) => Sessao;
+        public override void AoIniciarMinigame(IMinigame sessao) => Iniciadas++;
+        public override void AoErrarMinigame(KitDoAgente kit) => Erros++;
+        public override void AoSairDoMinigame() => Saidas++;
+    }
+}

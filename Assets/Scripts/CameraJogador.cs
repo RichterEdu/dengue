@@ -21,9 +21,18 @@ using UnityEngine;
  *  - ModoPesado (carregando pneu, FeedbackDeCarga): balanço mais forte,
  *    passo mais longo e mais inclinação lateral — o corpo sente o peso.
  *    Entra e sai suave (PesoPesado, de 0 a 1), como o balanço.
+ *  - Enquadramento temporário (vista de perto dos minigames): Enquadrar
+ *    leva a câmera dos olhos até uma PoseDePerto em SegundosDeIda e a
+ *    mantém lá; SoltarEnquadramento a devolve em SegundosDeVolta. Um peso
+ *    de 0 a 1 anda com o tempo SEM escala (funciona com o jogo pausado) e
+ *    mistura olhos e pose com SmoothStep: posição, giro e FOV. Trocar de
+ *    pedido no meio do caminho continua de onde a câmera está. O FovBase
+ *    do menu só aparece na câmera fora do enquadramento.
  *
  *  Roda depois de tudo (LateUpdate + DefaultExecutionOrder alto): o
- *  ControladorJogador já moveu o corpo neste frame.
+ *  ControladorJogador já moveu o corpo neste frame. O corpo do LateUpdate
+ *  é o Posicionar(dt, dtReal), chamado direto pelos testes EditMode (lá
+ *  o Awake não roda: a Camera é achada no primeiro uso).
  * ============================================================ */
 
 [DefaultExecutionOrder(100)]
@@ -69,20 +78,61 @@ public class CameraJogador : MonoBehaviour
     [Header("Recorte")]
     [SerializeField] private float nearClip = 0.05f;
 
+    public const float SegundosDeIda = 0.3f;
+    public const float SegundosDeVolta = 0.25f;
+
     private Camera cam;
     private float fovBase;
 
+    /* FOV dos olhos, já com a corrida, suavizado; o enquadramento mistura a partir dele. */
+    private float fovDosOlhos;
+
+    /* Enquadramento: pedido ativo, a pose pedida (guardada para a volta) e
+     * quanto dela já vale (0 = olhos, 1 = pose). */
+    private bool enquadramentoPedido;
+    private PoseDePerto poseEnquadrada;
+    private float pesoEnquadramento;
+
+    /* A Camera, achada no primeiro uso (o Awake não roda no EditMode). */
+    private Camera Cam
+    {
+        get
+        {
+            if (cam == null)
+                cam = GetComponent<Camera>();
+            return cam;
+        }
+    }
+
     /* FOV parado/andando (a corrida soma fovExtraCorrendo). Muda na hora,
-     * inclusive com o jogo pausado — é o slider do menu de pausa. */
+     * inclusive com o jogo pausado — é o slider do menu de pausa. Com a
+     * câmera enquadrada, só vale quando ela voltar aos olhos. */
     public float FovBase
     {
         get => fovBase;
         set
         {
             fovBase = Mathf.Clamp(value, 1f, 179f);
-            if (cam != null)
-                cam.fieldOfView = fovBase;
+            fovDosOlhos = fovBase;
+            if (!Enquadrada && Cam != null)
+                Cam.fieldOfView = fovBase;
         }
+    }
+
+    /* Indo, parada na pose ou voltando. Falso só com a câmera de volta aos olhos. */
+    public bool Enquadrada => enquadramentoPedido || pesoEnquadramento > 0f;
+
+    /* Leva a câmera até a pose e a mantém lá. Chamado no meio da volta, continua de onde está. */
+    public void Enquadrar(PoseDePerto pose)
+    {
+        poseEnquadrada = pose;
+        enquadramentoPedido = true;
+    }
+
+    /* Devolve a câmera aos olhos. Chamado no meio da ida, volta de onde está. */
+    public void SoltarEnquadramento()
+    {
+        enquadramentoPedido = false;
     }
 
     /* Desligado = sem head bob nem inclinação ao andar (Configurações). */
@@ -108,6 +158,7 @@ public class CameraJogador : MonoBehaviour
     {
         cam = GetComponent<Camera>();
         fovBase = cam.fieldOfView;
+        fovDosOlhos = fovBase;
         cam.nearClipPlane = nearClip;
         if (jogador == null)
             jogador = FindFirstObjectByType<ControladorJogador>();
@@ -138,10 +189,15 @@ public class CameraJogador : MonoBehaviour
 
     void LateUpdate()
     {
+        Posicionar(Time.deltaTime, Time.unscaledDeltaTime);
+    }
+
+    /* O corpo do LateUpdate. dt move o balanço e a mola; dtReal (sem escala) move o enquadramento. */
+    internal void Posicionar(float dt, float dtReal)
+    {
         if (jogador == null)
             return;
 
-        float dt = Time.deltaTime;
         float vel = jogador.VelocidadeHorizontal;
         float tCorrida = Mathf.InverseLerp(jogador.VelocidadeAndar, jogador.VelocidadeCorrer, vel);
         AtualizarPesoPesado(dt);
@@ -170,13 +226,34 @@ public class CameraJogador : MonoBehaviour
         Vector3 pivo = jogador.transform.position + Vector3.up * alturaPivo;
         Vector3 olhos = pivo + rot * new Vector3(0f, olhosNoPivo.y, olhosNoPivo.x);
 
-        transform.position = olhos
-                             + (rot * Vector3.right) * bobX
-                             + Vector3.up * (bobY + afundada);
-        transform.rotation = rot * Quaternion.Euler(0f, 0f, roll);
+        Vector3 posicaoDosOlhos = olhos
+                                  + (rot * Vector3.right) * bobX
+                                  + Vector3.up * (bobY + afundada);
+        Quaternion giroDosOlhos = rot * Quaternion.Euler(0f, 0f, roll);
 
         // --- FOV da corrida ---
         float fovAlvo = fovBase + (jogador.Correndo ? fovExtraCorrendo * Mathf.Max(tCorrida, 0.3f) : 0f);
-        cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, fovAlvo, 1f - Mathf.Exp(-velocidadeFov * dt));
+        fovDosOlhos = Mathf.Lerp(fovDosOlhos, fovAlvo, 1f - Mathf.Exp(-velocidadeFov * dt));
+
+        // --- enquadramento temporário (tempo sem escala) ---
+        if (float.IsFinite(dtReal) && dtReal > 0f)
+        {
+            float duracao = enquadramentoPedido ? SegundosDeIda : SegundosDeVolta;
+            pesoEnquadramento = Mathf.MoveTowards(pesoEnquadramento, enquadramentoPedido ? 1f : 0f, dtReal / duracao);
+        }
+        float s = Mathf.SmoothStep(0f, 1f, pesoEnquadramento);
+
+        if (s <= 0f)
+        {
+            // Nos olhos: sem misturar (a pose padrão tem giro (0,0,0,0)).
+            transform.position = posicaoDosOlhos;
+            transform.rotation = giroDosOlhos;
+            Cam.fieldOfView = fovDosOlhos;
+            return;
+        }
+
+        transform.position = Vector3.Lerp(posicaoDosOlhos, poseEnquadrada.Posicao, s);
+        transform.rotation = Quaternion.Slerp(giroDosOlhos, poseEnquadrada.Giro, s);
+        Cam.fieldOfView = Mathf.Lerp(fovDosOlhos, poseEnquadrada.Fov, s);
     }
 }

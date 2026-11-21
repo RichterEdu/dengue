@@ -15,6 +15,11 @@ using UnityEngine.UI;
  *  - Mostra "agora", "2 min", "1 h" conforme o post envelhece.
  *  - Relógio da barra de status = hora real do computador.
  *  - Rolagem suave (o CelularController repassa a rodinha do mouse).
+ *  - Post com foto (fotos dos focos): liga a moldura do card com a
+ *    textura. Quando o foco da foto é eliminado (OnFocoEliminado do
+ *    GerenciadorDeFocos), o card escurece a foto e ganha o selo
+ *    "RESOLVIDO" com um "pop" (tempo sem escala); post de um foco já
+ *    concluído entra carimbado, sem pop.
  *
  *  A hierarquia inteira é gerada pelo menu  Dengue > Criar Celular
  *  (Assets/Editor/CelularBuilder.cs), que já liga as referências.
@@ -24,6 +29,8 @@ public class FeedRedeSocial : MonoBehaviour
 {
     [Header("Referências")]
     [SerializeField] private RedeSocial rede;
+    [Tooltip("Vazio = GerenciadorDeFocos.Obter() no Start. Carimba os cards das fotos quando o foco é eliminado.")]
+    [SerializeField] private GerenciadorDeFocos gerenciador;
     [SerializeField] private RectTransform viewport;
     [SerializeField] private RectTransform conteudo;
     [Tooltip("Card modelo (fica desativado). É clonado a cada post.")]
@@ -59,6 +66,11 @@ public class FeedRedeSocial : MonoBehaviour
     [Header("Animação de entrada")]
     [SerializeField] private float duracaoEntrada = 0.35f;
 
+    /* Selo "RESOLVIDO": a foto escurece e o selo entra com um "pop". */
+    private static readonly Color CorFotoCarimbada = new Color(0.62f, 0.62f, 0.62f, 1f);
+    private const float DuracaoPopSelo = 0.25f;
+    private const float EscalaInicialSelo = 1.3f;
+
     private readonly List<PostView> entradas = new List<PostView>();
     private float alvoScroll;
     private float scrollAtual;
@@ -84,12 +96,24 @@ public class FeedRedeSocial : MonoBehaviour
 
     void Start()
     {
+        if (gerenciador == null) gerenciador = GerenciadorDeFocos.Obter();
+        if (gerenciador != null)
+            gerenciador.OnFocoEliminado += CarimbarFoco;
+
         // Se o feed nasceu depois de alguma publicação, recupera o que já saiu.
         if (rede != null)
             foreach (PostRedeSocial p in rede.Publicados)
                 Adicionar(p);
 
         AtualizarSubtitulo();
+    }
+
+    /* Só pelo campo, como na RedeSocial: procurar ou criar um gerenciador
+     * aqui (fim do Play, troca de cena) deixaria objeto novo para trás. */
+    void OnDestroy()
+    {
+        if (gerenciador != null)
+            gerenciador.OnFocoEliminado -= CarimbarFoco;
     }
 
     void Update()
@@ -108,6 +132,7 @@ public class FeedRedeSocial : MonoBehaviour
         }
 
         AnimarEntradas();
+        AnimarSelos();
         AtualizarScroll();
 
         if (vazio != null)
@@ -133,7 +158,8 @@ public class FeedRedeSocial : MonoBehaviour
 
     /* ---------------- Cards ---------------- */
 
-    private void Adicionar(PostRedeSocial post)
+    /* Handler do OnPostPublicado (internal: os testes chamam direto). */
+    internal void Adicionar(PostRedeSocial post)
     {
         if (modelo == null || conteudo == null || post == null)
             return;
@@ -162,6 +188,8 @@ public class FeedRedeSocial : MonoBehaviour
         if (pv.faixa != null) pv.faixa.color = CorDoHumor(post.humor);
         if (pv.coracao != null) pv.coracao.color = new Color(0.94f, 0.36f, 0.45f, 0.9f);
 
+        MostrarFoto(pv, post);
+
         if (pv.grupo != null) pv.grupo.alpha = 0f;
         pv.rect.localScale = new Vector3(0.94f, 0.94f, 1f);
 
@@ -170,6 +198,71 @@ public class FeedRedeSocial : MonoBehaviour
         LayoutRebuilder.ForceRebuildLayoutImmediate(conteudo);
         IrParaTopo();
         AtualizarSubtitulo();
+    }
+
+    /* Moldura ligada só com foto; foto clara e sem selo, salvo se o foco
+     * já foi eliminado (posts recuperados no Start): aí entra carimbado. */
+    private static void MostrarFoto(PostView pv, PostRedeSocial post)
+    {
+        pv.foco = post.foco;
+        if (pv.foto != null) pv.foto.gameObject.SetActive(post.foto != null);
+        if (pv.fotoImagem != null)
+        {
+            pv.fotoImagem.texture = post.foto;
+            pv.fotoImagem.color = Color.white;
+        }
+        if (pv.selo != null) pv.selo.SetActive(false);
+        pv.animSelo = 1f;
+
+        if (pv.foco != null && pv.foco.IsComplete)
+            Carimbar(pv, false);
+    }
+
+    /* OnFocoEliminado do gerenciador: carimba, com pop, os cards daquele
+     * foco que ainda não têm o selo. */
+    internal void CarimbarFoco(Interactable foco)
+    {
+        if (foco == null)
+            return;
+
+        foreach (PostView pv in entradas)
+            if (pv != null && pv.foco == foco && !Carimbado(pv))
+                Carimbar(pv, true);
+    }
+
+    /* O card já tem o selo ligado? */
+    internal static bool Carimbado(PostView pv)
+    {
+        return pv != null && pv.selo != null && pv.selo.activeSelf;
+    }
+
+    private static void Carimbar(PostView pv, bool comPop)
+    {
+        if (pv.fotoImagem != null) pv.fotoImagem.color = CorFotoCarimbada;
+        if (pv.selo == null)
+            return;
+
+        pv.selo.SetActive(true);
+        pv.animSelo = comPop ? 0f : 1f;
+        float s = comPop ? EscalaInicialSelo : 1f;
+        pv.selo.transform.localScale = new Vector3(s, s, 1f);
+    }
+
+    /* "Pop" do selo: 1,3 -> 1 em 0,25 s, em tempo sem escala (o celular
+     * aberto pode estar com o jogo pausado). */
+    private void AnimarSelos()
+    {
+        for (int i = 0; i < entradas.Count; i++)
+        {
+            PostView pv = entradas[i];
+            if (pv == null || pv.selo == null || pv.animSelo >= 1f)
+                continue;
+
+            pv.animSelo = Mathf.Min(1f, pv.animSelo + Time.unscaledDeltaTime / DuracaoPopSelo);
+            float e = 1f - Mathf.Pow(1f - pv.animSelo, 3f);       // ease out cubic
+            float s = Mathf.Lerp(EscalaInicialSelo, 1f, e);
+            pv.selo.transform.localScale = new Vector3(s, s, 1f);
+        }
     }
 
     private void AnimarEntradas()

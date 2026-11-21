@@ -100,9 +100,10 @@ public class Lixeira : PontoDeUso
         if (kit == null)
             return false;
 
-        if (kit.PneuCarregado != null)
+        if (kit.MaosOcupadas)
         {
-            motivo = "Pneu vai na caçamba da <b>picape da UPA</b>.";
+            motivo = kit.PneuCarregado != null ? "Pneu vai na caçamba da <b>picape da UPA</b>."
+                                               : CaixaDaguaInteractable.RecusaComATampa;
             return false;
         }
         if (kit.Estoque.GarrafasNoSaco <= 0)

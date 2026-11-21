@@ -31,7 +31,7 @@ using UnityEngine;
 
 public class EnxameDeMosquitos : MonoBehaviour
 {
-    private const string NomeDoFilho = "Enxame";
+    internal const string NomeDoFilho = "Enxame";
 
     // Voo dos mosquitos: quanto vive cada pontinho, a velocidade de saída
     // e o ruído (forte: o enxame se mexe o tempo todo, sem rumo).

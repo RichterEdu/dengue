@@ -27,7 +27,10 @@ using UnityEngine.InputSystem;
  *    Recusa de ponto com motivo vazio passa em silêncio.
  *  - Kit do agente: as teclas 1–5, a roda do mouse e LB/RB trocam a
  *    ferramenta; o botão direito (G; no controle, botão Norte) larga o
- *    pneu. Com o pneu nas mãos, só ponto de uso é alvo (a caçamba). Sem
+ *    pneu ou devolve a tampa da caixa d'água à lateral dela. Com o pneu
+ *    nas mãos, só ponto de uso é alvo (a caçamba); com a tampa, os pontos
+ *    de uso e a caixa dona dela (tampar). Pegou exige soltar o botão antes
+ *    do próximo passo: um aperto pega a tampa, outro segurado tampa. Sem
  *    KitDoAgente no player, segurar avança o foco sem ferramenta (como o
  *    clique antigo) e os pontos de uso recusam sem aviso.
  *  - Atalho de esvaziar (Parte B): com as Mãos num vaso ou grupo de
@@ -35,10 +38,31 @@ using UnityEngine.InputSystem;
  *    e o resultado Esvaziou encerra o aperto (como o uso de ponto:
  *    segurar mais não emenda num JaVazio). JaVazio é recusa, como a
  *    ferramenta errada.
- *  - Skill check (foco com UsaSkillCheck, o ralo): um aperto começa os
- *    checks (SkillCheck.cs), com a mesma conferência, e o jogador fica
- *    parado até o fim. Cada acerto é um AvancarCom(kit). Um erro chama
- *    ErrarSkillCheck(kit) e OnErrouSkillCheck. Bloqueado cancela sem culpa.
+ *  - Minigame (Minigame.cs; foco cujo CriarMinigame devolve uma sessão,
+ *    como o skill check do ralo): só um aperto NOVO, conferido, começa a
+ *    sessão no lugar do segurar (ConferirFoco), mesmo que o botão já tenha
+ *    sido solto no mesmo quadro (clique rápido); a mira chegando ao foco com
+ *    o botão já apertado não começa nada nem avisa, e o segurar fica preso
+ *    até soltar. O jogador fica parado até o fim, sem trocar de
+ *    ferramenta nem de alvo. A cada quadro, AvancarMinigame: cada Passo é
+ *    um AvancarCom(kit) (resultado diferente de Avancou encerra); Errou
+ *    chama AoErrarMinigame(kit) e OnErrouSkillCheck; o botão de largar
+ *    sai (AoSairDoMinigame) se a sessão PodeSair. Bloqueado (AoBloquear)
+ *    sai sem culpa. Encerrado, segurar só volta a valer depois de soltar
+ *    o botão.
+ *  - Vista de perto: sessão IMinigameDePerto pede a pose dela à câmera
+ *    (CameraDePerto.Enquadrar) ao começar; toda saída (concluir, sair,
+ *    Bloqueado, recusa, alvo desativado ou destruído) solta o
+ *    enquadramento. Com a câmera ativa, o agente continua parado e sem
+ *    mira (LargarSeVoltando) enquanto ela volta aos olhos; ao chegar
+ *    (AtualizarVolta, no começo do Update), o agente é liberado e o foco
+ *    ouve AoVoltarDaVistaDePerto. Sem câmera ativa, isso é na hora. O
+ *    Ponteiro da sessão é o EntradaJogador.OlharSemInverter. No Start,
+ *    o Interactor adiciona ao Player a SkillCheckHUD, a
+ *    PontosDeBorrifarHUD e o BorrifadorDePerto, se faltarem.
+ *  - Pneu nos braços: quanto a câmera mexeu é repassado a cada quadro ao
+ *    pneu (BalancarPneuNosBracos), que derrama a água (sem ritmo).
+ *    Largar cheio sobre a caçamba recusa (Cacamba.RecusaPneuComAgua).
  *  - ProgressoContinuo (0..1) e Avancando alimentam a barra da HUD e o
  *    som de ação.
  *  - Destaque visual: quando o jogador mira num foco ou ponto de uso, os
@@ -99,7 +123,15 @@ public class Interactor : MonoBehaviour
     private Component alvoConferido;
     private bool liberado;
 
-    private SessaoDeSkillCheck skillCheck;
+    // Minigame em andamento (null = nenhum).
+    private IMinigame minigame;
+
+    // Vista de perto: a câmera que enquadra, se ela ainda está voltando aos
+    // olhos e o foco que ouve o AoVoltarDaVistaDePerto quando ela chegar.
+    private CameraJogador cameraDePerto;
+    private bool voltando;
+    private Interactable focoDaVolta;
+
     private ControladorJogador jogador;
 
     private readonly List<HighlightEntry> highlighted = new List<HighlightEntry>();
@@ -114,8 +146,47 @@ public class Interactor : MonoBehaviour
     /* O jogador errou um skill check neste foco (a tela já foi gasta). */
     public event Action<Interactable> OnErrouSkillCheck;
 
-    /* Skill check em andamento (null = nenhum). Lido pela SkillCheckHUD. */
-    public SessaoDeSkillCheck SkillCheckAtivo => skillCheck;
+    /* Minigame em andamento (null = nenhum). */
+    public IMinigame MinigameAtivo => minigame;
+
+    /* Skill check em andamento (null = nenhum, ou o minigame é outro).
+     * Lido pela SkillCheckHUD, pelo ItensNaMao e pela HUD. */
+    public SessaoDeSkillCheck SkillCheckAtivo => (minigame as MinigameDeSkillCheck)?.Sessao;
+
+    /* Pontos de borrifar em andamento (null = nenhum, ou o minigame é outro). */
+    public PontosDeBorrifar PontosAtivos => minigame as PontosDeBorrifar;
+
+    /* Vista de perto: sessão IMinigameDePerto em andamento, ou a câmera ainda voltando dela. */
+    public bool DePerto => minigame is IMinigameDePerto || voltando;
+
+    /* A câmera saiu da vista de perto e ainda não chegou aos olhos (agente parado). */
+    internal bool Voltando => voltando;
+
+    /* A câmera que enquadra. Vazia = a da Camera.main, achada no primeiro uso. */
+    internal CameraJogador CameraDePerto
+    {
+        get
+        {
+            if (cameraDePerto == null)
+            {
+                Camera principal = Camera.main;
+                if (principal != null)
+                    cameraDePerto = principal.GetComponent<CameraJogador>();
+            }
+            return cameraDePerto;
+        }
+        set => cameraDePerto = value;
+    }
+
+    /* CameraDePerto existe, está ligada e com o objeto ativo. */
+    private bool CameraAtiva
+    {
+        get
+        {
+            CameraJogador camera = CameraDePerto;
+            return camera != null && camera.enabled && camera.gameObject.activeInHierarchy;
+        }
+    }
 
     /* Foco mirado (lido pela HUD, pelo brilho de proximidade e por scripts futuros). */
     public Interactable CurrentTarget => currentTarget;
@@ -124,14 +195,35 @@ public class Interactor : MonoBehaviour
     public PontoDeUso PontoAlvo => pontoAlvo;
 
     /* Kit do agente usado nos passos e nos pontos (null = sem kit). A HUD
-     * pede a ele o texto da mira do ponto (PontoDeUso.TextoPara). */
-    public KitDoAgente Kit => kit;
+     * pede a ele o texto da mira do ponto (PontoDeUso.TextoPara). Vazio, o
+     * deste objeto, achado no primeiro uso (no EditMode o Start não roda). */
+    public KitDoAgente Kit
+    {
+        get
+        {
+            if (kit == null)
+                kit = GetComponent<KitDoAgente>();
+            return kit;
+        }
+    }
+
+    /* O ControladorJogador deste objeto, achado no primeiro uso. */
+    private ControladorJogador Jogador
+    {
+        get
+        {
+            if (jogador == null)
+                jogador = GetComponent<ControladorJogador>();
+            return jogador;
+        }
+    }
 
     /* Barra da HUD (0..1): no foco, cliques dados + o passo em andamento;
      * no ponto, quanto do uso já foi segurado. */
     public float ProgressoContinuo { get; private set; }
 
-    /* Segurando num alvo liberado (passo válido) neste quadro: som de ação. */
+    /* Segurando num alvo liberado (passo válido) neste quadro, ou num
+     * minigame cuja sessão está Agindo: som de ação e item na mão. */
     public bool Avancando { get; private set; }
 
     /* Quando true, o jogador não mira nem interage com nada (usado, por
@@ -158,39 +250,45 @@ public class Interactor : MonoBehaviour
         jogador = GetComponent<ControladorJogador>();
         if (GetComponent<SkillCheckHUD>() == null)
             gameObject.AddComponent<SkillCheckHUD>();
+        if (GetComponent<PontosDeBorrifarHUD>() == null)
+            gameObject.AddComponent<PontosDeBorrifarHUD>();
+        if (GetComponent<BorrifadorDePerto>() == null)
+            gameObject.AddComponent<BorrifadorDePerto>();
     }
 
     void Update()
     {
+        // 0) A câmera chegou aos olhos depois da vista de perto: libera o agente.
+        AtualizarVolta();
+
         // 1) Bloqueado (celular levantado, menu aberto...): larga o alvo,
         //    zera o segurar e sai.
         if (Bloqueado)
         {
-            if (skillCheck != null)
-            {
-                currentTarget.CancelarSkillCheck();
-                EncerrarSkillCheck();
-            }
-            TrocarAlvo(null, null);
-            sessao.Zerar();
-            alvoConferido = null;
-            liberado = false;
-            ProgressoContinuo = 0f;
-            Avancando = false;
+            AoBloquear();
             return;
         }
 
-        // Skill check: nada de trocar ferramenta nem de alvo até acabar.
-        if (skillCheck != null)
+        // Câmera voltando da vista de perto: sem mira (o raio ainda sairia
+        // da câmera sobre o foco) e sem nada até ela chegar aos olhos.
+        if (LargarSeVoltando())
+            return;
+
+        // Minigame: nada de trocar ferramenta nem de alvo até acabar.
+        // Pausado, a sessão para e o aperto não conta.
+        if (minigame != null)
         {
-            AtualizarSkillCheck();
+            if (Time.deltaTime > 0f)
+                AvancarMinigame(Time.deltaTime, LerEntradaDoMinigame(), entrada != null && entrada.LargarPressionado);
+            else
+                Avancando = false;
             UpdateHighlightPulse();
             AtualizarProgresso();
             return;
         }
 
-        // 2) Troca de ferramenta, só com as mãos livres.
-        if (kit != null && kit.PneuCarregado == null && entrada != null)
+        // 2) Troca de ferramenta, só com as mãos livres (sem pneu nem tampa).
+        if (kit != null && !kit.MaosOcupadas && entrada != null)
         {
             int pedida = entrada.FerramentaPedida;
             if (pedida >= 0 && pedida < Ferramentas.Todas.Length)
@@ -203,13 +301,27 @@ public class Interactor : MonoBehaviour
                 kit.Anterior();
         }
 
-        // 3) Largar o pneu no chão, na frente do agente.
-        if (kit != null && kit.PneuCarregado != null && entrada != null && entrada.LargarPressionado)
-            kit.LargarPneu(transform.position, transform.forward);
+        // 3) Largar o pneu no chão, na frente do agente, ou devolver a
+        //    tampa à lateral da caixa.
+        if (kit != null && entrada != null && entrada.LargarPressionado)
+        {
+            if (kit.PneuCarregado != null)
+            {
+                // Cheio sobre a caçamba: recusa e o pneu fica nos braços.
+                if (!kit.LargarPneu(transform.position, transform.forward) && kit.PneuCarregado != null)
+                    AvisarRecusa((PontoDeUso)null, Cacamba.RecusaPneuComAgua);
+            }
+            else if (kit.TampaCarregada != null)
+                kit.DevolverTampa();
+        }
+
+        // 3b) O olhar balança o pneu nos braços e derrama a água.
+        BalancarPneuNosBracos(Time.deltaTime, entrada != null ? entrada.Olhar : Vector2.zero);
 
         // 4) Alvo da mira: se mudou, desfaz o destaque no antigo e aplica no novo.
-        bool comPneu = kit != null && kit.PneuCarregado != null;
-        RaycastTarget(comPneu, out Interactable foco, out PontoDeUso ponto);
+        bool maosOcupadas = kit != null && kit.MaosOcupadas;
+        Interactable focoPermitido = kit != null ? kit.TampaCarregada : null;
+        RaycastTarget(maosOcupadas, focoPermitido, out Interactable foco, out PontoDeUso ponto);
         TrocarAlvo(foco, ponto);
 
         UpdateHighlightPulse();
@@ -219,6 +331,18 @@ public class Interactor : MonoBehaviour
 
         // 7) Barra da HUD.
         AtualizarProgresso();
+    }
+
+    /* Repassa ao pneu nos braços quanto a câmera mexeu no quadro, para
+     * qualquer lado (o sinal do horizontal dá o lado da inclinação).
+     * Nada com o Bloqueado, sem kit ou sem pneu. */
+    internal void BalancarPneuNosBracos(float dt, Vector2 olhar)
+    {
+        if (Bloqueado || Kit == null || Kit.PneuCarregado == null)
+            return;
+
+        float graus = olhar.magnitude * (olhar.x < 0f ? -1f : 1f);
+        Kit.PneuCarregado.BalancarNosBracos(dt, graus, transform.forward);
     }
 
     /* Botão de interagir mantido apertado (clique esquerdo ou "Attack"). */
@@ -242,42 +366,166 @@ public class Interactor : MonoBehaviour
         return mouse != null && mouse.leftButton.wasPressedThisFrame;
     }
 
-    private void IniciarSkillCheck()
+    /* O que o jogador fez neste quadro, para o minigame. */
+    private EntradaDoMinigame LerEntradaDoMinigame()
     {
-        skillCheck = new SessaoDeSkillCheck(currentTarget.RequiredClicks, currentTarget.SegundosPorVoltaDoCheck,
-                                            UnityEngine.Random.Range(int.MinValue, int.MaxValue));
-        if (jogador != null)
-            jogador.Imobilizado = true;
+        return new EntradaDoMinigame
+        {
+            Olhar = entrada != null ? entrada.Olhar : Vector2.zero,
+            Ponteiro = entrada != null ? entrada.OlharSemInverter : Vector2.zero,
+            Segurando = LerSegurando(),
+            Apertou = LerApertou()
+        };
     }
 
-    private void EncerrarSkillCheck()
+    /* Bloqueado: sai do minigame sem culpa, larga o alvo e zera o segurar. */
+    internal void AoBloquear()
     {
-        skillCheck = null;
-        if (jogador != null)
-            jogador.Imobilizado = false;
+        if (minigame != null)
+        {
+            if (currentTarget != null)
+                currentTarget.AoSairDoMinigame();
+            EncerrarMinigame();
+        }
+        TrocarAlvo(null, null);
+        sessao.Zerar();
+        alvoConferido = null;
+        liberado = false;
+        ProgressoContinuo = 0f;
+        Avancando = false;
     }
 
-    /* Anda o ponteiro ou lê o aperto e aplica o resultado no foco. */
-    private void AtualizarSkillCheck()
+    /* Libera o agente quando a câmera chega aos olhos (ou deixa de estar
+     * ativa) e avisa o foco da vista de perto, se ele ainda existir.
+     * Chamado no começo do Update. */
+    internal void AtualizarVolta()
     {
-        // Pausado: o ponteiro para e o clique não conta.
-        if (Time.deltaTime <= 0f)
+        if (!voltando)
+            return;
+        if (CameraAtiva && CameraDePerto.Enquadrada)
             return;
 
-        ResultadoDoCheck resultado = LerApertou() ? skillCheck.Apertar() : skillCheck.Atualizar(Time.deltaTime);
+        voltando = false;
+        if (Jogador != null)
+            Jogador.Imobilizado = false;
+        Interactable foco = focoDaVolta;
+        focoDaVolta = null;
+        if (foco != null)
+            foco.AoVoltarDaVistaDePerto();
+    }
 
-        if (resultado == ResultadoDoCheck.Errou)
+    /* Com a câmera voltando: larga o alvo, zera o segurar e devolve true
+     * (o Update sai aí). Sem volta, false e nada muda. */
+    internal bool LargarSeVoltando()
+    {
+        if (!voltando)
+            return false;
+
+        TrocarAlvo(null, null);
+        sessao.Zerar();
+        alvoConferido = null;
+        liberado = false;
+        ProgressoContinuo = 0f;
+        Avancando = false;
+        return true;
+    }
+
+    /* Começa o minigame do foco (que vira o alvo atual). false = o foco não
+     * tem minigame agora (CriarMinigame devolveu null): segue o segurar. */
+    internal bool IniciarMinigame(Interactable foco)
+    {
+        IMinigame criado = foco.CriarMinigame(Kit, UnityEngine.Random.Range(int.MinValue, int.MaxValue));
+        if (criado == null)
+            return false;
+
+        TrocarAlvo(foco, null);
+        minigame = criado;
+        sessao.Zerar();
+        // Uma volta em andamento é substituída pela sessão nova (o foco antigo não ouve a volta).
+        voltando = false;
+        focoDaVolta = null;
+        if (criado is IMinigameDePerto dePerto && CameraAtiva)
+            CameraDePerto.Enquadrar(dePerto.Pose);
+        if (Jogador != null)
+            Jogador.Imobilizado = true;
+        foco.AoIniciarMinigame(criado);
+        return true;
+    }
+
+    /* Um quadro do minigame: sair, atualizar a sessão e aplicar o
+     * resultado no foco. Alvo destruído ou desativado encerra. */
+    internal void AvancarMinigame(float dt, EntradaDoMinigame entradaDoMinigame, bool sair)
+    {
+        if (minigame == null)
+            return;
+
+        Interactable foco = currentTarget;
+        if (foco == null || !foco.gameObject.activeInHierarchy)
         {
-            Interactable foco = currentTarget;
-            foco.ErrarSkillCheck(kit);
-            EncerrarSkillCheck();
+            EncerrarMinigame();
+            return;
+        }
+
+        if (sair && minigame.PodeSair)
+        {
+            foco.AoSairDoMinigame();
+            EncerrarMinigame();
+            return;
+        }
+
+        IMinigame ativo = minigame;
+        EstadoDoMinigame estado = ativo.Atualizar(dt, entradaDoMinigame);
+        foco.AoAtualizarMinigame(ativo);
+
+        if (estado == EstadoDoMinigame.Passo)
+        {
+            if (foco.AvancarCom(Kit) != ResultadoDoPasso.Avancou)
+                EncerrarMinigame();
+        }
+        else if (estado == EstadoDoMinigame.Errou)
+        {
+            foco.AoErrarMinigame(Kit);
+            EncerrarMinigame();
             OnErrouSkillCheck?.Invoke(foco);
         }
-        else if (resultado == ResultadoDoCheck.Acertou
-                 && currentTarget.AvancarCom(kit) != ResultadoDoPasso.Avancou)
+
+        Avancando = minigame != null && minigame.Agindo;
+    }
+
+    /* Fim do minigame: o jogador volta a andar. Segurar só vale de novo
+     * depois de soltar o botão (o ralo não avança segurando). Vista de
+     * perto: solta o enquadramento e, com a câmera ativa, o jogador só
+     * volta a andar quando ela chegar aos olhos (AtualizarVolta). */
+    private void EncerrarMinigame()
+    {
+        bool eraDePerto = minigame is IMinigameDePerto;
+        minigame = null;
+        sessao.Zerar();
+        liberado = false;
+        Avancando = false;
+
+        if (eraDePerto)
         {
-            EncerrarSkillCheck();
+            // Solta mesmo com a câmera desligada: ao religar, ela não volta enquadrada.
+            if (CameraDePerto != null)
+                CameraDePerto.SoltarEnquadramento();
+
+            if (CameraAtiva)
+            {
+                voltando = true;
+                focoDaVolta = currentTarget;
+                return;   // o Imobilizado continua true até a câmera voltar
+            }
+
+            if (Jogador != null)
+                Jogador.Imobilizado = false;
+            if (currentTarget != null)
+                currentTarget.AoVoltarDaVistaDePerto();
+            return;
         }
+
+        if (Jogador != null)
+            Jogador.Imobilizado = false;
     }
 
     /* Confere o alvo no aperto (ou ao trocar de alvo segurando) e converte o
@@ -309,21 +557,25 @@ public class Interactor : MonoBehaviour
             return;
         }
 
-        // Foco com skill check: o aperto começa os checks, sem segurar.
-        if (currentTarget != null && currentTarget.UsaSkillCheck)
-        {
-            sessao.Zerar();
-            Avancando = false;
-            if (LerApertou() && Conferir())
-                IniciarSkillCheck();
-            return;
-        }
+        // Um clique rápido (apertou e soltou no mesmo quadro) num foco com
+        // minigame também confere: começa a sessão como antes (o ralo). No
+        // segurar dos outros focos nada muda.
+        bool apertou = LerApertou();
+        bool conferir = segurando
+            || (apertou && currentTarget != null && currentTarget.CriarMinigame(Kit, 0) != null);
 
-        if (segurando && alvo != null && !ReferenceEquals(alvo, alvoConferido))
+        if (conferir && alvo != null && !ReferenceEquals(alvo, alvoConferido))
         {
             // Aperto novo, ou outro alvo com o botão ainda apertado: confere uma vez.
             alvoConferido = alvo;
-            liberado = Conferir();
+            liberado = Conferir(apertou);
+
+            // Foco com minigame: o aperto conferido começou a sessão, no lugar do segurar.
+            if (minigame != null)
+            {
+                Avancando = false;
+                return;
+            }
         }
 
         float segundosPorPasso = currentTarget != null ? currentTarget.SegundosPorPassoCom(kit)
@@ -340,18 +592,12 @@ public class Interactor : MonoBehaviour
         Avancando = segurando && liberado && alvo != null;
     }
 
-    /* Conferência do aperto, sem avançar nem gastar nada. Recusado, avisa. */
-    private bool Conferir()
+    /* Conferência do aperto (ou da troca de alvo segurando), sem avançar nem
+     * gastar nada. true = o segurar fica liberado. Recusado, avisa. */
+    private bool Conferir(bool apertoNovo)
     {
         if (currentTarget != null)
-        {
-            ResultadoDoPasso resultado = currentTarget.Verificar(kit);
-            if (resultado == ResultadoDoPasso.Avancou)
-                return true;
-
-            AvisarRecusa(currentTarget, resultado);
-            return false;
-        }
+            return ConferirFoco(currentTarget, apertoNovo);
 
         if (pontoAlvo != null)
         {
@@ -363,6 +609,34 @@ public class Interactor : MonoBehaviour
         }
 
         return false;
+    }
+
+    /* Conferência de um foco. Sem minigame, como sempre: aprovado, o segurar
+     * fica liberado (true). Com minigame para este kit, só um aperto novo
+     * conta: conferido, começa a sessão (e o segurar não é liberado). A mira
+     * chegando com o botão já apertado não começa nada, não confere (sem
+     * aviso, como o ralo antigo) e prende o segurar até soltar: no ralo, o
+     * ponteiro andaria sem o jogador querer e o erro gastaria a tela. */
+    internal bool ConferirFoco(Interactable foco, bool apertoNovo)
+    {
+        // Só a pergunta: CriarMinigame é uma fábrica pura e a sessão é descartada.
+        bool temMinigame = foco.CriarMinigame(Kit, 0) != null;
+        if (temMinigame && !apertoNovo)
+            return false;
+
+        ResultadoDoPasso resultado = foco.Verificar(Kit);
+        if (resultado != ResultadoDoPasso.Avancou)
+        {
+            AvisarRecusa(foco, resultado);
+            return false;
+        }
+
+        if (temMinigame)
+        {
+            IniciarMinigame(foco);
+            return false;
+        }
+        return true;
     }
 
     /* Um passo no alvo atual. False = parar por aqui neste aperto ou alvo
@@ -378,9 +652,16 @@ public class Interactor : MonoBehaviour
                     return true;
 
                 case ResultadoDoPasso.Concluiu:
-                case ResultadoDoPasso.Pegou:
-                    // O foco saiu da mira (concluído ou nos braços).
+                    // O foco saiu da mira (concluído).
                     sessao.Zerar();
+                    return false;
+
+                case ResultadoDoPasso.Pegou:
+                    // Nos braços. O pneu sai da mira; a caixa da tampa
+                    // continua nela, e tampar só vale depois de soltar o
+                    // botão (um aperto longo não pega e tampa de uma vez).
+                    sessao.Zerar();
+                    liberado = false;
                     return false;
 
                 case ResultadoDoPasso.Esvaziou:
@@ -432,16 +713,15 @@ public class Interactor : MonoBehaviour
             OnPontoRecusado?.Invoke(ponto, motivo);
     }
 
-    /* Barra da HUD: cliques já dados + a fração do passo em andamento (no
-     * atalho de esvaziar, os passos de esvaziar). */
+    /* Barra da HUD: no foco, a conta dele (Interactable.ProgressoCom) com
+     * a fração do passo em andamento (a do minigame, se houver um ativo). */
     private void AtualizarProgresso()
     {
-        if (currentTarget != null && currentTarget.NoCaminhoDeEsvaziar(kit))
-            ProgressoContinuo = Mathf.Clamp01((currentTarget.PassosEsvaziando + sessao.Fracao) /
-                                              Mathf.Max(1, currentTarget.PassosParaEsvaziar));
-        else if (currentTarget != null)
-            ProgressoContinuo = Mathf.Clamp01((currentTarget.CurrentClicks + sessao.Fracao) /
-                                              Mathf.Max(1, currentTarget.RequiredClicks));
+        if (currentTarget != null)
+        {
+            float fracao = minigame != null ? minigame.FracaoDoPasso : sessao.Fracao;
+            ProgressoContinuo = currentTarget.ProgressoCom(kit, fracao);
+        }
         else if (pontoAlvo != null)
             ProgressoContinuo = sessao.Fracao;
         else
@@ -466,12 +746,14 @@ public class Interactor : MonoBehaviour
     }
 
     /* Dispara um raio do centro da tela e acha o primeiro alvo válido, do
-     * mais perto para o mais longe: um foco que ainda aceita passos (só com
-     * as mãos livres) ou um ponto de uso. Foco concluído ou que não pode ser
-     * alvo agora (ex.: vaso já com areia, pneu entregue encolhendo, qualquer
-     * foco com o pneu nas mãos) é atravessado; qualquer outro collider
+     * mais perto para o mais longe: um foco que ainda aceita passos (com as
+     * mãos ocupadas, só o focoPermitido: a caixa dona da tampa nos braços)
+     * ou um ponto de uso. Foco concluído ou que não pode ser alvo agora (ex.:
+     * vaso já com areia, pneu entregue encolhendo, qualquer outro foco com o
+     * pneu ou a tampa nas mãos) é atravessado; qualquer outro collider
      * (parede, chão, muro) tapa a mira. */
-    private void RaycastTarget(bool comPneu, out Interactable foco, out PontoDeUso ponto)
+    private void RaycastTarget(bool maosOcupadas, Interactable focoPermitido,
+                               out Interactable foco, out PontoDeUso ponto)
     {
         foco = null;
         ponto = null;
@@ -492,7 +774,8 @@ public class Interactor : MonoBehaviour
             Interactable achado = atingido.GetComponentInParent<Interactable>();
             if (achado != null)
             {
-                if (!comPneu && achado.CanInteract)
+                bool podeSerAlvo = !maosOcupadas || (focoPermitido != null && achado == focoPermitido);
+                if (podeSerAlvo && achado.CanInteract)
                 {
                     foco = achado;
                     return;

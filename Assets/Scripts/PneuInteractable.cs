@@ -6,26 +6,38 @@ using UnityEngine;
  *  PneuInteractable.cs
  *  ---------------------------------------------------------------------
  *  Foco do tipo PNEU — herda a base Interactable e adiciona o
- *  comportamento específico: no último passo, a ÁGUA é retirada (o
- *  filho "agua do pneu" é desativado) e o pneu fica Esvaziado. Antes
- *  disso a água continua lá: o pneu que parece vazio está vazio (não
- *  zumbe e a chuva o reenche).
+ *  comportamento específico: o pneu é pego CHEIO, com as Mãos, e esvazia
+ *  NOS BRAÇOS (a água é retirada: o filho "agua do pneu" é desativado e o
+ *  pneu fica Esvaziado). Antes disso a água continua lá: o pneu que parece
+ *  vazio está vazio (não zumbe e a chuva o reenche).
  *
  *  Kit do agente (Parte A): o pneu não conclui sozinho.
- *  - Com as Mãos, o último passo esvazia a água (Esvaziado, Parte B) e
- *    o pneu fica no lugar (Esvaziou). O passo seguinte o põe nos braços
- *    do agente (KitDoAgente.Pegar → PrenderEm): fica no PontoDeCarga,
- *    com os colliders desligados (Carregado). Não encolhe nos passos
- *    (Interactable): é carregado do tamanho dele.
+ *  - Com as Mãos, o clique pega o pneu na hora, cheio ou vazio
+ *    (KitDoAgente.Pegar → PrenderEm): fica no PontoDeCarga, com os
+ *    colliders desligados (Carregado). Não encolhe nos passos
+ *    (Interactable): é carregado do tamanho dele. Não há minigame no chão.
+ *  - Água nos braços: cada pneu da cena tem a água como um disco plano
+ *    deitado, que com o pneu de pé taparia o furo. Por isso ela fica
+ *    escondida nos braços e volta ao largar, se o pneu não esvaziou.
+ *  - Esvaziar nos braços (BalancarNosBracos): basta mexer a câmera, para
+ *    qualquer lado e sem ritmo. Cada grau mexido derrama água (o nível cai
+ *    1 a cada grausParaEsvaziar graus), cada passo de nível é um clique
+ *    (DarPassoNosBracos, com o som do derrame) e o último esvazia:
+ *    Esvaziou, a água some e o pneu fica esvaziado nos braços, de pose
+ *    zerada. O visual é o pneu inclinado em torno da frente do agente (e um
+ *    pouco para o lado) conforme a câmera mexe, com um estouro de
+ *    partículas no lado baixo ao derramar (só no Play). Largar no meio
+ *    guarda o nível exato, e pegar de novo continua dele.
  *  - Largar: OndeCai() calcula a pose sem mexer no pneu, e Largar()
- *    assenta nela. O pneu cai de pé, com o eixo da roda apontado para a
- *    frente do agente (assim ocupa só a largura da banda na direção dele,
- *    e não o diâmetro), afastado pelo próprio tamanho: a borda de cá fica
- *    fora do corpo do agente. Com um muro ou parede na frente, fica do
- *    lado de cá; sem chão (beira de muro, borda do mapa), cai no pé dele.
- *    Largado, continua sendo foco (alcançável pela mira), e pegar de novo
- *    é instantâneo. Se ele cairia numa caçamba (ou contra a cabine da
- *    picape dela), o KitDoAgente entrega em vez de largar.
+ *    assenta nela. O pneu cai de pé (sem a inclinação do balanço), com o
+ *    eixo da roda apontado para a frente do agente (assim ocupa só a
+ *    largura da banda na direção dele, e não o diâmetro), afastado pelo
+ *    próprio tamanho: a borda de cá fica fora do corpo do agente. Com um
+ *    muro ou parede na frente, fica do lado de cá; sem chão (beira de
+ *    muro, borda do mapa), cai no pé dele. Largado, continua sendo foco
+ *    (alcançável pela mira), e pegar de novo é instantâneo. Se ele cairia
+ *    numa caçamba (ou contra a cabine da picape dela), o KitDoAgente
+ *    entrega em vez de largar.
  *  - EntregarEm() (na caçamba da picape, Parte B) reserva a próxima vaga
  *    da carroceria (VagaNaCacamba) e chama Concluir(): só aí o foco conta
  *    como eliminado. Com vaga, o OnComplete arremessa o pneu num arco
@@ -38,8 +50,8 @@ using UnityEngine;
  *    número do aviso (o pneu recebido 1, 2, 3...) vem da reserva.
  *  - Esvaziado, o pneu já não zumbe (SomDosFocos).
  *  - Esvaziado e fora dos braços (no chão, largado), a chuva o reenche
- *    (Reencher): a água volta e os cliques zeram, e as Mãos esvaziam de
- *    novo. Nos braços, não reenche.
+ *    (Reencher): a água volta e os cliques zeram, e dá para pegar e
+ *    esvaziar de novo. Nos braços, não reenche.
  *
  *  No caminho antigo Interact() (sem kit), o último clique conclui o
  *  pneu como antes.
@@ -50,6 +62,29 @@ public class PneuInteractable : Interactable
     [Header("Pneu")]
     [Tooltip("Objeto filho que representa a água parada dentro do pneu.")]
     [SerializeField] private GameObject water;
+
+    [Header("Esvaziar nos braços")]
+    [Tooltip("Graus de câmera mexida (somando todos os lados) para esvaziar o pneu cheio. Menor = esvazia mais rápido.")]
+    [SerializeField] private float grausParaEsvaziar = 150f;
+
+    [Tooltip("Graus por segundo de câmera que inclinam o pneu ao máximo.")]
+    [SerializeField] private float grausPorSegundoCheio = 180f;
+
+    [Tooltip("Graus que o pneu inclina nos braços com a câmera mexendo rápido.")]
+    [SerializeField] private float inclinacaoMaxima = 25f;
+
+    // Esvaziar nos braços: o quanto o pneu se desloca para o lado (na direita
+    // do agente) com a inclinação máxima, o raio do respingo (do centro do
+    // pneu ao lado baixo), o intervalo entre os estouros de partículas e a
+    // rapidez com que a inclinação segue a câmera (por segundo).
+    private const float DeslocamentoLateral = 0.04f;
+    private const float RaioDoRespingo = 0.3f;
+    private const float IntervaloDasParticulas = 0.25f;
+    private const float SuavidadeDaInclinacao = 10f;
+
+    private float nivelGuardado = -1f;  // nível exato da água (< 0 = o dos passos fechados)
+    private float inclinacao;           // -1..1, segue a câmera mexendo
+    private float proximaParticula;
 
     // Raycasts que procuram o chão (para baixo, até esta distância).
     private const float AlcanceDoChao = 4f;
@@ -87,6 +122,20 @@ public class PneuInteractable : Interactable
      * ou entregue sem vaga livre). */
     public Transform VagaNaCacamba { get; private set; }
 
+    /* Quanta água ainda há (1 cheio .. 0 vazio): 0 esvaziado; senão, o nível
+     * exato desde que começou a derramar, ou o que os passos fechados deixaram. */
+    public float NivelDeAgua
+    {
+        get
+        {
+            if (Esvaziado)
+                return 0f;
+            if (nivelGuardado >= 0f)
+                return nivelGuardado;
+            return RequiredClicks > 0 ? Mathf.Clamp01(1f - (float)CurrentClicks / RequiredClicks) : 1f;
+        }
+    }
+
     /* Nos braços não é alvo. Esvaziado, continua alvo (para pegar de novo)
      * mesmo com os cliques já no total; antes disso, vale a regra da base. */
     public override bool CanInteract => !IsComplete && !Carregado && (Esvaziado || base.CanInteract);
@@ -97,35 +146,117 @@ public class PneuInteractable : Interactable
     /* Esvaziado, pegar de novo é na hora (0 = um passo por aperto). */
     public override float SegundosPorPasso => Esvaziado ? 0f : base.SegundosPorPasso;
 
+    /* Com kit, o clique só pega o pneu: na hora. */
+    public override float SegundosPorPassoCom(KitDoAgente kit) => kit != null ? 0f : SegundosPorPasso;
+
     /* Nos braços a chuva não reenche: só no chão (no lugar ou largado). */
     public override bool PodeReencher => base.PodeReencher && !Carregado;
 
     /* O último passo só esvazia o pneu; quem conclui é o Entregar. */
     protected override bool ConcluiSozinho => false;
 
-    /* Já esvaziado, pegar é um passo só, sem clique a mais. Senão, o passo
-     * normal da base, que no último esvazia o pneu no lugar (Esvaziou). */
+    /* Com kit, o clique pega o pneu na hora (cheio ou vazio). Sem kit, o
+     * passo normal da base (caminho antigo). */
     public override ResultadoDoPasso AvancarCom(KitDoAgente kit)
     {
-        if (Esvaziado)
-        {
-            ResultadoDoPasso conferido = Verificar(kit);
-            if (conferido != ResultadoDoPasso.Avancou)
-                return conferido;
+        if (kit == null || Carregado)
+            return base.AvancarCom(kit);
 
-            // Sem kit não há braços para onde ir.
-            return kit != null && kit.Pegar(this) ? ResultadoDoPasso.Pegou : ResultadoDoPasso.Bloqueado;
-        }
+        ResultadoDoPasso conferido = Verificar(kit);
+        if (conferido != ResultadoDoPasso.Avancou)
+            return conferido;
 
-        ResultadoDoPasso resultado = base.AvancarCom(kit);
-        if (resultado == ResultadoDoPasso.Avancou && Esvaziado)
-            return ResultadoDoPasso.Esvaziou;
-        return resultado;
+        return kit.Pegar(this) ? ResultadoDoPasso.Pegou : ResultadoDoPasso.Bloqueado;
     }
 
-    /* Último passo: a água sai e o pneu fica no lugar, Esvaziado (pegar é
-     * o próximo passo). No caminho antigo (kit null) conclui na hora, como
-     * antes do kit. */
+    /* Sem minigame no chão: o pneu esvazia nos braços. */
+    public override IMinigame CriarMinigame(KitDoAgente kit, int semente) => null;
+
+    public override string ConviteDoMinigame(KitDoAgente kit) => null;
+
+    /* Esvaziar nos braços leva um instante de câmera mexida. */
+    public override float SegundosEstimados => Esvaziado ? 0f : 1f;
+
+    /* Todo quadro com o pneu nos braços: 'olhar' são os graus que a câmera
+     * mexeu no quadro (o sinal só dá o lado da inclinação). Qualquer
+     * movimento derrama: o nível cai |olhar| / grausParaEsvaziar, e cada
+     * passo de nível cruzado é um clique (o último esvazia). dt <= 0, pneu
+     * fora dos braços ou esvaziado: nada. frenteDoAgente é o eixo da
+     * inclinação (o transform.forward do Player). */
+    internal void BalancarNosBracos(float dt, float olhar, Vector3 frenteDoAgente)
+    {
+        if (!Carregado || Esvaziado || !(dt > 0f) || !float.IsFinite(olhar))
+            return;
+
+        float derrame = Mathf.Abs(olhar) / Mathf.Max(1f, grausParaEsvaziar);
+        nivelGuardado = Mathf.Max(0f, NivelDeAgua - derrame);
+
+        float alvo = Mathf.Clamp(olhar / dt / Mathf.Max(1f, grausPorSegundoCheio), -1f, 1f);
+        inclinacao = Mathf.MoveTowards(inclinacao, alvo, SuavidadeDaInclinacao * dt);
+
+        // Cada limite de passo cruzado é um clique (som do derrame); o último esvazia.
+        while (RequiredClicks > 0 && nivelGuardado <= 1f - (float)(CurrentClicks + 1) / RequiredClicks + 1e-5f)
+        {
+            if (DarPassoNosBracos() == ResultadoDoPasso.Esvaziou)
+                return;     // já voltou à pose zerada
+        }
+
+        AplicarBalanco(frenteDoAgente, derrame > 0f);
+    }
+
+    /* O pneu inclinado em torno da frente do agente, sobre o giro do pai
+     * (o PontoDeCarga), e levado um pouco para o lado; derramando, estoura
+     * partículas no lado baixo (só no Play: o EstourarParticulas destrói
+     * com atraso, o que o EditMode não permite). */
+    private void AplicarBalanco(Vector3 frenteDoAgente, bool derramando)
+    {
+        Transform pai = transform.parent;
+        Quaternion giroDoPai = pai != null ? pai.rotation : Quaternion.identity;
+        Vector3 centro = pai != null ? pai.position : transform.position;
+
+        Vector3 frente = frenteDoAgente.sqrMagnitude > 1e-6f ? frenteDoAgente.normalized : Vector3.forward;
+        float angulo = inclinacao * inclinacaoMaxima;
+        Vector3 direita = Vector3.Cross(Vector3.up, frente).normalized;
+        float lado = inclinacao;
+
+        transform.SetPositionAndRotation(centro + direita * (DeslocamentoLateral * lado),
+                                         Quaternion.AngleAxis(angulo, frente) * giroDoPai);
+
+        if (derramando && Application.isPlaying && Time.time >= proximaParticula)
+        {
+            proximaParticula = Time.time + IntervaloDasParticulas;
+
+            // Girar o eixo para cima inclina o topo para o lado de Cross(eixo, cima):
+            // esse lado desce com a inclinação positiva.
+            Vector3 ladoBaixo = Vector3.Cross(frente, Vector3.up).normalized * (inclinacao < 0f ? -1f : 1f);
+            EstourarParticulas(transform.position + ladoBaixo * RaioDoRespingo);
+        }
+    }
+
+    /* Soma um passo de esvaziar nos braços. No último, a água sai (some), o
+     * pneu fica Esvaziado e a pose nos braços volta a zero. */
+    internal ResultadoDoPasso DarPassoNosBracos()
+    {
+        currentClicks++;
+        if (currentClicks < RequiredClicks)
+        {
+            // O som do derrame (o "tira a água" no 1º passo).
+            NotificarClique();
+            return ResultadoDoPasso.Avancou;
+        }
+
+        if (water != null)
+            water.SetActive(false);
+        Esvaziar();
+        nivelGuardado = -1f;
+        inclinacao = 0f;
+        transform.localPosition = Vector3.zero;
+        transform.localRotation = Quaternion.identity;
+        return ResultadoDoPasso.Esvaziou;
+    }
+
+    /* Último passo do caminho antigo (kit null): a água sai e conclui na
+     * hora, como antes do kit. */
     protected override void AoTerminarAcao(KitDoAgente kit)
     {
         // A água sai antes do Esvaziar: quem ouve o OnEsvaziado já vê o
@@ -138,19 +269,34 @@ public class PneuInteractable : Interactable
             Concluir();
     }
 
-    /* Reenchido (a chuva): a água volta e os cliques zeram, para as Mãos
-     * esvaziarem de novo (sem isso o CanInteract ficaria falso de vez). */
+    /* Reenchido (a chuva): a água volta e os cliques zeram, para dar para
+     * pegar e esvaziar de novo (sem isso o CanInteract ficaria falso de vez). */
     protected override void AoReencher()
     {
         if (water != null)
             water.SetActive(true);
         currentClicks = 0;
+        nivelGuardado = -1f;
+        inclinacao = 0f;
+    }
+
+    /* Nasce seco: o pneu já aparece sem água (pegável na hora, como o
+     * esvaziado — a chuva o enche, e dá para esvaziá-lo de novo). */
+    protected override void AoNascerVazio()
+    {
+        if (water != null)
+            water.SetActive(false);
     }
 
     /* Vai para os braços: guarda de onde veio, desliga os colliders (não
-     * empurra o agente nem bloqueia a mira) e vira filho do ponto. */
+     * empurra o agente nem bloqueia a mira), esconde a água (o disco deitado
+     * taparia o furo com o pneu de pé; ela volta ao Largar) e vira filho do
+     * ponto. O nível de água continua o que era. */
     internal void PrenderEm(Transform ponto)
     {
+        inclinacao = 0f;
+        if (water != null)
+            water.SetActive(false);
         paiOriginal = transform.parent;
         rotacaoOriginal = transform.rotation;
 
@@ -270,6 +416,8 @@ public class PneuInteractable : Interactable
     internal void Largar(Vector3 posicao, Quaternion giro)
     {
         Soltar();
+        if (water != null)
+            water.SetActive(!Esvaziado);
         transform.SetPositionAndRotation(posicao, giro);
         ReligarColliders();
     }
@@ -306,7 +454,8 @@ public class PneuInteractable : Interactable
         Quaternion virar = giro * Quaternion.Inverse(transform.rotation);
         foreach (Renderer r in GetComponentsInChildren<Renderer>())
         {
-            if (!r.enabled)
+            // Sem as partículas (o enxame do estágio Mosquito mede centenas de metros).
+            if (!r.enabled || !EmissionHighlightUtil.Destacavel(r))
                 continue;
 
             Bounds caixa = r.localBounds;
@@ -398,6 +547,8 @@ public class PneuInteractable : Interactable
      * hierarquia), mantendo a posição de mundo até ser posicionado. */
     private void Soltar()
     {
+        // O pneu cai com o nível que tinha (nivelGuardado), e pegar de novo continua dele.
+        inclinacao = 0f;
         transform.SetParent(paiOriginal, true);
         Carregado = false;
     }

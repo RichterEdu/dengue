@@ -19,8 +19,9 @@ using UnityEngine;
  *  SegundosPorPasso (segundosParaConcluir dividido entre os cliques) e é
  *  um AvancarCom(kit):
  *  - Verificar(kit) confere SEM avançar nem gastar nada, nesta ordem:
- *    foco que não aceita mais passos (Bloqueado), pneu nas mãos
- *    (MaosOcupadas), ferramenta errada, sem carga e a regra extra de
+ *    foco que não aceita mais passos (Bloqueado), pneu ou tampa nas
+ *    mãos (MaosOcupadas, menos onde AceitaComMaosOcupadas: a caixa dona
+ *    da tampa), ferramenta errada, sem carga e a regra extra de
  *    cada foco (VerificarExtra). Ferramenta errada vem antes de sem
  *    carga porque é a mensagem que ensina.
  *  - Se deu Avancou, o passo é igual a um clique antigo; a carga da
@@ -48,7 +49,16 @@ using UnityEngine;
  *    Esvaziou: o foco fica no lugar, sem água (Esvaziado), não zumbe e
  *    NÃO conclui (nada de OnCompleted). A ferramenta certa ainda resolve
  *    de vez, e Reencher() (a chuva) devolve a água.
- *  - Esvaziado não é serializado: todo foco nasce cheio.
+ *  - Esvaziado não é serializado: em Play, o sorteio do começo do
+ *    GerenciadorDeFocos decide quem nasce seco (NascerVazio, contagem
+ *    fixa, sem o OnEsvaziado: a água nunca esteve lá); fora do Play ou
+ *    sem gerenciador, todo foco nasce cheio, como antes.
+ *
+ *  Minigame: um foco pode trocar o segurar por uma sessão própria
+ *  (CriarMinigame, ver Minigame.cs); cada Passo dela é um AvancarCom(kit).
+ *  O ralo devolve o skill check. Sessão com vista de perto
+ *  (IMinigameDePerto): AoVoltarDaVistaDePerto avisa quando a câmera
+ *  voltou aos olhos.
  *
  *  Para focos com comportamento próprio, herde esta classe e sobrescreva
  *  OnInteract()/OnComplete() (ver PneuInteractable.cs como exemplo) e,
@@ -179,12 +189,49 @@ public class Interactable : MonoBehaviour
             && currentClicks == 0;
     }
 
-    /* Skill check (ralo): este foco troca o "segurar" por checks, um por
-     * passo. O Interactor conduz; o erro e o cancelamento ficam no foco. */
-    public virtual bool UsaSkillCheck => false;
-    public virtual float SegundosPorVoltaDoCheck => 1.2f;
-    public virtual void ErrarSkillCheck(KitDoAgente kit) { }
-    public virtual void CancelarSkillCheck() { }
+    /* Minigame (Minigame.cs): o foco troca o "segurar" por uma sessão sua,
+     * em que cada Passo é um AvancarCom(kit). null = o segurar de sempre. O
+     * Interactor conduz; o erro, a saída e o visual ficam no foco.
+     * CriarMinigame é uma fábrica PURA: não muda nada no foco (o Interactor
+     * também chama só para saber se o foco tem minigame, e descarta a
+     * sessão). O que precisa mudar no começo vai no AoIniciarMinigame. */
+    public virtual IMinigame CriarMinigame(KitDoAgente kit, int semente) => null;
+
+    /* A sessão foi aceita e vai começar (antes do primeiro Atualizar):
+     * guardar o estado do começo. */
+    public virtual void AoIniciarMinigame(IMinigame sessao) { }
+
+    /* A sessão errou (só o ralo pune: gasta a tela e volta ao começo). */
+    public virtual void AoErrarMinigame(KitDoAgente kit) { }
+
+    /* Saída voluntária ou cancelamento (Bloqueado), sem culpa do jogador. */
+    public virtual void AoSairDoMinigame() { }
+
+    /* Visual por quadro com a sessão ativa. */
+    public virtual void AoAtualizarMinigame(IMinigame sessao) { }
+
+    /* A vista de perto deste foco acabou e a câmera já voltou aos olhos (ou não há câmera para voltar). */
+    public virtual void AoVoltarDaVistaDePerto() { }
+
+    /* Texto da HUD com a sessão ativa (null = nenhum). */
+    public virtual string DicaDoMinigame => null;
+
+    /* Texto da linha de ação da HUD ao MIRAR o foco, quando um aperto novo
+     * começaria um minigame com este kit (null = o "segure o clique" de
+     * sempre). */
+    public virtual string ConviteDoMinigame(KitDoAgente kit) => null;
+
+    /* Tempo previsto da ação inteira (BalanceamentoSimulador). */
+    public virtual float SegundosEstimados => SegundosPorPasso * RequiredClicks;
+
+    /* Barra da HUD (0..1): cliques dados + a fração do passo em andamento
+     * (no atalho de esvaziar, os passos de esvaziar). */
+    public virtual float ProgressoCom(KitDoAgente kit, float fracao)
+    {
+        if (NoCaminhoDeEsvaziar(kit))
+            return Mathf.Clamp01((passosEsvaziando + fracao) / Mathf.Max(1, passosParaEsvaziar));
+        return Mathf.Clamp01((currentClicks + fracao) / Mathf.Max(1, requiredClicks));
+    }
 
     /* Esvaziado e ainda não eliminado: a chuva enche de novo. */
     public virtual bool PodeReencher => Esvaziado && !IsComplete;
@@ -204,6 +251,34 @@ public class Interactable : MonoBehaviour
         currentClicks = 0;
         initialScale = transform.localScale;
         OnStart();
+
+        // Nascimento seco (em Play): quem o sorteio do gerenciador não deu
+        // água nasce Esvaziado, como se já tivesse sido esvaziado antes de
+        // o agente chegar. Fora do Play (testes EditMode) não sorteia, e
+        // sem gerenciador na cena nasce cheio, como antes.
+        if (Application.isPlaying && !NasceComAgua())
+            NascerVazio();
+    }
+
+    /* Este foco nasce sempre com água, fora do sorteio do começo (o ralo). */
+    public virtual bool SempreNasceComAgua => false;
+
+    /* Nasce com água? Em Play, o gerenciador da cena responde (sorteio do
+     * começo); sem gerenciador ou fora do Play, sim. */
+    private bool NasceComAgua()
+    {
+        GerenciadorDeFocos gerenciador = GerenciadorDeFocos.Obter();
+        return gerenciador == null || gerenciador.NasceComAgua(this);
+    }
+
+    /* Nasce seco: o foco já existe sem água, como se tivesse sido esvaziado
+     * antes do agente chegar. Sem OnEsvaziado (não houve esvaziamento, e a
+     * rede social não posta) e sem tocar no ciclo (já nasce parado em ovo,
+     * pesando 0). */
+    internal void NascerVazio()
+    {
+        Esvaziado = true;
+        AoNascerVazio();
     }
 
     /* Caminho antigo (clique sem kit): um passo, sem conferir ferramenta nem carga. */
@@ -230,7 +305,7 @@ public class Interactable : MonoBehaviour
         if (kit == null)
             return ResultadoDoPasso.Avancou;
 
-        if (kit.PneuCarregado != null)
+        if (kit.MaosOcupadas && !AceitaComMaosOcupadas(kit))
             return ResultadoDoPasso.MaosOcupadas;
         // Atalho de esvaziar: as Mãos, que aqui seriam a ferramenta errada.
         // Não passa pelo VerificarExtra (o saco cheio não impede esvaziar).
@@ -245,6 +320,10 @@ public class Interactable : MonoBehaviour
 
         return VerificarExtra(kit);
     }
+
+    /* Este foco aceita o passo com as mãos ocupadas? Por padrão, não; a
+     * caixa d'água aceita quando o que está nos braços é a tampa dela. */
+    protected virtual bool AceitaComMaosOcupadas(KitDoAgente kit) => false;
 
     /* Regra a mais de cada foco (ex.: garrafas com o saco cheio). Só é
      * chamada com kit, depois de ferramenta e carga aprovadas. */
@@ -273,6 +352,10 @@ public class Interactable : MonoBehaviour
             kit.Consumir(FerramentaNecessaria);
         return ResultadoDoPasso.Concluiu;
     }
+
+    /* Avisa quem ouve o OnClicado (o som) sem passar pelo DarPasso: o derrame
+     * nos braços (PneuInteractable) dá um aviso por passo que não é o último. */
+    protected void NotificarClique() => OnClicado?.Invoke(this);
 
     /* Um passo (= um clique antigo). kit é null no caminho Interact(). */
     private void DarPasso(KitDoAgente kit)
@@ -432,6 +515,10 @@ public class Interactable : MonoBehaviour
 
     /* Hook do Esvaziar(), antes do OnEsvaziado: esconder a água. */
     protected virtual void AoEsvaziar() { }
+
+    /* Hook do nascimento seco (NascerVazio): esconder a água. É o mesmo
+     * visual do esvaziado, mas sem o evento (a água nunca esteve lá). */
+    protected virtual void AoNascerVazio() { }
 
     /* Hook do Reencher(), antes do OnReenchido: devolver a água. */
     protected virtual void AoReencher() { }

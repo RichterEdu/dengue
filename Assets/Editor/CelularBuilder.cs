@@ -17,7 +17,8 @@ using UnityEngine.UI;
  *    │   ├── StatusBar     (hora, sinal, bateria)
  *    │   ├── Header        (VizinhApp + contador de focos + "ao vivo")
  *    │   ├── Viewport      (RectMask2D)
- *    │   │   └── Conteudo  (lista) > ModeloPost   (card modelo, PostView)
+ *    │   │   └── Conteudo  (lista) > ModeloPost   (card modelo, PostView;
+ *    │   │                 com a moldura Foto > Imagem + selo Resolvido)
  *    │   ├── Vazio         ("nenhuma publicação ainda")
  *    │   └── Rodape        ("[T] fechar")
  *    └── Icone             (ícone + badge de não lidos + dica [T])
@@ -42,6 +43,10 @@ public static class CelularBuilder
     private const float AlturaStatus = 44f;
     private const float AlturaHeader = 84f;
     private const float AlturaRodape = 46f;
+    private const float AlturaFoto = 237f;    // moldura da foto no card (largura = a do card: 3:2)
+
+    private const string NomeFoto = "Foto";
+    private const string NomeSelo = "Resolvido";
 
     /* ---- Cores ---- */
     private static readonly Color CorFundoApp = new Color(0.055f, 0.067f, 0.086f, 0.98f);
@@ -359,7 +364,7 @@ public static class CelularBuilder
 
     /* ================= Card de publicação ================= */
 
-    private static PostView MontarCard(RectTransform pai, Sprite ui, Sprite knob)
+    internal static PostView MontarCard(RectTransform pai, Sprite ui, Sprite knob)
     {
         RectTransform card = NovoRect("ModeloPost", pai);
         card.sizeDelta = new Vector2(0f, 140f);
@@ -469,8 +474,86 @@ public static class CelularBuilder
         pv.curtidas = curtidas;
         pv.coracao = coracao;
 
+        // Moldura da foto do foco (entre o Texto e as Acoes), já ligada no PostView.
+        GarantirFotoNoCard(pv, ui);
+
         card.gameObject.SetActive(false);
         return pv;
+    }
+
+    /* Acrescenta ao card a moldura da foto do foco, logo depois do Texto:
+     *   Foto       (Image fatiada + Mask sem gráfico + LayoutElement 237; desligada)
+     *   ├── Imagem    (RawImage esticada)
+     *   └── Resolvido (selo verde 176x44 girado 8°; desligado) > Texto "RESOLVIDO"
+     * e liga PostView.foto/fotoImagem/selo (registrado no Undo e marcado sujo).
+     * Idempotente: se o card já tem a "Foto", só completa as referências que
+     * faltarem. Devolve true se criou a moldura. Também usado pelo menu
+     * "Preparar celular para fotos" no card modelo de uma cena já montada. */
+    internal static bool GarantirFotoNoCard(PostView modelo, Sprite ui)
+    {
+        if (modelo == null)
+            return false;
+
+        RectTransform card = (RectTransform)modelo.transform;
+        RectTransform existente = card.Find(NomeFoto) as RectTransform;
+        if (existente != null)
+        {
+            if (modelo.foto == null || modelo.fotoImagem == null || modelo.selo == null)
+            {
+                Transform selo = existente.Find(NomeSelo);
+                LigarFoto(modelo, existente, existente.GetComponentInChildren<RawImage>(true),
+                    selo != null ? selo.gameObject : null);
+            }
+            return false;
+        }
+
+        // Moldura: recorta a foto nos cantos arredondados do sprite (sem desenhá-lo).
+        RectTransform moldura = NovoRect(NomeFoto, card);
+        Img(moldura, ui, Color.white, 0.5f);
+        moldura.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+        LayoutElement le = moldura.gameObject.AddComponent<LayoutElement>();
+        le.minHeight = AlturaFoto;
+        le.preferredHeight = AlturaFoto;
+
+        Transform texto = modelo.texto != null && modelo.texto.transform.parent == card
+            ? modelo.texto.transform
+            : card.Find("Texto");
+        if (texto != null)
+            moldura.SetSiblingIndex(texto.GetSiblingIndex() + 1);
+
+        RectTransform imagemRt = NovoRect("Imagem", moldura);
+        Esticar(imagemRt, 0, 0, 0, 0);
+        RawImage imagem = imagemRt.gameObject.AddComponent<RawImage>();
+        imagem.raycastTarget = false;
+
+        // Selo "RESOLVIDO", no centro da foto.
+        RectTransform seloRt = NovoRect(NomeSelo, moldura);
+        seloRt.sizeDelta = new Vector2(176f, 44f);
+        seloRt.localRotation = Quaternion.Euler(0f, 0f, 8f);
+        Img(seloRt, ui, new Color(0.20f, 0.68f, 0.30f, 0.95f), 0.35f);
+
+        TextMeshProUGUI seloTxt = Txt("Texto", seloRt, "RESOLVIDO", 22, TextAlignmentOptions.Center, Color.white);
+        if (modelo.texto != null && modelo.texto.font != null)
+            seloTxt.font = modelo.texto.font;     // a mesma fonte dos outros textos do card
+        seloTxt.fontStyle = FontStyles.Bold;
+        seloTxt.characterSpacing = 6f;
+        Esticar(seloTxt.rectTransform, 0, 0, 0, 0);
+        seloRt.gameObject.SetActive(false);
+
+        moldura.gameObject.SetActive(false);
+        Undo.RegisterCreatedObjectUndo(moldura.gameObject, "Foto no card");
+
+        LigarFoto(modelo, moldura, imagem, seloRt.gameObject);
+        return true;
+    }
+
+    private static void LigarFoto(PostView modelo, RectTransform moldura, RawImage imagem, GameObject selo)
+    {
+        Undo.RecordObject(modelo, "Foto no card");
+        modelo.foto = moldura;
+        modelo.fotoImagem = imagem;
+        modelo.selo = selo;
+        EditorUtility.SetDirty(modelo);
     }
 
     /* ================= Helpers de UI ================= */

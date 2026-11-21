@@ -65,15 +65,32 @@ public class PneuEsvaziarTestes
         TesteUtil.LimparTudo();
     }
 
-    /* Os dois passos com as Mãos: o pneu fica esvaziado no lugar. */
+    /* Pega o pneu cheio, esvazia nos braços e larga: esvaziado no chão. */
     private void EsvaziarNoLugar()
     {
-        pneu.AvancarCom(kit);
-        pneu.AvancarCom(kit);
+        TesteUtil.EsvaziarPneu(pneu, kit);
+    }
+
+    /* O derrame nos braços tem som: cada passo que não é o último dispara
+     * OnClicado (o som "tira a água"); o último é o OnEsvaziado. */
+    [Test]
+    public void EsvaziarNosBracos_DisparaOnClicadoEmCadaPassoMenosOUltimo()
+    {
+        TesteUtil.Setar(pneu, "requiredClicks", 5);
+        int clicados = 0;
+        pneu.OnClicado += f => clicados++;
+
+        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "o clique pega o pneu cheio");
+        Assert.AreEqual(0, clicados, "pegar não é passo de esvaziar");
+        for (int i = 1; i <= 4; i++)
+            Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.DarPassoNosBracos(), $"{i}º passo");
+        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.DarPassoNosBracos(), "5º passo");
+
+        Assert.AreEqual(pneu.RequiredClicks - 1, clicados, "OnClicado em cada passo menos o último");
     }
 
     [Test]
-    public void UltimoPasso_EsvaziaEFicaNoLugar()
+    public void UltimoPasso_EsvaziaNosBracos()
     {
         int esvaziados = 0, concluidos = 0;
         bool aguaLigadaNoAviso = true;
@@ -84,18 +101,22 @@ public class PneuEsvaziarTestes
         };
         pneu.OnCompleted += f => concluidos++;
 
-        Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.AvancarCom(kit), "1º passo");
-        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.AvancarCom(kit), "2º passo: a água sai, o pneu fica");
+        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "o clique pega o pneu cheio");
+        Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.DarPassoNosBracos(), "1º passo");
+        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.DarPassoNosBracos(), "2º passo: a água sai, o pneu fica nos braços");
 
-        Assert.IsNull(kit.PneuCarregado, "não vai para os braços");
-        Assert.AreSame(grupo, pneu.transform.parent, "continua no grupo dos focos");
+        Assert.AreSame(pneu, kit.PneuCarregado, "esvazia nos braços");
         Assert.IsTrue(pneu.Esvaziado);
         Assert.AreEqual(1, esvaziados, "OnEsvaziado 1 vez");
         Assert.IsFalse(aguaLigadaNoAviso, "quem ouve o OnEsvaziado já vê o pneu sem água");
         Assert.IsFalse(agua.activeSelf);
         Assert.IsFalse(pneu.IsComplete, "esvaziar não conclui");
         Assert.AreEqual(0, concluidos, "OnCompleted");
-        Assert.IsTrue(pneu.CanInteract, "continua alvo: pegar e levar à caçamba");
+        Assert.IsFalse(pneu.CanInteract, "nos braços não é alvo");
+
+        kit.LargarPneu(SemChao, Vector3.forward);
+        Assert.AreSame(grupo, pneu.transform.parent, "largado, volta ao grupo dos focos");
+        Assert.IsTrue(pneu.CanInteract, "largado, continua alvo: pegar e levar à caçamba");
     }
 
     [Test]
@@ -134,13 +155,14 @@ public class PneuEsvaziarTestes
         pneu.Reencher();
 
         Assert.IsTrue(pneu.CanInteract, "reenchido, volta a ser alvo das Mãos");
-        Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.AvancarCom(kit), "1º passo");
-        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.AvancarCom(kit), "2º passo: esvazia de novo");
+        Assert.AreEqual(ResultadoDoPasso.Pegou, pneu.AvancarCom(kit), "pega cheio de novo");
+        Assert.AreEqual(ResultadoDoPasso.Avancou, pneu.DarPassoNosBracos(), "1º passo");
+        Assert.AreEqual(ResultadoDoPasso.Esvaziou, pneu.DarPassoNosBracos(), "2º passo: esvazia de novo");
 
         Assert.IsTrue(pneu.Esvaziado);
         Assert.IsFalse(agua.activeSelf);
         Assert.AreEqual(2, esvaziados, "OnEsvaziado nas duas vezes");
-        Assert.IsNull(kit.PneuCarregado);
+        Assert.AreSame(pneu, kit.PneuCarregado);
     }
 
     [Test]

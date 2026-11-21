@@ -209,8 +209,8 @@ Transform:
   m_GameObject: {fileID: 1828804030457494440}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.038908083, y: 0.19, z: 0.038873658}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -0.038908083, y: 0.22, z: 0.038873658}
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2409478096251172997}
@@ -299,8 +299,8 @@ Transform:
   m_GameObject: {fileID: 2152223563295758286}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.008627936, y: 0.19, z: -0.054319046}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0.008627936, y: 0.22, z: -0.054319046}
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2409478096251172997}
@@ -434,6 +434,9 @@ MonoBehaviour:
   interactionRange: 3
   ferramentaNecessaria: 3
   segundosParaConcluir: 2
+  podeEsvaziar: 0
+  passosParaEsvaziar: 3
+  segundosParaEsvaziar: 1.2
   punchScale: 0.06
   punchDuration: 0.14
   scaleReductionPerClick: 0
@@ -452,6 +455,15 @@ MonoBehaviour:
   - {fileID: 4196635073416964476}
   duracaoSecar: 0.3
   removeOnComplete: 0
+  alturaDaCamera: 0.58
+  recuoDaCamera: 0.17
+  fovDePerto: 40
+  raioDaBolinha: 0.14
+  segundosDoAnel: 1.5
+  pausaDaBolinha: 0.35
+  esperaInicial: 0.3
+  fecho: 0.45
+  miraPorGrau: 0.0093
 --- !u!114 &2711841661637698716
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -501,8 +513,8 @@ Transform:
   m_GameObject: {fileID: 2714796889430086520}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.024947787, y: 0.19, z: 0.049016405}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0.024947787, y: 0.22, z: 0.049016405}
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2409478096251172997}
@@ -591,8 +603,8 @@ Transform:
   m_GameObject: {fileID: 3443092420285821890}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.048994303, y: 0.19, z: -0.024991164}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -0.048994303, y: 0.22, z: -0.024991164}
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2409478096251172997}

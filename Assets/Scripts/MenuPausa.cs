@@ -62,6 +62,10 @@ public class MenuPausa : MonoBehaviour
     [SerializeField] private Button botaoCancelar;
     [SerializeField] private Button botaoConfirmar;
 
+    [Header("Metas da partida")]
+    [Tooltip("O cartão 'METAS DA PARTIDA', atualizado toda vez que a pausa abre.")]
+    [SerializeField] private CartaoDeMetas cartaoDeMetas;
+
     [Header("Configurações")]
     [SerializeField] private PainelConfiguracoes configuracoes;
 
@@ -326,6 +330,9 @@ public class MenuPausa : MonoBehaviour
 
     private void AtualizarStatus()
     {
+        if (cartaoDeMetas != null)
+            cartaoDeMetas.Atualizar();
+
         if (fluxo == null)
             return;
 

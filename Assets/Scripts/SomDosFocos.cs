@@ -102,6 +102,8 @@ public class SomDosFocos : MonoBehaviour
 
     [Tooltip("Focos da partida (lista, cliques, eliminados e estágio de cada um). Vazio = GerenciadorDeFocos.Obter().")]
     [SerializeField] private GerenciadorDeFocos gerenciador;
+    [SerializeField, Tooltip("O kit do agente (vazio = procura na cena). Avisa quando o pneu é pego ou largado.")]
+    private KitDoAgente kit;
 
     private class Zumbido
     {
@@ -171,6 +173,14 @@ public class SomDosFocos : MonoBehaviour
         gerenciador.OnFocoEsvaziado += Esvaziado;
         gerenciador.OnFocoReenchido += Reenchido;
         gerenciador.OnFocoEliminado += Concluido;
+
+        // O pneu é pego e largado cheio: o zumbido acompanha onde ele está.
+        if (kit == null) kit = FindAnyObjectByType<KitDoAgente>();
+        if (kit != null)
+        {
+            kit.OnPneuPego += PneuMudouDeLugar;
+            kit.OnPneuLargado += PneuMudouDeLugar;
+        }
     }
 
     /* Só pelo campo: procurar ou criar um gerenciador aqui (fim do Play,
@@ -183,6 +193,11 @@ public class SomDosFocos : MonoBehaviour
         gerenciador.OnFocoEsvaziado -= Esvaziado;
         gerenciador.OnFocoReenchido -= Reenchido;
         gerenciador.OnFocoEliminado -= Concluido;
+        if (kit != null)
+        {
+            kit.OnPneuPego -= PneuMudouDeLugar;
+            kit.OnPneuLargado -= PneuMudouDeLugar;
+        }
     }
 
     void Update()
@@ -341,6 +356,14 @@ public class SomDosFocos : MonoBehaviour
     private void Reenchido(Interactable foco)
     {
         CentroAtual(foco);
+    }
+
+    /* OnPneuPego / OnPneuLargado do kit: o pneu saiu do lugar (pego cheio e
+     * largado longe), e a fonte do zumbido, parada no mundo, vai junto. */
+    private void PneuMudouDeLugar(PneuInteractable pneu)
+    {
+        if (pneu != null)
+            CentroAtual(pneu);
     }
 
     /* Um som 3D no centro do foco, na próxima fonte do pool. */

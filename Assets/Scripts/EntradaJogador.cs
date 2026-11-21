@@ -23,6 +23,9 @@ using UnityEngine.InputSystem;
  *  duas são lidas aqui, direto do Keyboard/Mouse, porque não têm ação no
  *  asset (as teclas 1 e 2 saíram de Previous/Next para isso).
  *
+ *  OlharSemInverter é o mesmo Olhar sem o "inverter Y": o ponteiro dos
+ *  minigames na tela não inverte.
+ *
  *  O ControladorJogador.cs e o Interactor.cs só consomem os valores
  *  prontos daqui. Roda antes deles (DefaultExecutionOrder) para que todos
  *  vejam a mesma entrada no mesmo frame.
@@ -75,6 +78,9 @@ public class EntradaJogador : MonoBehaviour
 
     /* Quanto girar NESTE frame, em graus (x = yaw, y = pitch; + = pra cima). */
     public Vector2 Olhar { get; private set; }
+
+    /* O Olhar deste quadro sem o "inverter Y" (o ponteiro dos minigames). Zero com Habilitado falso. */
+    public Vector2 OlharSemInverter { get; private set; }
 
     public bool CorrerSegurado => Habilitado && acaoCorrer != null && acaoCorrer.IsPressed();
 
@@ -183,13 +189,20 @@ public class EntradaJogador : MonoBehaviour
         if (acaoPular != null && acaoPular.WasPressedThisFrame() && Habilitado)
             ultimoApertoPulo = Time.time;
 
-        Olhar = Habilitado ? LerOlhar() : Vector2.zero;
+        if (Habilitado)
+            LerOlhar();
+        else
+            Olhar = OlharSemInverter = Vector2.zero;
     }
 
-    private Vector2 LerOlhar()
+    /* Preenche OlharSemInverter e, com o inverterY, o Olhar. */
+    private void LerOlhar()
     {
         if (acaoOlhar == null)
-            return Vector2.zero;
+        {
+            Olhar = OlharSemInverter = Vector2.zero;
+            return;
+        }
 
         Vector2 bruto = acaoOlhar.ReadValue<Vector2>();
         bool doControle = acaoOlhar.activeControl != null && acaoOlhar.activeControl.device is Gamepad;
@@ -201,8 +214,9 @@ public class EntradaJogador : MonoBehaviour
             : bruto * sensibilidadeMouse;
         graus *= MultiplicadorSensibilidade;
 
+        OlharSemInverter = graus;
         if (inverterY)
             graus.y = -graus.y;
-        return graus;
+        Olhar = graus;
     }
 }

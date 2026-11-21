@@ -48,6 +48,15 @@ using UnityEngine;
  *      o pneu), no lugar da fala do dono.
  *  Sem Chuva na cena, a previsão só não sai.
  *
+ *  Fotos dos focos: quando o jogador empaca (tempoSemFoco sem eliminar
+ *  foco, com o celular fechado), o dono do tipo posta a FOTO de um foco
+ *  (FotoDoFoco), escolhido pelo EscolhaDaFoto: o mais perto do jogador
+ *  que nunca saiu em foto, não foi mexido pelo jogador (passo, esvaziar,
+ *  tampa pega, pneu pego) e fica longe dos lugares que ele já conhece.
+ *  Tipo sem dono (ou dono sem aoMandarFoto): posta a UPA. Sem foco com
+ *  foto, sai a bronca antiga (aoDemorarSemFoco). Recusada pela janela de
+ *  conflito, a foto não é gasta e tenta de novo a cada 1 s.
+ *
  *  Quem publica de fato é a RedeSocial.cs (avisos, não lidos). Ao nascer,
  *  este componente liga RedeSocial.NarradorExterno: a RedeSocial passa a
  *  soltar sozinha só a abertura, e o resto sai daqui.
@@ -107,6 +116,9 @@ public class PersonagemDoBairro
 
     [Tooltip("Primeira vez que o jogador tenta um foco deste tipo com a ferramenta errada. Vazio = o texto padrão do tipo.")]
     [TextArea(2, 4)] public string aoUsarFerramentaErrada = "";
+
+    [Tooltip("Post com a foto de um foco deste tipo quando o jogador empaca. Segue a ordem e, quando acaba, sorteia sem repetir.")]
+    [TextArea(2, 4)] public List<string> aoMandarFoto = new List<string>();
 
     [Tooltip("Epílogo (\"uma semana depois\") se TODOS os focos deste tipo foram eliminados.")]
     [TextArea(2, 4)] public string epilogoLimpo = "";
@@ -207,6 +219,11 @@ public class HistoriaRedeSocial : MonoBehaviour
     [Tooltip("O primeiro foco reenchido pela chuva: sai o post do tipo dele (um post só na partida). Tipo sem post aqui = não posta e espera o próximo reenchido.")]
     [SerializeField] private List<PostPorTipo> aoReencherPrimeiraVez = ReencherPadrao();
 
+    [Header("Fotos dos focos")]
+    [Tooltip("Texto do post com a foto de um foco de tipo sem dono (ou dono sem aoMandarFoto), postado pela UPA. Segue a ordem e, quando acaba, sorteia sem repetir.")]
+    [TextArea(2, 4)]
+    [SerializeField] private List<string> aoMandarFotoSemDono;
+
     [Header("Gatilhos")]
     [Tooltip("Distância (m) que conta como \"chegou perto\" de um foco.")]
     [SerializeField] private float raioChegada = 8f;
@@ -216,6 +233,9 @@ public class HistoriaRedeSocial : MonoBehaviour
 
     [Tooltip("Segundos sem eliminar foco até alguém cobrar.")]
     [SerializeField] private float tempoSemFoco = 60f;
+
+    [Tooltip("Distância (m) a um lugar que o jogador já conhece (foco fotografado, mexido ou eliminado) em que um foco ainda não fotografado fica de fora da 1ª escolha da foto.")]
+    [SerializeField] private float raioLugarConhecido = 4f;
 
     [Tooltip("Segundos parado (com o celular fechado) até alguém estranhar.")]
     [SerializeField] private float tempoParado = 35f;
@@ -258,6 +278,27 @@ public class HistoriaRedeSocial : MonoBehaviour
     private float ultimoFocoTempo = float.NegativeInfinity;
     private float proximaVarredura;
 
+    // Fotos dos focos. As duas listas andam junto com 'focos' (mesmo índice):
+    // a posição de cada foco guardada ao registrar (o pneu muda de lugar ao
+    // ser carregado) e o FotoDoFoco dele (null = foco sem foto).
+    private readonly List<Vector3> posicaoInicial = new List<Vector3>();
+    private readonly List<FotoDoFoco> fotoDe = new List<FotoDoFoco>();
+    private readonly HashSet<Interactable> fotografados = new HashSet<Interactable>();
+    private readonly HashSet<Interactable> mexidos = new HashSet<Interactable>();
+    private readonly Dictionary<TipoFoco, int> proximaFalaDaFoto = new Dictionary<TipoFoco, int>();
+    private readonly Dictionary<TipoFoco, int> ultimaFalaDaFoto = new Dictionary<TipoFoco, int>();
+    private int proximaFalaDaFotoSemDono;
+    private int ultimaFalaDaFotoSemDono = -1;
+    private int indiceUltimaFoto = -1;   // índice em 'focos' do foco da última foto que saiu
+    private float esperaDaFoto;          // > 0: foto recusada, espera antes da nova tentativa
+
+    private const float EsperaDaFotoRecusada = 1f;
+
+    internal enum ResultadoDaFoto { Saiu, Recusada, SemFoco }
+
+    /* Foco da última foto que saiu (null = nenhuma ainda). */
+    internal Interactable UltimaFoto => indiceUltimaFoto >= 0 ? focos[indiceUltimaFoto] : null;
+
     // Regra das mensagens (pedido do usuário): sai NA HORA ou é recusada pela
     // RedeSocial (outro aviso tão ou mais importante acabou de sair). Recusada
     // = a mensagem não é gasta e só volta quando o gatilho dela acontecer DE
@@ -299,28 +340,11 @@ public class HistoriaRedeSocial : MonoBehaviour
         if (player != null)
             ultimaPosicaoPlayer = player.position;
 
-        // Os focos da partida (inclusive desativados), vindos do gerenciador.
-        if (gerenciador == null) gerenciador = GerenciadorDeFocos.Obter();
+        RegistrarFocos();
         if (gerenciador != null)
         {
-            gerenciador.Garantir();
-            foreach (Interactable foco in gerenciador.Focos)
-            {
-                if (foco == null)
-                    continue;
-
-                TipoFoco tipo = TipoDoFoco(foco);
-                focos.Add(foco);
-                tipoDe[foco] = tipo;
-                totalPorTipo[tipo] = Contar(totalPorTipo, tipo) + 1;
-
-                if (foco.IsComplete)
-                {
-                    eliminadosTotal++;
-                    eliminadosPorTipo[tipo] = Contar(eliminadosPorTipo, tipo) + 1;
-                }
-            }
             gerenciador.OnFocoEliminado += HandleFocoEliminado;
+            gerenciador.OnFocoClicado += HandleFocoClicado;
             gerenciador.OnFocoEsvaziado += HandleFocoEsvaziado;
             gerenciador.OnFocoReenchido += HandleFocoReenchido;
         }
@@ -341,6 +365,7 @@ public class HistoriaRedeSocial : MonoBehaviour
         {
             kit.OnReabasteceu += HandleReabasteceu;
             kit.OnPneuPego += HandlePneuPego;
+            kit.OnTampaPega += HandleTampaPega;
             kit.OnSacoEsvaziado += HandleSacoEsvaziado;
         }
         if (chuva != null)
@@ -357,6 +382,7 @@ public class HistoriaRedeSocial : MonoBehaviour
         if (gerenciador != null)
         {
             gerenciador.OnFocoEliminado -= HandleFocoEliminado;
+            gerenciador.OnFocoClicado -= HandleFocoClicado;
             gerenciador.OnFocoEsvaziado -= HandleFocoEsvaziado;
             gerenciador.OnFocoReenchido -= HandleFocoReenchido;
         }
@@ -374,6 +400,7 @@ public class HistoriaRedeSocial : MonoBehaviour
         {
             kit.OnReabasteceu -= HandleReabasteceu;
             kit.OnPneuPego -= HandlePneuPego;
+            kit.OnTampaPega -= HandleTampaPega;
             kit.OnSacoEsvaziado -= HandleSacoEsvaziado;
         }
         if (chuva != null)
@@ -412,14 +439,10 @@ public class HistoriaRedeSocial : MonoBehaviour
         // param enquanto ele está aberto.
         bool lendoCelular = celular != null && celular.Aberto;
 
-        // Muito tempo sem eliminar foco: alguém do bairro cobra.
-        if (!lendoCelular)
-            timerSemFoco += dt;
-        if (timerSemFoco >= tempoSemFoco)
-        {
-            PostarDaLista(aoDemorarSemFoco, ref idxDemora, PrioridadePost.Baixa);
-            timerSemFoco = 0f;   // saiu ou foi recusada: o gatilho foi gasto, só volta daqui a tempoSemFoco
-        }
+        // Muito tempo sem eliminar foco: alguém do bairro manda a foto de um
+        // foco (ou, sem foco com foto, cobra).
+        if (player != null)
+            AvancarEmpacado(dt, player.position, lendoCelular);
 
         // Parado: alguém estranha.
         if (velocidade < 0.15f && !lendoCelular)
@@ -492,6 +515,7 @@ public class HistoriaRedeSocial : MonoBehaviour
         eliminadosPorTipo[tipo] = Contar(eliminadosPorTipo, tipo) + 1;
         jaChegouPerto.Add(tipo);   // não faz sentido "estou vendo o agente chegando" depois de limpo
         timerSemFoco = 0f;
+        esperaDaFoto = 0f;         // o relógio recomeça do zero, sem a espera de uma foto recusada antes
 
         bool sequencia = Time.time - ultimoFocoTempo <= janelaCombo;
         ultimoFocoTempo = Time.time;
@@ -581,8 +605,9 @@ public class HistoriaRedeSocial : MonoBehaviour
             PostarDaLista(aoReabastecerPrimeiraVez, ref idxReabastecer, PrioridadePost.Normal);
     }
 
-    private void HandlePneuPego(PneuInteractable pneu)
+    internal void HandlePneuPego(PneuInteractable pneu)
     {
+        MarcarMexido(pneu);
         if (EmJogo)
             PostarDaLista(aoCarregarPneu, ref idxCarregarPneu, PrioridadePost.Normal);
     }
@@ -670,6 +695,7 @@ public class HistoriaRedeSocial : MonoBehaviour
      * faz a mesma distinção. Ele é ignorado sem gastar o gatilho. */
     internal void HandleFocoEsvaziado(Interactable foco)
     {
+        MarcarMexido(foco);
         if (!EmJogo || foco is PneuInteractable)
             return;
         PostarDaLista(aoEsvaziarPrimeiraVez, ref idxEsvaziar, PrioridadePost.Normal);
@@ -691,6 +717,208 @@ public class HistoriaRedeSocial : MonoBehaviour
         PostRedeSocial p = doTipo.post;
         if (Postar(p.autor, p.usuario, p.texto, p.humor, tipo, p.curtidas, PrioridadePost.Normal))
             reenchidoPostado = true;
+    }
+
+    /* ---------------- Fotos dos focos ---------------- */
+
+    /* Os focos da partida (inclusive desativados), vindos do gerenciador:
+     * tipo, totais, eliminados de antes e, para a foto, a posição de agora
+     * e o FotoDoFoco de cada um. Foco já registrado é ignorado. Quem
+     * assina os eventos do gerenciador é o Start. */
+    internal void RegistrarFocos()
+    {
+        if (gerenciador == null) gerenciador = GerenciadorDeFocos.Obter();
+        if (gerenciador == null)
+            return;
+
+        gerenciador.Garantir();
+        foreach (Interactable foco in gerenciador.Focos)
+        {
+            if (foco == null || tipoDe.ContainsKey(foco))
+                continue;
+
+            TipoFoco tipo = TipoDoFoco(foco);
+            focos.Add(foco);
+            tipoDe[foco] = tipo;
+            totalPorTipo[tipo] = Contar(totalPorTipo, tipo) + 1;
+            posicaoInicial.Add(foco.transform.position);
+            fotoDe.Add(foco.GetComponent<FotoDoFoco>());
+
+            if (foco.IsComplete)
+            {
+                eliminadosTotal++;
+                eliminadosPorTipo[tipo] = Contar(eliminadosPorTipo, tipo) + 1;
+            }
+        }
+    }
+
+    /* O relógio de "empacado" (o mesmo da bronca): anda só com o celular
+     * fechado e zera a cada foco eliminado. No limite, tenta a foto:
+     *   Saiu      o relógio zera;
+     *   SemFoco   sai a bronca antiga (aoDemorarSemFoco) e o relógio zera,
+     *             saindo ou não, como antes;
+     *   Recusada  o relógio fica no limite e a nova tentativa vem depois de
+     *             EsperaDaFotoRecusada (exceção como a da previsão de chuva:
+     *             a foto é a ajuda, e perder tempoSemFoco por causa de um
+     *             aviso qualquer seria ruim). */
+    internal void AvancarEmpacado(float dt, Vector3 posicaoDoJogador, bool lendoCelular)
+    {
+        if (!lendoCelular)
+            timerSemFoco += dt;
+        if (timerSemFoco < tempoSemFoco)
+            return;
+
+        if (esperaDaFoto > 0f)
+        {
+            esperaDaFoto -= dt;
+            if (esperaDaFoto > 0f)
+                return;
+            esperaDaFoto = 0f;
+        }
+
+        switch (TentarFotoDeFoco(posicaoDoJogador))
+        {
+            case ResultadoDaFoto.Saiu:
+                timerSemFoco = 0f;
+                break;
+            case ResultadoDaFoto.SemFoco:
+                PostarDaLista(aoDemorarSemFoco, ref idxDemora, PrioridadePost.Baixa);
+                timerSemFoco = 0f;
+                break;
+            case ResultadoDaFoto.Recusada:
+                esperaDaFoto = EsperaDaFotoRecusada;
+                break;
+        }
+    }
+
+    /* Escolhe o foco (EscolhaDaFoto) e posta a foto dele. Quem posta é o
+     * dono do tipo, com o aoMandarFoto; tipo sem dono ou dono sem texto, a
+     * UPA com o aoMandarFotoSemDono. Recusada pela RedeSocial, nada é
+     * gasto (nem o foco nem o texto). */
+    internal ResultadoDaFoto TentarFotoDeFoco(Vector3 posicaoDoJogador)
+    {
+        List<CandidatoDaFoto> candidatos = new List<CandidatoDaFoto>(focos.Count);
+        for (int i = 0; i < focos.Count; i++)
+            candidatos.Add(Candidato(i));
+
+        int escolhido = EscolhaDaFoto.Escolher(candidatos, posicaoDoJogador, raioLugarConhecido, indiceUltimaFoto);
+        if (escolhido < 0)
+            return ResultadoDaFoto.SemFoco;
+
+        if (rede == null || !rede.Aceitaria(PrioridadePost.Normal))
+            return ResultadoDaFoto.Recusada;
+
+        Interactable foco = focos[escolhido];
+        TipoFoco tipo = tipoDe[foco];
+        PersonagemDoBairro dono = Personagem(tipo);
+        bool doDono = dono != null && dono.aoMandarFoto != null && dono.aoMandarFoto.Count > 0;
+
+        string autor = doDono ? dono.autor : Upa;
+        string usuario = doDono ? dono.usuario : UpaUsuario;
+        string texto = doDono ? FalaDaFotoDoDono(dono, tipo) : FalaDaFotoSemDono();
+
+        PostRedeSocial post = Formatar(autor, usuario, texto, HumorPost.Neutro, tipo, -1);
+        if (post == null)
+            return ResultadoDaFoto.SemFoco;   // texto em branco no Inspector: não há o que postar com a foto
+
+        post.foto = fotoDe[escolhido].foto;
+        post.foco = foco;
+        if (!rede.Postar(post, PrioridadePost.Normal))
+            return ResultadoDaFoto.Recusada;
+
+        fotografados.Add(foco);
+        indiceUltimaFoto = escolhido;
+        return ResultadoDaFoto.Saiu;
+    }
+
+    /* Se o foco já saiu em foto. */
+    internal bool FoiFotografado(Interactable foco)
+    {
+        return foco != null && fotografados.Contains(foco);
+    }
+
+    /* O jogador deu um passo no foco (OnFocoClicado). */
+    internal void HandleFocoClicado(Interactable foco)
+    {
+        MarcarMexido(foco);
+    }
+
+    /* O jogador pegou a tampa da caixa d'água (não dá passo no foco). */
+    internal void HandleTampaPega(CaixaDaguaInteractable caixa)
+    {
+        MarcarMexido(caixa);
+    }
+
+    /* Foco mexido pelo jogador (passo, esvaziar, tampa pega, pneu pego):
+     * não sai mais em foto e vira um lugar que ele já conhece. */
+    private void MarcarMexido(Interactable foco)
+    {
+        if (foco != null)
+            mexidos.Add(foco);
+    }
+
+    /* O candidato à foto do foco de índice i. Foco destruído: fora da
+     * escolha, mas continua lugar conhecido — só o Interactable.FinishRemoval,
+     * depois de concluir, destrói um foco, então destruído = eliminado
+     * (spec §4). */
+    private CandidatoDaFoto Candidato(int i)
+    {
+        Interactable foco = focos[i];
+        if (foco == null)
+            return new CandidatoDaFoto { posicao = posicaoInicial[i], conhecido = true };
+
+        FotoDoFoco foto = fotoDe[i];
+        bool concluido = foco.IsComplete;
+        bool mexido = mexidos.Contains(foco);
+        bool fotografado = fotografados.Contains(foco);
+
+        return new CandidatoDaFoto
+        {
+            posicao = posicaoInicial[i],
+            elegivel = !concluido && !mexido && foco.gameObject.activeInHierarchy && foto != null && foto.foto != null,
+            fotografado = fotografado,
+            conhecido = fotografado || mexido || concluido,
+        };
+    }
+
+    /* ATENÇÃO: gastam a fala (avançam o índice). Só chame quando ela vai sair. */
+    private string FalaDaFotoDoDono(PersonagemDoBairro dono, TipoFoco tipo)
+    {
+        int proxima = Contar(proximaFalaDaFoto, tipo);
+        int ultima = ultimaFalaDaFoto.TryGetValue(tipo, out int u) ? u : -1;
+        string fala = FalaEmOrdemDepoisSorteada(dono.aoMandarFoto, ref proxima, ref ultima);
+        proximaFalaDaFoto[tipo] = proxima;
+        ultimaFalaDaFoto[tipo] = ultima;
+        return fala;
+    }
+
+    private string FalaDaFotoSemDono()
+    {
+        if (aoMandarFotoSemDono == null || aoMandarFotoSemDono.Count == 0)
+            return "";
+        return FalaEmOrdemDepoisSorteada(aoMandarFotoSemDono, ref proximaFalaDaFotoSemDono, ref ultimaFalaDaFotoSemDono);
+    }
+
+    /* Segue a ordem da lista e, quando ela acaba, sorteia sem repetir a
+     * última (com uma fala só, ela repete). Lista não vazia. */
+    private static string FalaEmOrdemDepoisSorteada(List<string> falas, ref int proxima, ref int ultima)
+    {
+        int i = proxima;
+        proxima = i + 1;
+        if (i < falas.Count)
+        {
+            ultima = i;
+            return falas[i];
+        }
+
+        if (falas.Count == 1)
+            return falas[0];
+
+        int sorteio;
+        do { sorteio = Random.Range(0, falas.Count); }
+        while (sorteio == ultima);
+        ultima = sorteio;
+        return falas[sorteio];
     }
 
     /* ---------------- Verificações periódicas ---------------- */
@@ -834,24 +1062,13 @@ public class HistoriaRedeSocial : MonoBehaviour
         if (p.aoEliminar == null || p.aoEliminar.Count == 0)
             return p.aoEliminarUltimo;
 
-        int i = Contar(proximaFala, tipo);
-        proximaFala[tipo] = i + 1;
-        if (i < p.aoEliminar.Count)
-        {
-            ultimaFalaSorteada[tipo] = i;
-            return p.aoEliminar[i];
-        }
-
-        // Acabaram as falas em ordem: sorteia sem repetir a última.
-        if (p.aoEliminar.Count == 1)
-            return p.aoEliminar[0];
-
-        int anterior = ultimaFalaSorteada.TryGetValue(tipo, out int u) ? u : -1;
-        int sorteio;
-        do { sorteio = Random.Range(0, p.aoEliminar.Count); }
-        while (sorteio == anterior);
-        ultimaFalaSorteada[tipo] = sorteio;
-        return p.aoEliminar[sorteio];
+        // Em ordem; acabadas, sorteia sem repetir a última.
+        int proxima = Contar(proximaFala, tipo);
+        int ultima = ultimaFalaSorteada.TryGetValue(tipo, out int u) ? u : -1;
+        string fala = FalaEmOrdemDepoisSorteada(p.aoEliminar, ref proxima, ref ultima);
+        proximaFala[tipo] = proxima;
+        ultimaFalaSorteada[tipo] = ultima;
+        return fala;
     }
 
     /* Posta o próximo post da lista SE ele sair — só então o índice anda
@@ -999,14 +1216,16 @@ public class HistoriaRedeSocial : MonoBehaviour
         if (tudo || aoPreverChuva == null || aoPreverChuva.Count == 0) aoPreverChuva = PrevisaoPadrao();
         if (tudo || aoEsvaziarPrimeiraVez == null || aoEsvaziarPrimeiraVez.Count == 0) aoEsvaziarPrimeiraVez = EsvaziarPadrao();
         if (tudo || aoReencherPrimeiraVez == null || aoReencherPrimeiraVez.Count == 0) aoReencherPrimeiraVez = ReencherPadrao();
+        if (tudo || aoMandarFotoSemDono == null || aoMandarFotoSemDono.Count == 0) aoMandarFotoSemDono = AoMandarFotoSemDonoPadrao();
     }
 
     /* Acrescenta o personagem padrão de cada tipo de foco que ainda não tem
      * dono na lista (tipos novos numa cena já configurada). Dos personagens
-     * existentes, só preenche o aoUsarFerramentaErrada vazio com o texto
-     * padrão do mesmo tipo (campo novo da Parte A: os personagens já salvos
-     * na cena chegam sem ele); o resto não é mexido. Devolve quantos
-     * personagens foram acrescentados. */
+     * existentes, só preenche o aoUsarFerramentaErrada vazio (campo novo da
+     * Parte A) e o aoMandarFoto vazio (campo novo das fotos dos focos) com
+     * o texto padrão do mesmo tipo — os personagens já salvos na cena
+     * chegam sem eles; o resto não é mexido. Devolve quantos personagens
+     * foram acrescentados. */
     public int CompletarPersonagens()
     {
         if (personagens == null)
@@ -1026,6 +1245,8 @@ public class HistoriaRedeSocial : MonoBehaviour
 
             if (string.IsNullOrWhiteSpace(existente.aoUsarFerramentaErrada))
                 existente.aoUsarFerramentaErrada = padrao.aoUsarFerramentaErrada;
+            if (existente.aoMandarFoto == null || existente.aoMandarFoto.Count == 0)
+                existente.aoMandarFoto = padrao.aoMandarFoto;
         }
         return novos;
     }
@@ -1097,6 +1318,12 @@ public class HistoriaRedeSocial : MonoBehaviour
                 aoEliminarUltimo = "ACABOU! Nenhum pneu com água no bairro. Eu reclamei por meses e o agente resolveu numa tarde.",
                 aoLargarPelaMetade = "Ué, o agente mexeu num pneu e foi embora com ele ainda cheio d'água? Volta aqui, moço!",
                 aoUsarFerramentaErrada = "Pneu não adianta só esvaziar: tem que levar embora. Pega com as mãos e leva pra picape da UPA!",
+                aoMandarFoto = new List<string>
+                {
+                    "Esse pneu tá largado aqui faz uma semana. Alguém tira isso, pelo amor de Deus?",
+                    "Tirei foto pra ninguém dizer que não avisei. Pneu velho jogado é casa de mosquito.",
+                    "Agente, olha o que tem perto de casa. Passa aqui?",
+                },
                 epilogoLimpo = "Juntei a vizinhança e o terreno baldio virou horta comunitária. Pneu agora só furado, de vaso de couve.",
                 epilogoPendente = "Os pneus continuam lá, cheios d'água. Todo fim de tarde é aquela nuvem de mosquito.",
             },
@@ -1112,6 +1339,11 @@ public class HistoriaRedeSocial : MonoBehaviour
                 aoEliminarUltimo = "Todos os pratinhos com areia! Minhas samambaias continuam lindas e sem mosquito.",
                 aoLargarPelaMetade = "O agente começou a mexer no meu vaso e parou no meio. O pratinho ainda tá com água!",
                 aoUsarFerramentaErrada = "Pratinho de vaso é com areia, viu? Até a borda. O agente tá aprendendo!",
+                aoMandarFoto = new List<string>
+                {
+                    "Agente, olha esse vaso. Pratinho com água é convite pro mosquito.",
+                    "Tirei foto desse vaso hoje cedo. Dá uma passadinha aqui?",
+                },
                 epilogoLimpo = "Agora eu mesma passo de casa em casa conferindo os pratinhos. Virei fiscal de vaso, com orgulho.",
                 epilogoPendente = "Ainda tem pratinho com água parada aqui na rua. Eu vejo as larvas quando rego as plantas.",
             },
@@ -1127,6 +1359,11 @@ public class HistoriaRedeSocial : MonoBehaviour
                 aoEliminarUltimo = "Todas as caixas d'água tampadas. Liguei pro hospital: meu filho já está sem febre.",
                 aoLargarPelaMetade = "Viram? O agente começou a tampar a caixa d'água e largou aberta. Meu filho tá no soro, gente.",
                 aoUsarFerramentaErrada = "Caixa d'água se resolve com a tampa, e a tampa tá ali do lado! É só encaixar.",
+                aoMandarFoto = new List<string>
+                {
+                    "Essa caixa d'água tá destampada faz tempo. Meu filho tá internado, agente. Vem ver isso.",
+                    "Olha essa caixa lá em cima. Alguém consegue subir e tampar?",
+                },
                 epilogoLimpo = "Meu filho teve alta na sexta-feira. Chegou em casa e a primeira coisa que fez foi conferir a tampa da caixa d'água.",
                 epilogoPendente = "Meu filho continua internado. E a caixa d'água aberta continua do mesmo jeito.",
             },
@@ -1141,6 +1378,10 @@ public class HistoriaRedeSocial : MonoBehaviour
                 aoEliminarUltimo = "Piscina virada, seca e guardada. Meu filho agora diz que quer ser agente de saúde.",
                 aoLargarPelaMetade = "O agente começou a esvaziar a piscininha e deixou pela metade. Ainda tem água lá dentro!",
                 aoUsarFerramentaErrada = "A piscininha é só esvaziar e virar de boca pra baixo. Com as mãos mesmo!",
+                aoMandarFoto = new List<string>
+                {
+                    "Essa piscininha tá esquecida no quintal. Agente, passa aqui?",
+                },
                 epilogoLimpo = "Meu filho montou a \"patrulha do mosquito\" com os amigos da rua. Eles conferem os quintais todo sábado.",
                 epilogoPendente = "A piscininha continua cheia no quintal. Hoje meu filho acordou com febre.",
             },
@@ -1157,6 +1398,11 @@ public class HistoriaRedeSocial : MonoBehaviour
                 aoEliminarUltimo = "Nenhuma garrafa largada no bairro! Agora é com a gente manter assim.",
                 aoLargarPelaMetade = "O agente começou a recolher as garrafas e deixou metade pra trás. Cada uma que sobra é um criadouro.",
                 aoUsarFerramentaErrada = "Garrafa vai pro saco de lixo e depois pra lixeira. Nada de deixar pelo chão!",
+                aoMandarFoto = new List<string>
+                {
+                    "Achei isso jogado. Uma tampinha de água já basta pro mosquito.",
+                    "Foto do lixo que ninguém recolhe. Agente, dá uma olhada?",
+                },
                 epilogoLimpo = "A rua ganhou um ponto de coleta de recicláveis. Garrafa agora vai pro lugar certo, não pro quintal.",
                 epilogoPendente = "O lixo acumulado continua juntando água a cada chuva. Já tem gente doente no fim da rua.",
             },
@@ -1172,6 +1418,10 @@ public class HistoriaRedeSocial : MonoBehaviour
                 aoEliminarUltimo = "Todos os ralos da rua fechados e com tela. O balcão do bar nunca teve tão pouco mosquito.",
                 aoLargarPelaMetade = "O agente mexeu no ralo e largou a grelha fora do lugar. A água continua lá embaixo!",
                 aoUsarFerramentaErrada = "Vi o agente querendo resolver o ralo com outra coisa. Ralo é com tela, moço!",
+                aoMandarFoto = new List<string>
+                {
+                    "Esse ralo tá sem tela faz tempo e junta água toda vez que chove. Agente, consegue ver?",
+                },
                 epilogoLimpo = "Coloquei tela em todos os ralos do bar e agora ensino os clientes. Ralo aberto aqui não passa mais.",
                 epilogoPendente = "Os ralos continuam abertos, cheios d'água. À noite o bar vira festa de mosquito.",
             },
@@ -1187,6 +1437,10 @@ public class HistoriaRedeSocial : MonoBehaviour
                 aoEliminarUltimo = "Todas as bromélias da praça secas e vivas. Agora é jato de mangueira toda semana.",
                 aoLargarPelaMetade = "O agente começou a esvaziar a bromélia e parou. Ainda tem água no meio das folhas!",
                 aoUsarFerramentaErrada = "Calma, agente! Bromélia não precisa arrancar nem tampar: água sanitária diluída no copinho e pronto.",
+                aoMandarFoto = new List<string>
+                {
+                    "Agente, essa bromélia pode estar juntando água nas folhas. Dá uma olhada? Mas não arranca, por favor!",
+                },
                 epilogoLimpo = "As bromélias continuam na praça. Toda semana a criançada me ajuda a esvaziar as folhas com a mangueira.",
                 epilogoPendente = "Os vizinhos querem arrancar minhas bromélias por causa do mosquito. Bastava esvaziar a água.",
             },
@@ -1389,6 +1643,15 @@ public class HistoriaRedeSocial : MonoBehaviour
             new PostPorTipo { tipo = TipoFoco.Garrafas, post = Novo("Bruna Lima", "@bru.lima",
                 "Choveu e as garrafas largadas encheram de água de novo. Garrafa vai pro saco e pra lixeira.",
                 -1, HumorPost.Negativo) },
+        };
+    }
+
+    /* Fotos dos focos: o texto da foto de um tipo sem dono, postado pela UPA. */
+    private static List<string> AoMandarFotoSemDonoPadrao()
+    {
+        return new List<string>
+        {
+            "Moradores mandaram esta foto pra gente. Agente, dá uma olhada?",
         };
     }
 

@@ -4,7 +4,8 @@ using NUnit.Framework;
  *  SkillCheckTestes.cs
  *  ---------------------------------------------------------------------
  *  Testes EditMode do skill check do ralo: acerto, erro e tempo esgotado
- *  na lógica pura; progresso e tela no RaloInteractable.
+ *  na lógica pura; o adaptador MinigameDeSkillCheck (acerto = Passo, erro
+ *  = Errou); progresso e tela no RaloInteractable.
  *
  *  Rodar:  unity command run_tests --mode EditMode --filter_type category --filter SkillCheck
  * ============================================================ */
@@ -83,7 +84,7 @@ public class SkillCheckTestes
     public void Ralo_Errar_ZeraProgressoEGastaATela()
     {
         ralo.AvancarCom(kit);
-        ralo.ErrarSkillCheck(kit);
+        ralo.AoErrarMinigame(kit);
 
         Assert.AreEqual(0, ralo.CurrentClicks);
         Assert.AreEqual(0f, ralo.Fechamento);
@@ -94,7 +95,7 @@ public class SkillCheckTestes
     public void Ralo_Cancelar_ZeraProgressoMasGuardaATela()
     {
         ralo.AvancarCom(kit);
-        ralo.CancelarSkillCheck();
+        ralo.AoSairDoMinigame();
 
         Assert.AreEqual(0, ralo.CurrentClicks);
         Assert.IsTrue(kit.Estoque.TemCarga(Ferramenta.Tela));
@@ -110,9 +111,33 @@ public class SkillCheckTestes
     }
 
     [Test]
-    public void FocoComum_NaoUsaSkillCheck()
+    public void FocoComum_NaoTemMinigame_RaloTemOSkillCheck()
     {
-        Assert.IsFalse(TesteUtil.Com<Interactable>("Foco (teste)").UsaSkillCheck);
-        Assert.IsTrue(ralo.UsaSkillCheck);
+        Assert.IsNull(TesteUtil.Com<Interactable>("Foco (teste)").CriarMinigame(kit, 0));
+        Assert.IsInstanceOf<MinigameDeSkillCheck>(ralo.CriarMinigame(kit, 0));
+    }
+
+    [Test]
+    public void AdaptadorAcertoViraPasso()
+    {
+        MinigameDeSkillCheck minigame = new MinigameDeSkillCheck(new SessaoDeSkillCheck(3, 1f, 42));
+        SkillCheck check = minigame.Sessao.Atual;
+
+        Assert.AreEqual(EstadoDoMinigame.EmAndamento,
+                        minigame.Atualizar(check.InicioDaZona + check.TamanhoDaZona * 0.5f, new EntradaDoMinigame()));
+        Assert.AreEqual(EstadoDoMinigame.Passo, minigame.Atualizar(0f, new EntradaDoMinigame { Apertou = true }));
+        Assert.AreEqual(1, minigame.Sessao.Acertos);
+        Assert.IsFalse(minigame.PodeSair);
+        Assert.AreEqual(0f, minigame.FracaoDoPasso);
+        Assert.IsFalse(minigame.Agindo, "o skill check não tem som de ação");
+    }
+
+    [Test]
+    public void AdaptadorErroViraErrou()
+    {
+        // O ponteiro ainda no topo: a zona nunca começa antes de InicioMinimoDaZona.
+        MinigameDeSkillCheck minigame = new MinigameDeSkillCheck(new SessaoDeSkillCheck(3, 1f, 42));
+
+        Assert.AreEqual(EstadoDoMinigame.Errou, minigame.Atualizar(0f, new EntradaDoMinigame { Apertou = true }));
     }
 }

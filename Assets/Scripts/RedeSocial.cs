@@ -78,6 +78,11 @@ public class PostRedeSocial
 
     [Tooltip("Muda a cor da faixa lateral do post.")]
     public HumorPost humor = HumorPost.Negativo;
+
+    // Foto de um foco (HistoriaRedeSocial, jogador empacado) e o foco dela.
+    // Só em runtime: as listas de posts do Inspector não mostram nem gravam.
+    [System.NonSerialized] public Texture foto;
+    [System.NonSerialized] public Interactable foco;
 }
 
 public class RedeSocial : MonoBehaviour

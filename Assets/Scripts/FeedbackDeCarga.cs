@@ -25,6 +25,9 @@ using UnityEngine;
  *      em duracaoBracos (e a 0 sem saco);
  *    - com o pneu nos braços, o saco fica escondido, mesmo com garrafas:
  *      as duas mãos estão no pneu. Largado ou entregue o pneu, ele volta.
+ *    - a tampa da caixa d'água nos braços (KitDoAgente.MaosOcupadas) vale
+ *      o mesmo que o pneu para a pose, a câmera, os passos e o saco; o
+ *      esforço (som) é só do pneu.
  *
  *  Sons (2D, no canal de efeitos, com o corpo colado no AudioListener):
  *    - com o pneu nos braços, um esforço sorteado a cada intervaloEsforco
@@ -241,7 +244,7 @@ public class FeedbackDeCarga : MonoBehaviour
     /* O saco fica à mão só selecionado e sem pneu (as duas mãos estão nele). */
     private bool SacoEmMaos()
     {
-        return kit != null && kit.PneuCarregado == null && kit.Selecionada == Ferramenta.SacoDeLixo;
+        return kit != null && !kit.MaosOcupadas && kit.Selecionada == Ferramenta.SacoDeLixo;
     }
 
     /* Mais da metade do saco, e à mão. */
@@ -339,7 +342,7 @@ public class FeedbackDeCarga : MonoBehaviour
         if (kit == null)
             return;
 
-        bool carregando = kit.PneuCarregado != null;
+        bool carregando = kit.MaosOcupadas;   // pneu ou tampa: a mesma pose de carga
         EstoqueDoKit estoque = kit.Estoque;
         int garrafas = estoque.GarrafasNoSaco;
         bool sacoAVista = sacoNaMao != null && garrafas > 0 && SacoEmMaos();

@@ -62,6 +62,10 @@ public class PiscinaInteractable : Interactable
     /* 0 = em pé e cheia, 1 = emborcada. */
     public float Tombo { get; private set; }
 
+    /* Com o tombo já começado, a chuva não reenche: a água escorreu por
+     * conta da piscina virando, e voltaria numa beira de pé. */
+    public override bool PodeReencher => base.PodeReencher && CurrentClicks == 0;
+
     protected override void OnStart()
     {
         if (corpo == null)
@@ -96,6 +100,25 @@ public class PiscinaInteractable : Interactable
         if (removeOnComplete)
             base.OnComplete();
         // Caso contrário, a piscina fica na cena, emborcada.
+    }
+
+    /* Nasce seco: a piscina já aparece emborcável, mas sem água. */
+    protected override void AoNascerVazio()
+    {
+        if (agua != null)
+            agua.SetActive(false);
+    }
+
+    /* Reenchido (a chuva): a água volta cheia e na horizontal (nasceu
+     * seco), como no começo do tombo. */
+    protected override void AoReencher()
+    {
+        if (agua == null)
+            return;
+
+        agua.transform.localScale = escalaDaAgua;
+        agua.transform.rotation = Quaternion.identity;
+        agua.SetActive(true);
     }
 
     private void Tombar(float alvo)

@@ -141,6 +141,10 @@ public class DengueHUD : MonoBehaviour
     [Header("Mensagem final")]
     [SerializeField] private CanvasGroup completeGroup;
     [SerializeField] private TextMeshProUGUI completeText;
+    [Tooltip("Vazio = o FluxoDeJogoHUD da cena. A faixa some quando a tela final aparece.")]
+    [SerializeField] private FluxoDeJogoHUD telaFinal;
+    [Tooltip("Vazio = o AvisoDeMeta da cena. O aviso de foco desce enquanto a faixa de meta perdida está visível.")]
+    [SerializeField] private AvisoDeMeta avisoDeMeta;
 
     [Header("Animação")]
     [Tooltip("Velocidade das transições (mira, fade, barra).")]
@@ -160,6 +164,15 @@ public class DengueHUD : MonoBehaviour
     internal const string AvisoErrouSkillCheck = "A tela rasgou! Pegue outra na <b>picape da UPA</b>.";
     internal const string RecusaSacoCheio = "Saco cheio. Jogue numa <b>lixeira</b>.";
     internal const string RecusaMaosOcupadas = "Mãos ocupadas: leve o pneu à <b>picape da UPA</b> ou largue [botão direito].";
+    internal const string RecusaMaosOcupadasComTampa = "Mãos ocupadas: tampe a <b>caixa d'água</b> ou devolva a tampa [botão direito].";
+
+    // Caixa d'água com a tampa carregável: a linha de ação com a tampa
+    // encostada (e as Mãos) e com ela nos braços.
+    internal const string AcaoPegarTampa = "Pegar a tampa";
+    internal const string AcaoTamparCaixa = "Tampar a caixa";
+
+    // Pneu cheio no chão, com as Mãos: o convite de pegar (esvazia-se nos braços).
+    internal const string AcaoPegarPneu = "Clique para pegar o pneu";
 
     // Atalho de esvaziar (Parte B): a
     // linha de ação no atalho e o aviso ao esvaziar.
@@ -254,6 +267,9 @@ public class DengueHUD : MonoBehaviour
         foreach (Cacamba cacamba in cacambas)
             cacamba.OnPneuRecebido += HandlePneuRecebido;
 
+        if (telaFinal == null) telaFinal = FindAnyObjectByType<FluxoDeJogoHUD>();
+        if (avisoDeMeta == null) avisoDeMeta = FindAnyObjectByType<AvisoDeMeta>();
+
         if (targetGroup != null) targetGroup.alpha = 0f;
         if (completeGroup != null) completeGroup.alpha = 0f;
         if (toastGroup != null)
@@ -336,12 +352,14 @@ public class DengueHUD : MonoBehaviour
         Interactable target = interactor != null ? interactor.CurrentTarget : null;
         PontoDeUso ponto = interactor != null ? interactor.PontoAlvo : null;
 
-        // Durante o skill check, só o anel dele na tela: sem mira nem painel.
+        // Durante o skill check, só o anel dele na tela; na vista de perto
+        // (e na volta da câmera), só as bolinhas: sem mira nem painel.
         bool emSkillCheck = interactor != null && interactor.SkillCheckAtivo != null;
+        bool esconder = EscondeMiraEPainel(emSkillCheck, interactor != null && interactor.DePerto);
         if (crosshair != null)
-            Ativar(crosshair.gameObject, !emSkillCheck);
+            Ativar(crosshair.gameObject, !esconder);
 
-        if (emSkillCheck)
+        if (esconder)
         {
             if (targetGroup != null)
                 targetGroup.alpha = 0f;
@@ -356,10 +374,19 @@ public class DengueHUD : MonoBehaviour
 
         if (completeGroup != null)
         {
-            float goal = focos.Count > 0 && eliminated >= focos.Count ? 1f : 0f;
+            float goal = AlvoDaFaixaFinal(eliminated, focos.Count, telaFinal != null && telaFinal.TelaFinalVisivel);
             completeGroup.alpha = Mathf.Lerp(completeGroup.alpha, goal, k * 0.5f);
         }
     }
+
+    /* Sem mira e com o painel do alvo a zero: no skill check e na vista de
+     * perto (sessão em andamento ou câmera voltando dela). */
+    internal static bool EscondeMiraEPainel(bool emSkillCheck, bool dePerto) => emSkillCheck || dePerto;
+
+    /* Alvo do fade da faixa "Todos os focos foram eliminados!": acesa com
+     * todos eliminados, e apagada quando a tela final aparece. */
+    internal static float AlvoDaFaixaFinal(int eliminados, int total, bool telaFinalVisivel) =>
+        total > 0 && eliminados >= total && !telaFinalVisivel ? 1f : 0f;
 
     /* ---------------- Textos fixos ---------------- */
 
@@ -425,15 +452,20 @@ public class DengueHUD : MonoBehaviour
         // Pneu esvaziado no chão: pegar de novo é na hora, a barra ficaria
         // cheia o tempo todo. Conferido a cada quadro, e não só na troca de
         // alvo: o mesmo pneu volta à mira depois de pego e largado.
+        // A caixa com a tampa encostada idem: pegar a tampa é na hora.
+        KitDoAgente kit = interactor != null ? interactor.Kit : null;
         bool pneuVazio = target is PneuInteractable pneu && pneu.Esvaziado && !pneu.Carregado;
-        MostrarProgresso(target == null || (!pneuVazio && !(info != null && info.esconderProgresso)));
+        bool tampaEncostada = kit != null && target is CaixaDaguaInteractable caixa && !caixa.TampaNosBracos;
+        MostrarProgresso(target == null
+                         || (!pneuVazio && !tampaEncostada && !(info != null && info.esconderProgresso)));
 
         // Texto de mirar é refeito a cada frame porque pode usar {cliques}/{faltam}
         // (e o estágio, o esvaziado e a ferramenta selecionada mudam).
-        KitDoAgente kit = interactor != null ? interactor.Kit : null;
+        string dicaDaSessao = interactor != null && interactor.MinigameAtivo != null && target != null
+            ? target.DicaDoMinigame : null;
         if (promptText != null)
             promptText.text = ComLinhaDeAcao(TextoDeMirar(target, ponto, info, kit),
-                                             AcaoDoFoco(target, pneuVazio, kit));
+                                             AcaoDoFoco(target, pneuVazio, kit, dicaDaSessao));
 
         displayedFill = Mathf.Lerp(displayedFill, Progress(), k);
         if (progressFill != null)
@@ -495,15 +527,29 @@ public class DengueHUD : MonoBehaviour
     /* A ação no lugar do "segure o clique" (null = o "segure o clique"):
      * num foco esvaziado, resolver de vez com a ferramenta certa; com as
      * Mãos no atalho de esvaziar, esvaziar. O pneu esvaziado no chão diz
-     * para onde levar. */
-    private static string AcaoDoFoco(Interactable foco, bool pneuVazio, KitDoAgente kit)
+     * para onde levar; a caixa d'água, pegar a tampa (encostada, com as
+     * Mãos) ou tampar (com ela nos braços). */
+    internal static string AcaoDoFoco(Interactable foco, bool pneuVazio, KitDoAgente kit, string dicaDaSessao = null)
     {
         if (foco == null)
             return null;
+        // Com um minigame em andamento, a dica dele no lugar do "segure o clique".
+        if (!string.IsNullOrWhiteSpace(dicaDaSessao))
+            return dicaDaSessao;
         if (pneuVazio)
             return TextoPneuVazio;
-        if (foco.UsaSkillCheck)
-            return AcaoSkillCheck;
+        if (foco is CaixaDaguaInteractable caixa && kit != null)
+        {
+            if (caixa.TampaNosBracos && kit.TampaCarregada == caixa)
+                return AcaoTamparCaixa;
+            if (!caixa.TampaNosBracos && kit.Selecionada == Ferramenta.Maos)
+                return AcaoPegarTampa;
+        }
+        if (foco is PneuInteractable pneu && !pneu.Esvaziado && kit != null && kit.Selecionada == Ferramenta.Maos)
+            return AcaoPegarPneu;
+        string convite = foco.ConviteDoMinigame(kit);
+        if (convite != null)
+            return convite;
         if (foco.Esvaziado)
             return AcaoResolverDeVez(foco.FerramentaNecessaria);
         if (foco.NoCaminhoDeEsvaziar(kit))
@@ -523,9 +569,17 @@ public class DengueHUD : MonoBehaviour
     }
 
     /* Os passos da barra (o 3/5 e os marcadores {cliques} {total} {faltam}):
-     * no atalho de esvaziar, os passos de esvaziar; senão, os cliques. */
+     * no atalho de esvaziar, os passos de esvaziar; com a tampa da caixa nos
+     * braços, o passo único de tampar (0/1); senão, os cliques. */
     private static void Contagem(Interactable foco, KitDoAgente kit, out int feitos, out int total)
     {
+        if (kit != null && foco is CaixaDaguaInteractable { TampaNosBracos: true })
+        {
+            feitos = 0;
+            total = 1;
+            return;
+        }
+
         if (!foco.Esvaziado && foco.NoCaminhoDeEsvaziar(kit))
         {
             feitos = foco.PassosEsvaziando;
@@ -607,8 +661,13 @@ public class DengueHUD : MonoBehaviour
         toastGroup.alpha = alpha;
 
         float rise = toastTimer < 0.2f ? (1f - toastTimer / 0.2f) * 20f : 0f;
-        ((RectTransform)toastGroup.transform).anchoredPosition = toastBasePos + new Vector2(0f, rise);
+        float desce = DeslocamentoDoToast(avisoDeMeta != null && avisoDeMeta.Visivel);
+        ((RectTransform)toastGroup.transform).anchoredPosition = toastBasePos + new Vector2(0f, rise + desce);
     }
+
+    /* A faixa de meta perdida ocupa o mesmo ponto do aviso de foco: com ela
+     * visível, o aviso desce a altura dela (46) mais uma folga (8). */
+    internal static float DeslocamentoDoToast(bool avisoVisivel) => avisoVisivel ? -54f : 0f;
 
     /* ---------------- Recusas do kit ---------------- */
 
@@ -649,9 +708,11 @@ public class DengueHUD : MonoBehaviour
                 return RecusaSacoCheio;
 
             case ResultadoDoPasso.MaosOcupadas:
-                // Hoje não chega aqui (com o pneu, a mira atravessa os focos),
-                // mas fica pronta para quando chegar.
-                return RecusaMaosOcupadas;
+                // Hoje não chega aqui (com o pneu ou a tampa, a mira atravessa
+                // os outros focos), mas fica pronta para quando chegar.
+                KitDoAgente kitDaRecusa = interactor != null ? interactor.Kit : null;
+                return kitDaRecusa != null && kitDaRecusa.TampaCarregada != null
+                    ? RecusaMaosOcupadasComTampa : RecusaMaosOcupadas;
 
             case ResultadoDoPasso.JaVazio:
                 return RecusaJaVazio(foco.FerramentaNecessaria);

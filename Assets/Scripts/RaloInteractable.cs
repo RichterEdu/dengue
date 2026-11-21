@@ -6,9 +6,11 @@ using UnityEngine;
  *  ---------------------------------------------------------------------
  *  Foco do tipo RALO DESTAMPADO — herda Interactable.
  *
- *  Skill check: em vez de segurar, cada passo é um check acertado (o
- *  Interactor conduz, SkillCheck.cs tem a regra). Errar devolve a grelha
- *  ao lado, zera o progresso e gasta a tela.
+ *  Skill check: em vez de segurar, cada passo é um check acertado. O
+ *  minigame do ralo (CriarMinigame) é o MinigameDeSkillCheck; o
+ *  Interactor conduz e SkillCheck.cs tem a regra. Errar (AoErrarMinigame)
+ *  devolve a grelha ao lado, zera o progresso e gasta a tela; sair
+ *  (AoSairDoMinigame, só no cancelamento) não gasta.
  *
  *  Comportamento ("ralo aberto -> interagir -> ralo tampado com tela"):
  *  - O ralo começa ABERTO: a grelha está tirada, encostada ao lado, e a
@@ -69,19 +71,32 @@ public class RaloInteractable : Interactable
     /* 0 = grelha tirada, 1 = ralo fechado. */
     public float Fechamento { get; private set; }
 
-    public override bool UsaSkillCheck => true;
-    public override float SegundosPorVoltaDoCheck => segundosPorVolta;
+    /* O ralo nasce sempre com água: fica fora do sorteio do nascimento
+     * seco do começo da partida. */
+    public override bool SempreNasceComAgua => true;
+
+    /* O minigame do ralo é o skill check: um check por clique. */
+    public override IMinigame CriarMinigame(KitDoAgente kit, int semente)
+    {
+        return new MinigameDeSkillCheck(new SessaoDeSkillCheck(RequiredClicks, segundosPorVolta, semente));
+    }
+
+    /* Mirando o ralo, o clique encaixa a grelha (skill check). */
+    public override string ConviteDoMinigame(KitDoAgente kit) => DengueHUD.AcaoSkillCheck;
+
+    /* Cada check leva no máximo uma volta do ponteiro (BalanceamentoSimulador). */
+    public override float SegundosEstimados => RequiredClicks * segundosPorVolta;
 
     /* Errou o check: a tela rasga e o ralo volta ao começo. */
-    public override void ErrarSkillCheck(KitDoAgente kit)
+    public override void AoErrarMinigame(KitDoAgente kit)
     {
-        CancelarSkillCheck();
+        AoSairDoMinigame();
         if (kit != null)
             kit.Consumir(FerramentaNecessaria);
     }
 
-    /* Check interrompido sem culpa do jogador (fim de jogo): só volta ao começo. */
-    public override void CancelarSkillCheck()
+    /* Check interrompido sem culpa do jogador (celular, fim de jogo): só volta ao começo. */
+    public override void AoSairDoMinigame()
     {
         currentClicks = 0;
         MoverTampa(0f);

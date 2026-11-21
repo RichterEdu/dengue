@@ -14,6 +14,8 @@ Convenções:
     usada pela camada "Carregando" do Animator (só tronco, braços e mãos).
   - CarregandoSaco (Parte B): pose estática (1 f) com o braço direito erguido à
     frente, usada pela camada "CarregandoSaco" do Animator (só o braço direito).
+  - CarregandoBalde/Tela/Borrifador: poses estáticas (1 f) e UsandoBalde/Tela/
+    Borrifador: gestos em loop (24, 20 e 16 f), usados pela camada "ItemNaMao".
 """
 import bpy, bmesh, math, sys, os
 from mathutils import Vector, Matrix, Quaternion
@@ -922,6 +924,51 @@ ps.update(pose_perna(-1, -1.0, 4.0, 0.0))
 ps.update(braco_ik(-1, SACO_PALMA, SACO_DEDOS, SACO_NORMAL, SACO_POLO))
 for f in (0, 1):
     aplicar(f, ps, Vector((0, 0, -0.004)))
+
+# --- Itens do kit na mão direita (balde, tela e borrifador)
+# Cada item tem uma pose de segurar (estática, 1 frame) e um gesto em loop, que sai
+# da pose e volta a ela (k = sen(pi·f/n)). No Unity a camada "ItemNaMao" (máscara: só
+# o braço direito) toca um por vez. O item é filho do osso RightHand e gira com a mão.
+def girar_em_x(v, graus):
+    return Matrix.Rotation(math.radians(graus), 3, 'X') @ v
+
+def acao_do_braco(nome, n, palma, dedos, normal, gesto=None):
+    """gesto(k) -> (palma, dedos, normal) na fração k do movimento (sem gesto: pose estática)."""
+    acoes.append(nova_acao(nome, n))
+    pernas = {}
+    pernas.update(pose_perna(1, 1.0, 3.0, 0.0))
+    pernas.update(pose_perna(-1, -1.0, 4.0, 0.0))
+    for f in range(n + 1):
+        k = math.sin(math.pi * f / n) if gesto else 0.0
+        p, d, m = gesto(k) if gesto else (palma, dedos, normal)
+        ps = dict(pernas)
+        ps.update(braco_ik(-1, p, d, m, SACO_POLO))
+        aplicar(f, ps, Vector((0, 0, -0.004)))
+
+BALDE_PALMA = Vector((-0.25, -0.55, 1.70))
+BALDE_DEDOS = Vector((0.10, -0.85, -0.50))
+BALDE_NORMAL = Vector((1.0, 0.0, 0.0))
+TELA_PALMA = Vector((-0.30, -0.60, 1.46))
+BORRIFADOR_PALMA = Vector((-0.30, -0.60, 1.545))
+ITEM_DEDOS = Vector((0.35, -0.90, 0.0))
+ITEM_NORMAL = Vector((0.9, -0.3, 0.0))
+
+acao_do_braco('CarregandoBalde', 1, BALDE_PALMA, BALDE_DEDOS, BALDE_NORMAL)
+acao_do_braco('CarregandoTela', 1, TELA_PALMA, ITEM_DEDOS, ITEM_NORMAL)
+acao_do_braco('CarregandoBorrifador', 1, BORRIFADOR_PALMA, ITEM_DEDOS, ITEM_NORMAL)
+
+# Despejar: a mão gira 28° para a frente e para baixo, e o balde vai junto. Ela sobe
+# enquanto gira: o fundo do balde vem para o agente e, sem subir, sairia da tela.
+acao_do_braco('UsandoBalde', 24, None, None, None, lambda k: (
+    BALDE_PALMA + Vector((0.03, 0.0, 0.08)) * k,
+    girar_em_x(BALDE_DEDOS, 28.0 * k), girar_em_x(BALDE_NORMAL, 28.0 * k)))
+# Encaixar: empurra a tela para a frente e para baixo.
+acao_do_braco('UsandoTela', 20, None, None, None, lambda k: (
+    TELA_PALMA + Vector((0.0, -0.10, -0.06)) * k, ITEM_DEDOS, ITEM_NORMAL))
+# Borrifar: recuo curto da mão, como apertar o gatilho.
+acao_do_braco('UsandoBorrifador', 16, None, None, None, lambda k: (
+    BORRIFADOR_PALMA + Vector((0.0, 0.012, 0.0)) * k,
+    girar_em_x(ITEM_DEDOS, -6.0 * k), girar_em_x(ITEM_NORMAL, -6.0 * k)))
 
 # pose padrão do FBX = Idle no frame 0 (sem isso sai a última pose calculada, a do pulo)
 for pb in arm.pose.bones:

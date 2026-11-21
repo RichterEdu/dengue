@@ -38,6 +38,9 @@ using UnityEngine.Rendering;
  *       - layer "CorpoJogador" no corpo (o Interactor ignora essa layer);
  *       - CameraJogador na Main Camera, com o pivô do pescoço medido no
  *         osso "Head" do modelo.
+ *
+ *  Depois deste menu, rodar também  Dengue > Configurar Itens na Mão:
+ *  ele destrói o "Modelo" e recria o controller, e os itens do kit somem.
  * ============================================================ */
 
 public static class PlayerBuilder

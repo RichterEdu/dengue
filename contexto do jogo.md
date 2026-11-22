@@ -3915,3 +3915,23 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 - Com o `FocoListaPanel` inativo, o Tab não faz mais nada e o `comecarAberto` deixa de importar.
 - Os builders (`Dengue > Criar Lista de Focos (Tab)`, Criar HUD) não chamam `SetActive(true)`, então rodá-los de novo não religa os painéis.
 - **Não verificado em Play** (edição direta do YAML da cena; ela é LFS).
+
+### 2026-11-21 — Fotos dos focos por tipo: implementação e verificação
+
+**Objetivo (pedido do usuário):** a foto do foco sai por tipo — se o jogador passa 90 s sem eliminar nenhum foco de um tipo, o dono do tipo posta a foto de um foco daquele tipo. Design e plano: `docs/superpowers/specs/2026-11-21-fotos-por-tipo-design.md` e `docs/superpowers/plans/2026-11-21-fotos-por-tipo.md`. Execução inline (escolha do usuário).
+
+**Commits:** `bc0796b` Fotos dos focos: relógio por tipo (90 s, escalonado) — mais este registro.
+
+**Arquivos alterados:**
+- `Assets/Scripts/HistoriaRedeSocial.cs`: classe nova `TempoDoTipo`; campos `tempoPorTipo` (90), `intervaloEntreTipos` (15) e `temposPorTipo`; `AvancarEmpacado`/`TentarFotoDeFoco` viraram `AvancarRelogiosDosTipos`/`TentarFotoDoTipo`; `ReiniciarRelogiosDosTipos` (no fim do `RegistrarFocos` e no começo da partida), `RelogioDoTipo`, `UltimaFotoDoTipo`; o `HandleFocoEliminado` zera só o relógio do tipo do foco. `tempoSemFoco` e a bronca `aoDemorarSemFoco` ficaram sem uso (continuam no Inspector).
+- `Assets/Editor/Testes/HistoriaFotoTestes.cs`: os testes do "empacado" viraram testes por tipo, mais os novos (90 s, escalonamento, eliminar zera só o tipo, foto zera o tipo, celular pausa, recusa, dois vencidos juntos, sem elegível, tipo todo eliminado, `temposPorTipo`).
+
+**Verificação:**
+- Suíte EditMode inteira 626/626 (categoria `Fotos` 48/48).
+- Play na `SampleScene` (abertura pulada, partida em jogo e relógios reiniciados por reflexão, janela de conflito em 0): com os 10 pneus eliminados, `AvancarRelogiosDosTipos(105,1 s)` postou a foto do `Vaso de Flor` pela Dona Neusa e nenhuma de pneu; relógios depois: pneu e vaso 0, caixa 75,1, garrafas 60,1, ralo 45,1, bromélia 30,1 (o escalonamento de 15 s). Console sem erros.
+- **Não verificado:** uma partida jogada de verdade, com o tempo andando sozinho (o Editor sem foco não avança quadros).
+
+**Observações técnicas:**
+- O Unity foi reaberto pelo Hub enquanto os testes novos ainda não compilavam (passo RED) e entrou em Safe Mode; no Safe Mode o Ctrl+R e mudar a data dos arquivos não recompilaram — só o botão "Exit Safe Mode" resolveu.
+- Eliminar um foco já posta a fala do dono (sem foto); nos testes, as fotos são contadas pelos posts com `foto`.
+- Outra sessão commitou nesta branch durante o trabalho (`cd3df3a`, HUD sem contagem de focos); não tocou nestes arquivos.

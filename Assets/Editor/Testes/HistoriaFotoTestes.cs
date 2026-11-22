@@ -8,12 +8,15 @@ using UnityEngine;
  *  HistoriaFotoTestes.cs
  *  ---------------------------------------------------------------------
  *  Testes EditMode das fotos dos focos na rede social (HistoriaRedeSocial):
- *  quando o jogador empaca (tempoSemFoco sem eliminar foco), o dono do
- *  tipo posta a foto do foco escolhido pelo EscolhaDaFoto, com o foco
- *  ligado ao post. Cobre o relógio (antes do limite, celular aberto),
- *  a foto recusada pela janela de conflito (não gasta e tenta de novo
- *  em 1 s, e a eliminação que zera essa espera), a bronca antiga sem
- *  foco com foto, o foco "mexido" pelo jogador (passo, esvaziar, pneu
+ *  um relógio por tipo de foco (90 s sem eliminar foco daquele tipo, com
+ *  começo escalonado de 15 s entre os tipos); vencido, o dono do tipo
+ *  posta a foto de um foco daquele tipo escolhido pelo EscolhaDaFoto, com
+ *  o foco ligado ao post. Cobre o relógio (limite, escalonamento,
+ *  eliminação que zera só o tipo, foto que zera o tipo, celular aberto,
+ *  temposPorTipo), a foto recusada pela janela de conflito (não gasta e
+ *  tenta de novo em 1 s; dois tipos vencidos juntos saem um por vez), o
+ *  tipo sem foco elegível (zera sem postar) e o tipo todo eliminado, o
+ *  foco "mexido" pelo jogador (passo, esvaziar, pneu
  *  pego, tampa pega), o foco destruído (fora da foto, mas lugar conhecido),
  *  o tipo sem dono (perfil da UPA), a ordem dos textos, o
  *  CompletarPersonagens e o PostRedeSocial sem foto/foco no JSON.
@@ -119,134 +122,244 @@ public class HistoriaFotoTestes
 
     private PostRedeSocial Ultimo => rede.Publicados[rede.Publicados.Count - 1];
 
-    /* ---------------- O relógio ---------------- */
+    /* Só os posts com foto (eliminar um foco também posta a fala do dono, sem foto). */
+    private List<PostRedeSocial> Fotos => new List<PostRedeSocial>(rede.Publicados).FindAll(p => p.foto != null);
+
+    private void Avancar(float segundos, bool celularAberto = false)
+    {
+        historia.AvancarRelogiosDosTipos(segundos, Vector3.zero, celularAberto);
+    }
+
+    /* O que o OnFocoEliminado do gerenciador faria (o Start não roda aqui). */
+    private void Eliminar(Interactable foco)
+    {
+        MethodInfo eliminado = typeof(HistoriaRedeSocial).GetMethod("HandleFocoEliminado", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(eliminado, "HistoriaRedeSocial.HandleFocoEliminado não encontrado");
+        eliminado.Invoke(historia, new object[] { foco });
+    }
+
+    /* ---------------- O relógio por tipo ----------------
+     * Tipos na ordem do enum TipoFoco (Nenhum, Pneu, Vaso, Caixa...): o
+     * i-ésimo tipo presente começa atrasado i × 15 s; cada um vence aos 90 s. */
 
     [Test]
-    public void Empacado_PostaFotoDoMaisPerto()
+    public void Tipo_VenceAos90s_PostaFotoDoTipo()
     {
-        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
-        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f));
-        Registrar(vaso, pneu);
+        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 20f));
+        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(5f, 0f, 0f));
+        Registrar(pneu, vaso);
 
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        Avancar(89.9f);
+        Assert.AreEqual(0, rede.Publicados.Count, "antes dos 90 s não sai nada");
 
-        Assert.AreEqual(1, rede.Publicados.Count, "empacado 60 s tinha que dar um post");
+        Avancar(0.2f);
+        Assert.AreEqual(1, rede.Publicados.Count, "aos 90 s sai a foto do 1º tipo");
         PostRedeSocial post = rede.Publicados[0];
-        Assert.AreSame(FotoDe(vaso), post.foto, "a foto tinha que ser a do foco mais perto");
-        Assert.AreSame(vaso, post.foco, "o post tinha que levar o foco");
-        Assert.AreEqual("Dona Neusa", post.autor, "vaso = Dona Neusa");
-        Assert.AreEqual("@neusa.flores", post.usuario);
-        Assert.AreEqual(FotoVaso1, post.texto, "o 1º texto de aoMandarFoto do vaso");
+        Assert.AreSame(pneu, post.foco, "a foto é do tipo vencido (pneu), mesmo com o vaso mais perto");
+        Assert.AreSame(FotoDe(pneu), post.foto);
+        Assert.AreEqual("Carlos Mendes", post.autor, "pneu = Carlos Mendes");
+        Assert.AreEqual("@carlinhos.m", post.usuario);
+        Assert.AreEqual(FotosDoPneu[0], post.texto, "o 1º texto de aoMandarFoto do pneu");
         Assert.AreEqual(HumorPost.Neutro, post.humor);
-        Assert.IsTrue(historia.FoiFotografado(vaso), "o vaso tinha que ficar marcado como fotografado");
-        Assert.AreSame(vaso, historia.UltimaFoto);
+        Assert.IsTrue(historia.FoiFotografado(pneu));
+        Assert.AreSame(pneu, historia.UltimaFoto);
+        Assert.AreSame(pneu, historia.UltimaFotoDoTipo(TipoFoco.Pneu));
+        Assert.IsNull(historia.UltimaFotoDoTipo(TipoFoco.Vaso));
     }
 
     [Test]
-    public void Empacado_AntesDoLimite_NaoPosta()
+    public void Tipo_Escalonado_SegundoTipoVence15sDepois()
     {
-        Registrar(Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f)));
-
-        historia.AvancarEmpacado(59.9f, Vector3.zero, false);
-
-        Assert.AreEqual(0, rede.Publicados.Count, "antes de tempoSemFoco não sai nada");
-    }
-
-    [Test]
-    public void Empacado_CelularAberto_NaoPosta()
-    {
-        Registrar(Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f)));
-
-        historia.AvancarEmpacado(120f, Vector3.zero, true);
-
-        Assert.AreEqual(0, rede.Publicados.Count, "com o celular aberto o relógio não anda");
-    }
-
-    [Test]
-    public void Empacado_SegueEmpacado_OutroFoco()
-    {
+        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 20f));
         VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
-        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f));
-        Registrar(vaso, pneu);
+        Registrar(pneu, vaso);
 
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        Avancar(90.1f);
+        Assert.AreEqual(1, rede.Publicados.Count, "aos 90 s só o 1º tipo (pneu)");
+        Assert.AreSame(pneu, rede.Publicados[0].foco);
 
-        Assert.AreEqual(2, rede.Publicados.Count, "cada tempoSemFoco empacado dá uma foto");
-        Assert.AreSame(vaso, rede.Publicados[0].foco);
-        Assert.AreSame(pneu, rede.Publicados[1].foco, "a segunda foto tinha que ser de outro foco");
+        Avancar(14.8f);
+        Assert.AreEqual(1, rede.Publicados.Count, "o 2º tipo começa 15 s atrasado");
+
+        Avancar(0.3f);
+        Assert.AreEqual(2, rede.Publicados.Count, "aos 105 s sai o 2º tipo (vaso)");
+        Assert.AreSame(vaso, rede.Publicados[1].foco);
+        Assert.AreEqual("Dona Neusa", rede.Publicados[1].autor);
+        Assert.AreEqual(FotoVaso1, rede.Publicados[1].texto);
+    }
+
+    [Test]
+    public void Tipo_EliminarDoTipo_ZeraSoEle()
+    {
+        PneuInteractable pneu1 = Foco<PneuInteractable>("Pneu 1 (teste)", new Vector3(0f, 0f, 20f));
+        PneuInteractable pneu2 = Foco<PneuInteractable>("Pneu 2 (teste)", new Vector3(0f, 0f, 40f));
+        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
+        Registrar(pneu1, pneu2, vaso);
+
+        Avancar(85f);
+        Eliminar(pneu2);
+        Avancar(10f);
+
+        Assert.AreEqual(0, Fotos.Count, "eliminar um pneu zerou o relógio dos pneus (o post que sai é a fala do dono ao eliminar, sem foto)");
+        Assert.AreEqual(10f, historia.RelogioDoTipo(TipoFoco.Pneu), 1e-3f, "pneu: 10 s desde a eliminação");
+        Assert.AreEqual(80f, historia.RelogioDoTipo(TipoFoco.Vaso), 1e-3f, "vaso: −15 + 95, não zerou");
+
+        Avancar(10f);
+        Assert.AreEqual(1, Fotos.Count, "o vaso vence aos 90 s dele");
+        Assert.AreSame(vaso, Fotos[0].foco);
+    }
+
+    [Test]
+    public void Tipo_FotoQueSaiu_ZeraORelogioDoTipo()
+    {
+        PneuInteractable pneu1 = Foco<PneuInteractable>("Pneu 1 (teste)", new Vector3(0f, 0f, 20f));
+        PneuInteractable pneu2 = Foco<PneuInteractable>("Pneu 2 (teste)", new Vector3(0f, 0f, 40f));
+        Registrar(pneu1, pneu2);
+
+        Avancar(90.1f);
+        Assert.AreEqual(1, rede.Publicados.Count);
+        Assert.AreEqual(0f, historia.RelogioDoTipo(TipoFoco.Pneu), 1e-3f, "a foto que saiu zera o relógio do tipo");
+
+        Avancar(89f);
+        Assert.AreEqual(1, rede.Publicados.Count, "a próxima só depois de mais 90 s");
+
+        Avancar(1.2f);
+        Assert.AreEqual(2, rede.Publicados.Count);
+        Assert.AreSame(pneu2, rede.Publicados[1].foco, "a segunda foto é de outro pneu");
+    }
+
+    [Test]
+    public void Tipo_CelularAberto_Pausa()
+    {
+        Registrar(Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 20f)),
+                  Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f)));
+
+        Avancar(300f, celularAberto: true);
+
+        Assert.AreEqual(0, rede.Publicados.Count, "com o celular aberto os relógios não andam");
+        Assert.AreEqual(0f, historia.RelogioDoTipo(TipoFoco.Pneu), 1e-3f);
+        Assert.AreEqual(-15f, historia.RelogioDoTipo(TipoFoco.Vaso), 1e-3f, "o vaso continua com o atraso do começo");
     }
 
     /* Recusada pela janela de conflito: nada é gasto (nem o foco nem o
      * texto), o relógio fica no limite e a nova tentativa vem em 1 s. */
     [Test]
-    public void Empacado_Recusada_NaoGastaETentaDeNovo()
+    public void Tipo_Recusada_NaoGastaETentaDe1Em1s()
     {
-        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
-        Registrar(vaso, Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f)));
+        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 20f));
+        Registrar(pneu);
 
         TesteUtil.Setar(rede, "janelaConflito", 100f);
         Assert.IsTrue(rede.Postar(new PostRedeSocial { texto = "Aviso Alta de antes." }, PrioridadePost.Alta),
             "o post Alta de antes tinha que sair");
 
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        Avancar(90.1f);
         Assert.AreEqual(1, rede.Publicados.Count, "dentro da janela, a foto (Normal) tinha que ser recusada");
-        Assert.IsFalse(historia.FoiFotografado(vaso), "a foto recusada não marca o foco");
+        Assert.IsFalse(historia.FoiFotografado(pneu), "a foto recusada não marca o foco");
 
         TesteUtil.Setar(rede, "janelaConflito", 0f);
-        historia.AvancarEmpacado(0.5f, Vector3.zero, false);
+        Avancar(0.5f);
         Assert.AreEqual(1, rede.Publicados.Count, "a nova tentativa só vem 1 s depois da recusa");
 
-        historia.AvancarEmpacado(0.6f, Vector3.zero, false);
+        Avancar(0.6f);
         Assert.AreEqual(2, rede.Publicados.Count, "passado 1 s, a foto tinha que sair");
-        Assert.AreSame(FotoDe(vaso), Ultimo.foto);
-        Assert.AreEqual(FotoVaso1, Ultimo.texto, "a recusa não gasta o texto: sai o 1º");
-        Assert.IsTrue(historia.FoiFotografado(vaso));
+        Assert.AreSame(pneu, Ultimo.foco);
+        Assert.AreEqual(FotosDoPneu[0], Ultimo.texto, "a recusa não gasta o texto: sai o 1º");
     }
 
-    /* Foco eliminado depois de uma recusa: o relógio zera e a espera de 1 s
-     * da foto recusada também (a foto sai assim que o relógio chega ao limite). */
+    /* Foco do tipo eliminado depois de uma recusa: o relógio do tipo zera e
+     * a espera de 1 s da foto recusada também. */
     [Test]
-    public void Empacado_EliminacaoDepoisDaRecusa_ZeraAEspera()
+    public void Tipo_EliminacaoDepoisDaRecusa_ZeraAEspera()
     {
-        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
-        Interactable lata = Foco<Interactable>("Lata (teste)", new Vector3(-20f, 0f, 0f));
-        Registrar(vaso, lata, Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f)));
+        PneuInteractable pneu1 = Foco<PneuInteractable>("Pneu 1 (teste)", new Vector3(0f, 0f, 20f));
+        PneuInteractable pneu2 = Foco<PneuInteractable>("Pneu 2 (teste)", new Vector3(0f, 0f, 40f));
+        Registrar(pneu1, pneu2);
 
         TesteUtil.Setar(rede, "janelaConflito", 100f);
         Assert.IsTrue(rede.Postar(new PostRedeSocial { texto = "Aviso Alta de antes." }, PrioridadePost.Alta));
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
-        Assert.IsFalse(historia.FoiFotografado(vaso), "dentro da janela, a foto tinha que ser recusada");
+        Avancar(90.1f);
+        Assert.IsFalse(historia.FoiFotografado(pneu1), "dentro da janela, a foto tinha que ser recusada");
 
         TesteUtil.Setar(rede, "janelaConflito", 0f);
-        MethodInfo eliminado = typeof(HistoriaRedeSocial).GetMethod("HandleFocoEliminado", BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.IsNotNull(eliminado, "HistoriaRedeSocial.HandleFocoEliminado não encontrado");
-        eliminado.Invoke(historia, new object[] { lata });
+        Eliminar(pneu2);
 
-        historia.AvancarEmpacado(59.5f, Vector3.zero, false);
-        Assert.IsFalse(historia.FoiFotografado(vaso), "a eliminação zera o relógio");
-        historia.AvancarEmpacado(0.6f, Vector3.zero, false);
-        Assert.IsTrue(historia.FoiFotografado(vaso), "no limite, a foto sai sem a espera da recusa de antes");
-        Assert.AreSame(vaso, Ultimo.foco);
+        Avancar(89.5f);
+        Assert.IsFalse(historia.FoiFotografado(pneu1), "a eliminação zera o relógio do tipo");
+        Avancar(0.6f);
+        Assert.IsTrue(historia.FoiFotografado(pneu1), "no limite, a foto sai sem a espera da recusa de antes");
+    }
+
+    /* Os dois tipos vencem no mesmo quadro (o celular ficou aberto e depois
+     * passaram 105 s): saem um por vez, pela janela de conflito. */
+    [Test]
+    public void Tipo_DoisVencidosJuntos_SaemUmDepoisDoOutro()
+    {
+        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 20f));
+        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
+        Registrar(pneu, vaso);
+
+        Avancar(200f, celularAberto: true);
+        TesteUtil.Setar(rede, "janelaConflito", 4f);
+        Avancar(105.1f);
+        Assert.AreEqual(1, rede.Publicados.Count, "só um aviso passa pela janela de conflito");
+        Assert.AreSame(pneu, rede.Publicados[0].foco);
+
+        TesteUtil.Setar(rede, "janelaConflito", 0f);
+        Avancar(1.1f);
+        Assert.AreEqual(2, rede.Publicados.Count, "o vaso, recusado, sai na nova tentativa");
+        Assert.AreSame(vaso, rede.Publicados[1].foco);
+    }
+
+    /* Tipo sem foco que possa sair em foto: o relógio zera, sem post (e sem
+     * a bronca antiga, que ficaria errada para quem limpa outros tipos). */
+    [Test]
+    public void Tipo_SemElegivel_ZeraSemPostar()
+    {
+        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 20f));
+        Registrar(pneu);
+
+        historia.HandleFocoClicado(pneu);
+        Avancar(90.1f);
+
+        Assert.AreEqual(0, rede.Publicados.Count, "sem foco elegível não sai foto nem bronca");
+        Assert.AreEqual(0f, historia.RelogioDoTipo(TipoFoco.Pneu), 1e-3f, "o relógio do tipo zerou");
     }
 
     [Test]
-    public void Empacado_SemFocoComFoto_SaiABronca()
+    public void Tipo_TodoEliminado_NaoPostaMais()
     {
-        Registrar(Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f), comFoto: false),
-                  Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f), comFoto: false));
+        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 20f));
+        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
+        Registrar(pneu, vaso);
 
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        Eliminar(pneu);
+        historia.HandleFocoClicado(vaso);
+        Avancar(500f);
 
-        Assert.AreEqual(1, rede.Publicados.Count, "sem foco com foto, sai a bronca antiga");
-        Assert.AreEqual("Faz tempo que ninguém vê o agente limpar foco nenhum. Meu filho piorou de noite. Cadê ele?",
-            rede.Publicados[0].texto, "o 1º de aoDemorarSemFoco");
-        Assert.IsNull(rede.Publicados[0].foto);
-        Assert.IsNull(rede.Publicados[0].foco);
+        Assert.AreEqual(0, Fotos.Count, "tipo todo eliminado não posta foto; o vaso mexido também não (a fala de eliminar o pneu não tem foto)");
+    }
 
-        // A bronca zera o relógio, como antes.
-        historia.AvancarEmpacado(59.9f, Vector3.zero, false);
-        Assert.AreEqual(1, rede.Publicados.Count, "depois da bronca o relógio recomeça do zero");
+    [Test]
+    public void Tipo_TemposPorTipo_Sobrepoe()
+    {
+        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 20f));
+        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
+        Registrar(pneu, vaso);
+
+        SerializedObject so = new SerializedObject(historia);
+        SerializedProperty lista = so.FindProperty("temposPorTipo");
+        Assert.IsNotNull(lista, "HistoriaRedeSocial não tem o campo serializado temposPorTipo.");
+        lista.arraySize = 1;
+        lista.GetArrayElementAtIndex(0).FindPropertyRelative("tipo").intValue = (int)TipoFoco.Vaso;
+        lista.GetArrayElementAtIndex(0).FindPropertyRelative("segundos").floatValue = 30f;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        historia.ReiniciarRelogiosDosTipos();
+
+        Avancar(45.1f);
+
+        Assert.AreEqual(1, rede.Publicados.Count, "o vaso (−15 s, limite 30 s) vence aos 45 s");
+        Assert.AreSame(vaso, rede.Publicados[0].foco);
     }
 
     /* ---------------- Mexido pelo jogador ---------------- */
@@ -254,104 +367,106 @@ public class HistoriaFotoTestes
     [Test]
     public void Mexido_NaoSaiEmFoto()
     {
-        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
-        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f));
-        Registrar(vaso, pneu);
+        VasoInteractable vaso1 = Foco<VasoInteractable>("Vaso 1 (teste)", new Vector3(10f, 0f, 0f));
+        VasoInteractable vaso2 = Foco<VasoInteractable>("Vaso 2 (teste)", new Vector3(0f, 0f, 25f));
+        Registrar(vaso1, vaso2);
 
-        historia.HandleFocoClicado(vaso);
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        historia.HandleFocoClicado(vaso1);
+        Avancar(90.1f);
 
-        Assert.AreSame(pneu, Ultimo.foco, "o foco que recebeu um passo não sai em foto");
+        Assert.AreSame(vaso2, Ultimo.foco, "o foco que recebeu um passo não sai em foto");
     }
 
     [Test]
     public void Mexido_PorEsvaziar_NaoSaiEmFoto()
     {
-        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
-        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f));
-        Registrar(vaso, pneu);
+        VasoInteractable vaso1 = Foco<VasoInteractable>("Vaso 1 (teste)", new Vector3(10f, 0f, 0f));
+        VasoInteractable vaso2 = Foco<VasoInteractable>("Vaso 2 (teste)", new Vector3(0f, 0f, 25f));
+        Registrar(vaso1, vaso2);
 
-        historia.HandleFocoEsvaziado(vaso);
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        historia.HandleFocoEsvaziado(vaso1);
+        Avancar(90.1f);
 
         Assert.IsNotNull(Ultimo.foco, "tinha que sair uma foto");
-        Assert.AreSame(pneu, Ultimo.foco, "o foco esvaziado com as Mãos não sai em foto");
+        Assert.AreSame(vaso2, Ultimo.foco, "o foco esvaziado com as Mãos não sai em foto");
     }
 
     [Test]
     public void Mexido_PorPneuPego_NaoSaiEmFoto()
     {
-        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(10f, 0f, 0f));
-        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(0f, 0f, 25f));
-        Registrar(pneu, vaso);
+        PneuInteractable pneu1 = Foco<PneuInteractable>("Pneu 1 (teste)", new Vector3(10f, 0f, 0f));
+        PneuInteractable pneu2 = Foco<PneuInteractable>("Pneu 2 (teste)", new Vector3(0f, 0f, 25f));
+        Registrar(pneu1, pneu2);
 
-        historia.HandlePneuPego(pneu);
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        historia.HandlePneuPego(pneu1);
+        Avancar(90.1f);
 
         Assert.IsNotNull(Ultimo.foco, "tinha que sair uma foto");
-        Assert.AreSame(vaso, Ultimo.foco, "o pneu pego não sai em foto");
+        Assert.AreSame(pneu2, Ultimo.foco, "o pneu pego não sai em foto");
     }
 
     [Test]
     public void Mexido_PorTampaPega_NaoSaiEmFoto()
     {
-        CaixaDaguaInteractable caixa = Foco<CaixaDaguaInteractable>("Caixa (teste)", new Vector3(10f, 0f, 0f));
-        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(0f, 0f, 25f));
-        Registrar(caixa, vaso);
+        CaixaDaguaInteractable caixa1 = Foco<CaixaDaguaInteractable>("Caixa 1 (teste)", new Vector3(10f, 0f, 0f));
+        CaixaDaguaInteractable caixa2 = Foco<CaixaDaguaInteractable>("Caixa 2 (teste)", new Vector3(0f, 0f, 25f));
+        Registrar(caixa1, caixa2);
 
-        historia.HandleTampaPega(caixa);
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        historia.HandleTampaPega(caixa1);
+        Avancar(90.1f);
 
-        Assert.AreSame(vaso, Ultimo.foco, "a caixa com a tampa pega não sai em foto");
+        Assert.AreSame(caixa2, Ultimo.foco, "a caixa com a tampa pega não sai em foto");
     }
 
     /* ---------------- Focos fora da foto ---------------- */
 
     [Test]
-    public void Empacado_FocoDestruido_Ignora()
+    public void Tipo_FocoDestruido_Ignora()
     {
-        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
-        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f));
-        Registrar(vaso, pneu);
+        VasoInteractable vaso1 = Foco<VasoInteractable>("Vaso 1 (teste)", new Vector3(10f, 0f, 0f));
+        VasoInteractable vaso2 = Foco<VasoInteractable>("Vaso 2 (teste)", new Vector3(0f, 0f, 25f));
+        Registrar(vaso1, vaso2);
 
-        Object.DestroyImmediate(vaso.gameObject);
-        Assert.DoesNotThrow(() => historia.AvancarEmpacado(60f, Vector3.zero, false));
+        Object.DestroyImmediate(vaso1.gameObject);
+        Assert.DoesNotThrow(() => Avancar(90.1f));
 
         Assert.AreEqual(1, rede.Publicados.Count);
-        Assert.AreSame(pneu, rede.Publicados[0].foco, "o foco destruído fica de fora");
+        Assert.AreSame(vaso2, rede.Publicados[0].foco, "o foco destruído fica de fora");
     }
 
     /* Só o Interactable.FinishRemoval (depois de concluir) destrói um foco:
-     * destruído = eliminado, e o lugar dele continua conhecido (spec §4). */
+     * destruído = eliminado, e o lugar dele continua conhecido (spec §4),
+     * mesmo sendo de outro tipo. A lata é do tipo Nenhum (o 1º na ordem),
+     * então o vaso é o 2º tipo e vence aos 105 s. */
     [Test]
-    public void Empacado_FocoDestruido_ContinuaLugarConhecido()
+    public void Tipo_FocoDestruido_ContinuaLugarConhecido()
     {
-        VasoInteractable vaso = Foco<VasoInteractable>("Vaso (teste)", new Vector3(10f, 0f, 0f));
+        VasoInteractable vaso1 = Foco<VasoInteractable>("Vaso 1 (teste)", new Vector3(10f, 0f, 0f));
         Interactable lata = Foco<Interactable>("Lata (teste)", new Vector3(12f, 0f, 0f));
-        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f));
-        Registrar(vaso, lata, pneu);
+        VasoInteractable vaso2 = Foco<VasoInteractable>("Vaso 2 (teste)", new Vector3(0f, 0f, 25f));
+        Registrar(vaso1, lata, vaso2);
 
         Object.DestroyImmediate(lata.gameObject);
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        Avancar(105.1f);
 
         Assert.AreEqual(1, rede.Publicados.Count);
-        Assert.AreSame(pneu, rede.Publicados[0].foco,
-            "o vaso a 2 m do foco destruído fica fora da 1ª passada; sai o pneu, longe");
+        Assert.AreSame(vaso2, rede.Publicados[0].foco,
+            "o vaso a 2 m do foco destruído fica fora da 1ª passada; sai o outro vaso, longe");
     }
 
     [Test]
-    public void Empacado_FocoConcluido_NaoSaiEmFoto()
+    public void Tipo_FocoConcluido_NaoSaiEmFoto()
     {
         Interactable concluido = Foco<Interactable>("Concluído (teste)", new Vector3(10f, 0f, 0f));
         TesteUtil.Setar(concluido, "requiredClicks", 1);
-        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 25f));
-        Registrar(concluido, pneu);
+        Interactable outro = Foco<Interactable>("Outro (teste)", new Vector3(0f, 0f, 25f));
+        Registrar(concluido, outro);
 
         concluido.Interact();
         Assert.IsTrue(concluido.IsComplete, "o foco de teste tinha que concluir");
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        Avancar(90.1f);
 
-        Assert.AreSame(pneu, Ultimo.foco, "o foco concluído não sai em foto");
+        Assert.AreSame(outro, Ultimo.foco, "o foco concluído não sai em foto");
     }
 
     /* ---------------- Quem posta ---------------- */
@@ -362,7 +477,7 @@ public class HistoriaFotoTestes
         Interactable foco = Foco<Interactable>("Foco sem tipo (teste)", new Vector3(10f, 0f, 0f));
         Registrar(foco);
 
-        historia.AvancarEmpacado(60f, Vector3.zero, false);
+        Avancar(90.1f);
 
         Assert.AreEqual(1, rede.Publicados.Count);
         Assert.AreEqual("UPA Vila Nova", rede.Publicados[0].autor, "tipo sem dono = perfil da UPA");
@@ -380,9 +495,9 @@ public class HistoriaFotoTestes
         Registrar(pneus.ToArray());
 
         for (int i = 0; i < 6; i++)
-            historia.AvancarEmpacado(60f, Vector3.zero, false);
+            Avancar(90.1f);
 
-        Assert.AreEqual(6, rede.Publicados.Count, "seis empacados, seis fotos");
+        Assert.AreEqual(6, rede.Publicados.Count, "seis vezes 90 s, seis fotos");
         for (int i = 0; i < 3; i++)
             Assert.AreEqual(FotosDoPneu[i], rede.Publicados[i].texto, $"o post {i + 1} tinha que seguir a ordem");
         for (int i = 3; i < 6; i++)
@@ -392,6 +507,7 @@ public class HistoriaFotoTestes
                 $"os posts {i} e {i + 1} repetiram o mesmo texto");
         }
     }
+
 
     [Test]
     public void CompletarPersonagens_PreencheAoMandarFotoVazio()

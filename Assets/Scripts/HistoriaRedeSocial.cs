@@ -48,14 +48,21 @@ using UnityEngine;
  *      o pneu), no lugar da fala do dono.
  *  Sem Chuva na cena, a previsão só não sai.
  *
- *  Fotos dos focos: quando o jogador empaca (tempoSemFoco sem eliminar
- *  foco, com o celular fechado), o dono do tipo posta a FOTO de um foco
- *  (FotoDoFoco), escolhido pelo EscolhaDaFoto: o mais perto do jogador
- *  que nunca saiu em foto, não foi mexido pelo jogador (passo, esvaziar,
- *  tampa pega, pneu pego) e fica longe dos lugares que ele já conhece.
- *  Tipo sem dono (ou dono sem aoMandarFoto): posta a UPA. Sem foco com
- *  foto, sai a bronca antiga (aoDemorarSemFoco). Recusada pela janela de
- *  conflito, a foto não é gasta e tenta de novo a cada 1 s.
+ *  Fotos dos focos, POR TIPO (pedido do usuário, 2026-11-21): cada tipo
+ *  de foco tem um relógio, que anda com o celular fechado e zera quando
+ *  um foco daquele tipo é eliminado ou quando sai uma foto dele. Aos
+ *  tempoPorTipo (90 s; temposPorTipo sobrepõe por tipo), o dono do tipo
+ *  posta a FOTO (FotoDoFoco) de um foco DAQUELE tipo, escolhido pelo
+ *  EscolhaDaFoto: o mais perto do jogador que nunca saiu em foto, não foi
+ *  mexido (passo, esvaziar, tampa pega, pneu pego) e fica longe dos
+ *  lugares que ele já conhece. Os tipos começam escalonados
+ *  (intervaloEntreTipos, 15 s, na ordem do enum TipoFoco) para os posts
+ *  não se amontoarem. Tipo sem dono (ou dono sem aoMandarFoto): posta a
+ *  UPA. Tipo sem foco elegível: o relógio zera sem postar; tipo todo
+ *  eliminado: o relógio para. Recusada pela janela de conflito, a foto
+ *  não é gasta e tenta de novo a cada 1 s. A bronca aoDemorarSemFoco e o
+ *  tempoSemFoco ficaram sem uso (a bronca estaria errada para quem limpa
+ *  outros tipos).
  *
  *  Quem publica de fato é a RedeSocial.cs (avisos, não lidos). Ao nascer,
  *  este componente liga RedeSocial.NarradorExterno: a RedeSocial passa a
@@ -136,6 +143,17 @@ public class MarcoDeOcupacao
     public bool subindo = true;
 
     public PostRedeSocial post = new PostRedeSocial();
+}
+
+/* O tempo do relógio da foto de um tipo, no lugar do tempoPorTipo. */
+[System.Serializable]
+public class TempoDoTipo
+{
+    [Tooltip("Tipo de foco.")]
+    public TipoFoco tipo = TipoFoco.Nenhum;
+
+    [Tooltip("Segundos sem eliminar foco deste tipo até sair a foto dele.")]
+    public float segundos = 90f;
 }
 
 /* Um post ligado a um tipo de foco (o primeiro reenchido escolhe pelo tipo). */
@@ -231,8 +249,19 @@ public class HistoriaRedeSocial : MonoBehaviour
     [Tooltip("Distância (m) que conta como \"foi embora\" de um foco começado.")]
     [SerializeField] private float raioLargado = 12f;
 
-    [Tooltip("Segundos sem eliminar foco até alguém cobrar.")]
+#pragma warning disable 0414   // sem uso desde 2026-11-21 (as fotos saem por tipo); fica para não sumir do Inspector e da cena
+    [Tooltip("SEM USO: as fotos agora saem por tipo (tempoPorTipo). Era: segundos sem eliminar foco até alguém cobrar.")]
     [SerializeField] private float tempoSemFoco = 60f;
+#pragma warning restore 0414
+
+    [Tooltip("Segundos sem eliminar nenhum foco de um tipo até alguém postar a foto de um foco daquele tipo.")]
+    [SerializeField] private float tempoPorTipo = 90f;
+
+    [Tooltip("Atraso (s) do começo do relógio de cada tipo em relação ao anterior (ordem do TipoFoco), para os posts não saírem todos juntos.")]
+    [SerializeField] private float intervaloEntreTipos = 15f;
+
+    [Tooltip("Tempo próprio de alguns tipos, no lugar do tempoPorTipo.")]
+    [SerializeField] private List<TempoDoTipo> temposPorTipo = new List<TempoDoTipo>();
 
     [Tooltip("Distância (m) a um lugar que o jogador já conhece (foco fotografado, mexido ou eliminado) em que um foco ainda não fotografado fica de fora da 1ª escolha da foto.")]
     [SerializeField] private float raioLugarConhecido = 4f;
@@ -263,7 +292,7 @@ public class HistoriaRedeSocial : MonoBehaviour
     private Transform player;
     private Vector3 ultimaPosicaoPlayer;
     private int eliminadosTotal;
-    private int idxDemora, idxParado, idxCombo, idxPulos, idxSemDono;
+    private int idxParado, idxCombo, idxPulos, idxSemDono;
     private int idxReabastecer, idxCarregarPneu, idxEsvaziarSaco;
     private int idxEntregarPneu, idxEsvaziar;
     private int ultimaPrevisao = -1;   // índice do último post de previsão que saiu
@@ -273,31 +302,49 @@ public class HistoriaRedeSocial : MonoBehaviour
     private readonly System.Random sorteioPrevisao = new System.Random();
     private bool[] marcoArmado;
     private bool[] marcoDisparado;
-    private float timerSemFoco;
     private float timerParado;
     private float ultimoFocoTempo = float.NegativeInfinity;
     private float proximaVarredura;
 
-    // Fotos dos focos. As duas listas andam junto com 'focos' (mesmo índice):
+    // Fotos dos focos. As três listas abaixo andam junto com 'focos' (mesmo índice):
     // a posição de cada foco guardada ao registrar (o pneu muda de lugar ao
     // ser carregado) e o FotoDoFoco dele (null = foco sem foto).
     private readonly List<Vector3> posicaoInicial = new List<Vector3>();
     private readonly List<FotoDoFoco> fotoDe = new List<FotoDoFoco>();
+    private readonly List<TipoFoco> tipoDoIndice = new List<TipoFoco>();   // o tipo de cada foco (o do foco destruído também)
     private readonly HashSet<Interactable> fotografados = new HashSet<Interactable>();
     private readonly HashSet<Interactable> mexidos = new HashSet<Interactable>();
     private readonly Dictionary<TipoFoco, int> proximaFalaDaFoto = new Dictionary<TipoFoco, int>();
     private readonly Dictionary<TipoFoco, int> ultimaFalaDaFoto = new Dictionary<TipoFoco, int>();
     private int proximaFalaDaFotoSemDono;
     private int ultimaFalaDaFotoSemDono = -1;
-    private int indiceUltimaFoto = -1;   // índice em 'focos' do foco da última foto que saiu
-    private float esperaDaFoto;          // > 0: foto recusada, espera antes da nova tentativa
+    private int indiceUltimaFoto = -1;   // índice em 'focos' do foco da última foto que saiu (de qualquer tipo)
+
+    // Relógio por tipo: os tipos presentes, em ordem do enum; o relógio, a
+    // espera de uma foto recusada (> 0) e o índice da última foto de cada um.
+    private readonly List<TipoFoco> tiposComRelogio = new List<TipoFoco>();
+    private readonly Dictionary<TipoFoco, float> relogioDoTipo = new Dictionary<TipoFoco, float>();
+    private readonly Dictionary<TipoFoco, float> esperaDoTipo = new Dictionary<TipoFoco, float>();
+    private readonly Dictionary<TipoFoco, int> ultimaFotoDoTipo = new Dictionary<TipoFoco, int>();
 
     private const float EsperaDaFotoRecusada = 1f;
 
     internal enum ResultadoDaFoto { Saiu, Recusada, SemFoco }
 
-    /* Foco da última foto que saiu (null = nenhuma ainda). */
+    /* Foco da última foto que saiu, de qualquer tipo (null = nenhuma ainda). */
     internal Interactable UltimaFoto => indiceUltimaFoto >= 0 ? focos[indiceUltimaFoto] : null;
+
+    /* Foco da última foto do tipo (null = nenhuma ainda). */
+    internal Interactable UltimaFotoDoTipo(TipoFoco tipo)
+    {
+        return ultimaFotoDoTipo.TryGetValue(tipo, out int i) && i >= 0 ? focos[i] : null;
+    }
+
+    /* Segundos no relógio do tipo (negativo = ainda no atraso do começo). */
+    internal float RelogioDoTipo(TipoFoco tipo)
+    {
+        return relogioDoTipo.TryGetValue(tipo, out float s) ? s : 0f;
+    }
 
     // Regra das mensagens (pedido do usuário): sai NA HORA ou é recusada pela
     // RedeSocial (outro aviso tão ou mais importante acabou de sair). Recusada
@@ -439,10 +486,10 @@ public class HistoriaRedeSocial : MonoBehaviour
         // param enquanto ele está aberto.
         bool lendoCelular = celular != null && celular.Aberto;
 
-        // Muito tempo sem eliminar foco: alguém do bairro manda a foto de um
-        // foco (ou, sem foco com foto, cobra).
+        // Muito tempo sem eliminar foco de um tipo: alguém do bairro manda a
+        // foto de um foco daquele tipo.
         if (player != null)
-            AvancarEmpacado(dt, player.position, lendoCelular);
+            AvancarRelogiosDosTipos(dt, player.position, lendoCelular);
 
         // Parado: alguém estranha.
         if (velocidade < 0.15f && !lendoCelular)
@@ -495,7 +542,7 @@ public class HistoriaRedeSocial : MonoBehaviour
 
     private void HandlePartidaIniciada()
     {
-        timerSemFoco = 0f;
+        ReiniciarRelogiosDosTipos();
         if (rede != null)
             rede.PostarGrupo(Formatados(aoSairDoHospital), PrioridadePost.Alta);
     }
@@ -514,8 +561,10 @@ public class HistoriaRedeSocial : MonoBehaviour
         eliminadosTotal++;
         eliminadosPorTipo[tipo] = Contar(eliminadosPorTipo, tipo) + 1;
         jaChegouPerto.Add(tipo);   // não faz sentido "estou vendo o agente chegando" depois de limpo
-        timerSemFoco = 0f;
-        esperaDaFoto = 0f;         // o relógio recomeça do zero, sem a espera de uma foto recusada antes
+        // O relógio da foto DESTE tipo recomeça do zero, sem a espera de uma
+        // foto recusada antes; os outros tipos não mudam.
+        relogioDoTipo[tipo] = 0f;
+        esperaDoTipo[tipo] = 0f;
 
         bool sequencia = Time.time - ultimoFocoTempo <= janelaCombo;
         ultimoFocoTempo = Time.time;
@@ -743,6 +792,7 @@ public class HistoriaRedeSocial : MonoBehaviour
             totalPorTipo[tipo] = Contar(totalPorTipo, tipo) + 1;
             posicaoInicial.Add(foco.transform.position);
             fotoDe.Add(foco.GetComponent<FotoDoFoco>());
+            tipoDoIndice.Add(tipo);
 
             if (foco.IsComplete)
             {
@@ -750,58 +800,105 @@ public class HistoriaRedeSocial : MonoBehaviour
                 eliminadosPorTipo[tipo] = Contar(eliminadosPorTipo, tipo) + 1;
             }
         }
+        ReiniciarRelogiosDosTipos();
     }
 
-    /* O relógio de "empacado" (o mesmo da bronca): anda só com o celular
-     * fechado e zera a cada foco eliminado. No limite, tenta a foto:
-     *   Saiu      o relógio zera;
-     *   SemFoco   sai a bronca antiga (aoDemorarSemFoco) e o relógio zera,
-     *             saindo ou não, como antes;
-     *   Recusada  o relógio fica no limite e a nova tentativa vem depois de
-     *             EsperaDaFotoRecusada (exceção como a da previsão de chuva:
-     *             a foto é a ajuda, e perder tempoSemFoco por causa de um
-     *             aviso qualquer seria ruim). */
-    internal void AvancarEmpacado(float dt, Vector3 posicaoDoJogador, bool lendoCelular)
+    /* Os relógios da foto por tipo, do começo: os tipos presentes, em ordem
+     * do enum TipoFoco; o i-ésimo começa em −i × intervaloEntreTipos (o 1º
+     * vence aos tempoPorTipo, os seguintes de intervaloEntreTipos em
+     * intervaloEntreTipos), sem espera de recusa. Chamado no fim do
+     * RegistrarFocos e no começo da partida. */
+    internal void ReiniciarRelogiosDosTipos()
     {
-        if (!lendoCelular)
-            timerSemFoco += dt;
-        if (timerSemFoco < tempoSemFoco)
-            return;
-
-        if (esperaDaFoto > 0f)
+        tiposComRelogio.Clear();
+        foreach (Interactable foco in focos)
         {
-            esperaDaFoto -= dt;
-            if (esperaDaFoto > 0f)
-                return;
-            esperaDaFoto = 0f;
+            if (foco == null || !tipoDe.TryGetValue(foco, out TipoFoco tipo))
+                continue;
+            if (!tiposComRelogio.Contains(tipo))
+                tiposComRelogio.Add(tipo);
         }
+        tiposComRelogio.Sort();
 
-        switch (TentarFotoDeFoco(posicaoDoJogador))
+        relogioDoTipo.Clear();
+        esperaDoTipo.Clear();
+        for (int i = 0; i < tiposComRelogio.Count; i++)
+            relogioDoTipo[tiposComRelogio[i]] = -i * intervaloEntreTipos;
+    }
+
+    /* Anda o relógio de cada tipo (só com o celular fechado) e, no limite,
+     * tenta a foto daquele tipo:
+     *   Saiu      o relógio do tipo zera;
+     *   SemFoco   o relógio do tipo zera, sem post (nem a bronca antiga);
+     *   Recusada  o relógio fica no limite e a nova tentativa vem depois de
+     *             EsperaDaFotoRecusada (como a previsão de chuva: a foto é a
+     *             ajuda). Vários tipos vencidos juntos saem um por vez assim.
+     * Tipo todo eliminado: o relógio para. */
+    internal void AvancarRelogiosDosTipos(float dt, Vector3 posicaoDoJogador, bool lendoCelular)
+    {
+        foreach (TipoFoco tipo in tiposComRelogio)
         {
-            case ResultadoDaFoto.Saiu:
-                timerSemFoco = 0f;
-                break;
-            case ResultadoDaFoto.SemFoco:
-                PostarDaLista(aoDemorarSemFoco, ref idxDemora, PrioridadePost.Baixa);
-                timerSemFoco = 0f;
-                break;
-            case ResultadoDaFoto.Recusada:
-                esperaDaFoto = EsperaDaFotoRecusada;
-                break;
+            if (Contar(eliminadosPorTipo, tipo) >= Contar(totalPorTipo, tipo))
+                continue;
+
+            float relogio = RelogioDoTipo(tipo);
+            if (!lendoCelular)
+                relogio += dt;
+            relogioDoTipo[tipo] = relogio;
+            if (relogio < LimiteDoTipo(tipo))
+                continue;
+
+            float espera = esperaDoTipo.TryGetValue(tipo, out float e) ? e : 0f;
+            if (espera > 0f)
+            {
+                espera -= dt;
+                esperaDoTipo[tipo] = Mathf.Max(0f, espera);
+                if (espera > 0f)
+                    continue;
+            }
+
+            switch (TentarFotoDoTipo(tipo, posicaoDoJogador))
+            {
+                case ResultadoDaFoto.Saiu:
+                case ResultadoDaFoto.SemFoco:
+                    relogioDoTipo[tipo] = 0f;
+                    break;
+                case ResultadoDaFoto.Recusada:
+                    esperaDoTipo[tipo] = EsperaDaFotoRecusada;
+                    break;
+            }
         }
     }
 
-    /* Escolhe o foco (EscolhaDaFoto) e posta a foto dele. Quem posta é o
-     * dono do tipo, com o aoMandarFoto; tipo sem dono ou dono sem texto, a
-     * UPA com o aoMandarFotoSemDono. Recusada pela RedeSocial, nada é
-     * gasto (nem o foco nem o texto). */
-    internal ResultadoDaFoto TentarFotoDeFoco(Vector3 posicaoDoJogador)
+    /* Segundos até a foto do tipo: o temposPorTipo dele, senão tempoPorTipo. */
+    private float LimiteDoTipo(TipoFoco tipo)
+    {
+        if (temposPorTipo != null)
+            foreach (TempoDoTipo t in temposPorTipo)
+                if (t != null && t.tipo == tipo)
+                    return t.segundos;
+        return tempoPorTipo;
+    }
+
+    /* Escolhe um foco DO TIPO (EscolhaDaFoto: os de outros tipos ficam fora,
+     * mas continuam lugares conhecidos; a 2ª passada evita a última foto do
+     * tipo) e posta a foto dele. Quem posta é o dono do tipo, com o
+     * aoMandarFoto; tipo sem dono ou dono sem texto, a UPA com o
+     * aoMandarFotoSemDono. Recusada pela RedeSocial, nada é gasto (nem o
+     * foco nem o texto). */
+    internal ResultadoDaFoto TentarFotoDoTipo(TipoFoco tipo, Vector3 posicaoDoJogador)
     {
         List<CandidatoDaFoto> candidatos = new List<CandidatoDaFoto>(focos.Count);
         for (int i = 0; i < focos.Count; i++)
-            candidatos.Add(Candidato(i));
+        {
+            CandidatoDaFoto c = Candidato(i);
+            if (tipoDoIndice[i] != tipo)
+                c.elegivel = false;
+            candidatos.Add(c);
+        }
 
-        int escolhido = EscolhaDaFoto.Escolher(candidatos, posicaoDoJogador, raioLugarConhecido, indiceUltimaFoto);
+        int ultimaDoTipo = ultimaFotoDoTipo.TryGetValue(tipo, out int u) ? u : -1;
+        int escolhido = EscolhaDaFoto.Escolher(candidatos, posicaoDoJogador, raioLugarConhecido, ultimaDoTipo);
         if (escolhido < 0)
             return ResultadoDaFoto.SemFoco;
 
@@ -809,7 +906,6 @@ public class HistoriaRedeSocial : MonoBehaviour
             return ResultadoDaFoto.Recusada;
 
         Interactable foco = focos[escolhido];
-        TipoFoco tipo = tipoDe[foco];
         PersonagemDoBairro dono = Personagem(tipo);
         bool doDono = dono != null && dono.aoMandarFoto != null && dono.aoMandarFoto.Count > 0;
 
@@ -828,6 +924,7 @@ public class HistoriaRedeSocial : MonoBehaviour
 
         fotografados.Add(foco);
         indiceUltimaFoto = escolhido;
+        ultimaFotoDoTipo[tipo] = escolhido;
         return ResultadoDaFoto.Saiu;
     }
 

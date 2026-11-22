@@ -3935,3 +3935,15 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 - O Unity foi reaberto pelo Hub enquanto os testes novos ainda não compilavam (passo RED) e entrou em Safe Mode; no Safe Mode o Ctrl+R e mudar a data dos arquivos não recompilaram — só o botão "Exit Safe Mode" resolveu.
 - Eliminar um foco já posta a fala do dono (sem foto); nos testes, as fotos são contadas pelos posts com `foto`.
 - Outra sessão commitou nesta branch durante o trabalho (`cd3df3a`, HUD sem contagem de focos); não tocou nestes arquivos.
+
+### 2026-11-21 — Fotos por tipo: eliminar no começo não adianta a foto
+
+**Objetivo (pedido do usuário, a partir da revisão final):** eliminar um foco de um tipo que ainda está no atraso do começo (relógio negativo, por causa do escalonamento) zerava o relógio e trazia a foto daquele tipo antes da hora (ex.: de 135 s para 100 s).
+
+**Arquivos alterados:**
+- `Assets/Scripts/HistoriaRedeSocial.cs`: no `HandleFocoEliminado`, o relógio do tipo vai para `min(relógio, 0)` em vez de `0`.
+- `Assets/Editor/Testes/HistoriaFotoTestes.cs`: teste novo `Tipo_EliminarNoAtraso_NaoAdiantaAFoto` (falhou antes da correção: relógio 0 em vez de −10).
+
+**Verificação:** suíte EditMode inteira 627/627.
+
+**Detalhes da revisão final que ficaram como estão:** a nova tentativa de uma foto recusada ainda sai com o celular aberto (como antes); um tipo já todo eliminado no registro ocupa uma vaga no escalonamento; quando só sobra o foco da última foto de um tipo, a foto não se repete (decisão do design).

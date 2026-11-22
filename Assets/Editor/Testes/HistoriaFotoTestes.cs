@@ -209,6 +209,24 @@ public class HistoriaFotoTestes
         Assert.AreSame(vaso, Fotos[0].foco);
     }
 
+    /* Eliminar um foco de um tipo que ainda está no atraso do começo não
+     * adianta a foto dele: o relógio negativo fica como está. */
+    [Test]
+    public void Tipo_EliminarNoAtraso_NaoAdiantaAFoto()
+    {
+        PneuInteractable pneu = Foco<PneuInteractable>("Pneu (teste)", new Vector3(0f, 0f, 20f));
+        VasoInteractable vaso1 = Foco<VasoInteractable>("Vaso 1 (teste)", new Vector3(10f, 0f, 0f));
+        VasoInteractable vaso2 = Foco<VasoInteractable>("Vaso 2 (teste)", new Vector3(30f, 0f, 0f));
+        Registrar(pneu, vaso1, vaso2);
+
+        Avancar(5f);
+        Assert.AreEqual(-10f, historia.RelogioDoTipo(TipoFoco.Vaso), 1e-3f, "vaso: −15 + 5");
+        Eliminar(vaso1);
+
+        Assert.AreEqual(-10f, historia.RelogioDoTipo(TipoFoco.Vaso), 1e-3f,
+            "eliminar no atraso não leva o relógio a 0 (a foto não chega antes)");
+    }
+
     [Test]
     public void Tipo_FotoQueSaiu_ZeraORelogioDoTipo()
     {

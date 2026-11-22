@@ -562,8 +562,9 @@ public class HistoriaRedeSocial : MonoBehaviour
         eliminadosPorTipo[tipo] = Contar(eliminadosPorTipo, tipo) + 1;
         jaChegouPerto.Add(tipo);   // não faz sentido "estou vendo o agente chegando" depois de limpo
         // O relógio da foto DESTE tipo recomeça do zero, sem a espera de uma
-        // foto recusada antes; os outros tipos não mudam.
-        relogioDoTipo[tipo] = 0f;
+        // foto recusada antes; os outros tipos não mudam. Ainda no atraso do
+        // começo (relógio negativo), fica como está: eliminar não adianta a foto.
+        relogioDoTipo[tipo] = Mathf.Min(RelogioDoTipo(tipo), 0f);
         esperaDoTipo[tipo] = 0f;
 
         bool sequencia = Time.time - ultimoFocoTempo <= janelaCombo;

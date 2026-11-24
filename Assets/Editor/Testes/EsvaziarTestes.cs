@@ -203,15 +203,15 @@ public class EsvaziarTestes
     [Test]
     public void SemPodeEsvaziar_MaosDaFerramentaErrada()
     {
-        Interactable ralo = TesteUtil.Com<Interactable>("Ralo (teste)");
-        TesteUtil.Setar(ralo, "ferramentaNecessaria", Ferramenta.Tela);
-        TesteUtil.Setar(ralo, "podeEsvaziar", false);
-        TesteUtil.Setar(ralo, "punchScale", 0f);
-        TesteUtil.Setar(ralo, "shrinkDuration", 0f);
+        Interactable bueiro = TesteUtil.Com<Interactable>("Bueiro (teste)");
+        TesteUtil.Setar(bueiro, "ferramentaNecessaria", Ferramenta.Tela);
+        TesteUtil.Setar(bueiro, "podeEsvaziar", false);
+        TesteUtil.Setar(bueiro, "punchScale", 0f);
+        TesteUtil.Setar(bueiro, "shrinkDuration", 0f);
 
-        Assert.AreEqual(ResultadoDoPasso.FerramentaErrada, ralo.AvancarCom(kit));
-        Assert.IsFalse(ralo.Esvaziado);
-        Assert.AreEqual(0, ralo.PassosEsvaziando);
+        Assert.AreEqual(ResultadoDoPasso.FerramentaErrada, bueiro.AvancarCom(kit));
+        Assert.IsFalse(bueiro.Esvaziado);
+        Assert.AreEqual(0, bueiro.PassosEsvaziando);
     }
 
     [Test]

@@ -50,7 +50,7 @@ Loop Principal:
    * **João Silva** (@joaosilva) — caixas d'água; o filho está internado com dengue. Epílogo: o filho tem alta (ou continua internado).  
    * **Ana Paula** (@anapaula.rs) — piscina de plástico do filho; também comenta quando o agente fica parado ou pula à toa. Epílogo: o filho monta a "patrulha do mosquito".  
    * **Bruna Lima** (@bru.lima) — garrafas/lixo e dicas; comenta sequências rápidas. Epílogo: a rua ganha ponto de coleta de recicláveis.  
-   * **Seu Osvaldo** (@osvaldo.bar) — ralos da calçada; dono do bar da esquina, deixava a grelha de lado para lavar o chão. Epílogo: põe tela em todos os ralos e ensina os clientes.  
+   * **Seu Osvaldo** (@osvaldo.bar) — bueiros da calçada; dono do bar da esquina, deixava a grelha de lado para lavar o chão. Epílogo: põe tela em todos os bueiros e ensina os clientes.  
    * **Lúcia Andrade** (@lu.plantas) — bromélias da praça; tem medo de o agente arrancar as plantas. Epílogo: as bromélias ficam, e a criançada ajuda a esvaziar as folhas toda semana.  
    * **Enf. Rita** (@enf.rita.ubs) — a enfermeira da recepção (único NPC com corpo, na sala do hospital); posta a saída do agente e a lotação.  
    * **UBS Vila Nova** (@ubs.vilanova) — perfil oficial; marcos de ocupação e derrota.  
@@ -1283,59 +1283,59 @@ Nomes sem acento, no padrão da cena (`Praca`, `Cenario`, `Mobilia`). Os focos q
 - No `eval` do CLI, avisos de API obsoleta viram erro de compilação: usar `GetEntityId()` em vez de `GetInstanceID()`.
 
 
-### 2026-09-26 — Preview dos novos focos: Ralo e Bromélia (Blender)
+### 2026-09-26 — Preview dos novos focos: Bueiro e Bromélia (Blender)
 
-**Objetivo:** Criar dois novos tipos de foco (ralo destampado e bromélia com água acumulada), modelados no Blender por script. A pedido do usuário, primeiro só o **preview** (renders); nada foi importado no Unity ainda.
+**Objetivo:** Criar dois novos tipos de foco (bueiro destampado e bromélia com água acumulada), modelados no Blender por script. A pedido do usuário, primeiro só o **preview** (renders); nada foi importado no Unity ainda.
 
 **Arquivos criados:**
-- `Ferramentas/Blender/gerar_focos.py` — gera os dois modelos low poly e exporta `Ralo.fbx`, `Bromelia.fbx`, `Focos.blend` e as prévias (`previa_ralo`, `previa_ralo_fechado`, `previa_bromelia`, `previa_bromelia_seca`, `previa_bromelia_cima`, `previa_juntos`). Uso: `blender -b --factory-startup --python gerar_focos.py -- <pasta_saida> [--sem-render]`.
+- `Ferramentas/Blender/gerar_focos.py` — gera os dois modelos low poly e exporta `Bueiro.fbx`, `Bromelia.fbx`, `Focos.blend` e as prévias (`previa_bueiro`, `previa_bueiro_fechado`, `previa_bromelia`, `previa_bromelia_seca`, `previa_bromelia_cima`, `previa_juntos`). Uso: `blender -b --factory-startup --python gerar_focos.py -- <pasta_saida> [--sem-render]`.
 
 **Estrutura dos modelos (nomes que os scripts do Unity vão usar):**
-- `Ralo` → `Caixa` (moldura 0,42 m + poço de 12 cm), `Tampa` (grelha, começa tirada e encostada ao lado), `Agua` (lâmina 3 cm abaixo da boca), `Tela` (tela verde de proteção, aparece no fim).
+- `Bueiro` → `Caixa` (moldura 0,42 m + poço de 12 cm), `Tampa` (grelha, começa tirada e encostada ao lado), `Agua` (lâmina 3 cm abaixo da boca), `Tela` (tela verde de proteção, aparece no fim).
 - `Bromelia` → `Vaso` (terracota), `Folhas` (3 anéis de folhas em calha, pontas vermelhas), `Flor`, `Agua` com filhos `Agua_Centro` e `Agua_1..4` (uma poça por clique).
 
-**Próximo passo (após aprovação):** exportar FBX para `Assets/Meus/Assets Gerados/Focos/`, criar `RaloInteractable`/`BromeliaInteractable` e o builder `Dengue > Criar Ralo / Criar Bromélia`.
-### 2026-09-26 — Integração dos focos Ralo e Bromélia
+**Próximo passo (após aprovação):** exportar FBX para `Assets/Meus/Assets Gerados/Focos/`, criar `BueiroInteractable`/`BromeliaInteractable` e o builder `Dengue > Criar Bueiro / Criar Bromélia`.
+### 2026-09-26 — Integração dos focos Bueiro e Bromélia
 
-**Objetivo:** Colocar no projeto os dois focos aprovados no preview (ralo destampado e bromélia), com modelo do Blender, script de interação e prefab gerado por menu.
+**Objetivo:** Colocar no projeto os dois focos aprovados no preview (bueiro destampado e bromélia), com modelo do Blender, script de interação e prefab gerado por menu.
 
 **Arquivos criados:**
-- `Assets/Scripts/RaloInteractable.cs` — herda `Interactable`. Cada clique leva a grelha (`tampa`) de `posAberta/rotAberta` para `posFechada/rotFechada`, com arco. No fim a `agua` some e a `tela` aparece; o ralo fica na cena (`removeOnComplete` opcional). **Não** herda `CaixaDaguaInteractable` de propósito: `FocoListaHUD` e `HistoriaRedeSocial` classificam o foco por `is`, e o ralo seria contado como caixa d'água.
+- `Assets/Scripts/BueiroInteractable.cs` — herda `Interactable`. Cada clique leva a grelha (`tampa`) de `posAberta/rotAberta` para `posFechada/rotFechada`, com arco. No fim a `agua` some e a `tela` aparece; o bueiro fica na cena (`removeOnComplete` opcional). **Não** herda `CaixaDaguaInteractable` de propósito: `FocoListaHUD` e `HistoriaRedeSocial` classificam o foco por `is`, e o bueiro seria contado como caixa d'água.
 - `Assets/Scripts/BromeliaInteractable.cs` — herda `Interactable`. Array `pocas` na ordem de secar; cada clique seca `ceil(n × cliques / total)` poças (encolhem em `duracaoSecar` e desativam). A planta fica na cena.
-- `Assets/Editor/FocosBlenderBuilder.cs` — menus **Dengue > Criar Ralo** e **Dengue > Criar Bromélia**. Configura o import do FBX (`bakeAxisConversion`, `preserveHierarchy`, sem animação/collider), cria materiais URP Lit `Focos/Materiais/Foco_*.mat` com a paleta do Blender (a água usa `Assets/Meus/agua do pneu.mat`), monta o prefab com o Interactable, `FocoHUDInfo` e um `BoxCollider` na raiz cobrindo todos os renderers. A pose aberta da grelha é lida do FBX; a fechada é `(0, 0.034, 0)` sem rotação.
-- `Assets/Meus/Assets Gerados/Focos/` — `Ralo.fbx`, `Bromelia.fbx`, `Ralo.prefab`, `Bromelia.prefab`, `Materiais/Foco_*.mat`.
+- `Assets/Editor/FocosBlenderBuilder.cs` — menus **Dengue > Criar Bueiro** e **Dengue > Criar Bromélia**. Configura o import do FBX (`bakeAxisConversion`, `preserveHierarchy`, sem animação/collider), cria materiais URP Lit `Focos/Materiais/Foco_*.mat` com a paleta do Blender (a água usa `Assets/Meus/agua do pneu.mat`), monta o prefab com o Interactable, `FocoHUDInfo` e um `BoxCollider` na raiz cobrindo todos os renderers. A pose aberta da grelha é lida do FBX; a fechada é `(0, 0.034, 0)` sem rotação.
+- `Assets/Meus/Assets Gerados/Focos/` — `Bueiro.fbx`, `Bromelia.fbx`, `Bueiro.prefab`, `Bromelia.prefab`, `Materiais/Foco_*.mat`.
 
 **Arquivos alterados:**
 - `Ferramentas/Blender/gerar_focos.py`:
   - Export com `bake_space_transform=True`: o Unity funde o nó raiz do FBX e perdia a correção de eixo (o modelo entrava deitado).
   - As poças da bromélia agora são filhas diretas da raiz, com pivô no centro de cada uma. Dentro de um Empty, o export as girava 90°.
-  - A água do ralo subiu para 1 cm abaixo da borda (`ALT - 0.01`) e agora ocupa toda a boca: as calçadas do jogo não têm buraco, e o poço abaixo de y=0 ficava escondido.
+  - A água do bueiro subiu para 1 cm abaixo da borda (`ALT - 0.01`) e agora ocupa toda a boca: as calçadas do jogo não têm buraco, e o poço abaixo de y=0 ficava escondido.
 
 **Configuração dos prefabs:**
-- Ralo: 3 cliques, `punchScale` 0.04. HUD: "o ralo" / "Clique para tampar {nome}" / dica sobre manter fechado ou com tela e limpar toda semana.
+- Bueiro: 3 cliques, `punchScale` 0.04. HUD: "o bueiro" / "Clique para tampar {nome}" / dica sobre manter fechado ou com tela e limpar toda semana.
 - Bromélia: 5 cliques (1 por poça: Agua_1..4, depois Agua_Centro), `punchScale` 0.06. HUD: "a bromélia" / "Clique para esvaziar {nome}" / dica sobre esvaziar com jato d'água toda semana.
 
 **Verificado:**
 - Menus rodados pelo CLI; os prefabs foram renderizados numa *preview scene* do Unity (sem tocar na SampleScene), no estado inicial e no final.
 - Play Mode com instâncias temporárias, destruídas depois; a cena não foi salva:
-  - Ralo: 3/3, a grelha assenta em y=0.034, a água some e a tela aparece.
+  - Bueiro: 3/3, a grelha assenta em y=0.034, a água some e a tela aparece.
   - Bromélia: cada clique seca uma poça, o centro por último.
 - `PlayerSettings.runInBackground` foi ligado só durante o teste e voltou a `false`.
 
 **Observações para futuras sessões de IA:**
-- Os prefabs ainda **não** foram colocados na cena. A lista de focos (`FocoListaHUD`) e a rede social usam `FocoHUDInfo.nome` ("Ralo", "Bromélia"). `HistoriaRedeSocial` classifica esses focos como `TipoFoco.Nenhum`, então nenhum personagem da rede social comenta sobre eles ainda. Para isso, é preciso adicionar tipos ao enum `TipoFoco` e um personagem.
+- Os prefabs ainda **não** foram colocados na cena. A lista de focos (`FocoListaHUD`) e a rede social usam `FocoHUDInfo.nome` ("Bueiro", "Bromélia"). `HistoriaRedeSocial` classifica esses focos como `TipoFoco.Nenhum`, então nenhum personagem da rede social comenta sobre eles ainda. Para isso, é preciso adicionar tipos ao enum `TipoFoco` e um personagem.
 - Ao testar pelo CLI: o jogo abre com `Time.timeScale = 0` (cartelas da `HistoriaDoJogo`), e o Editor em segundo plano quase não avança frames. Coroutines e o `Start()` de objetos instanciados atrasam. Para testar a lógica, zere as durações das animações por reflection.
 - Regerar um modelo: rodar `gerar_focos.py`, copiar o FBX para `Assets/Meus/Assets Gerados/Focos/` e rodar o menu de novo (o GUID do prefab é mantido).
 
-### 2026-09-26 — Personagens da rede social para Ralo e Bromélia
+### 2026-09-26 — Personagens da rede social para Bueiro e Bromélia
 
 **Objetivo:** Os focos novos eram classificados como `TipoFoco.Nenhum`. Por isso ninguém comentava sobre eles na rede social (chegar perto, eliminar, último do tipo, largar pela metade) e eles ficavam fora do epílogo. Agora cada um tem tipo e personagem "dono".
 
 **Arquivos alterados:**
 - `Assets/Scripts/HistoriaRedeSocial.cs`:
-  - Enum `TipoFoco` ganhou `Ralo` e `Bromelia` **no fim**, porque o enum é salvo como número na cena e os 5 personagens antigos precisam manter o tipo.
-  - `TipoDoFoco()` reconhece `RaloInteractable` e `BromeliaInteractable`.
-  - `PersonagensPadrao()` ganhou **Seu Osvaldo** (@osvaldo.bar, Ralo) e **Lúcia Andrade** (@lu.plantas, Bromelia), com todas as falas e os dois epílogos.
+  - Enum `TipoFoco` ganhou `Bueiro` e `Bromelia` **no fim**, porque o enum é salvo como número na cena e os 5 personagens antigos precisam manter o tipo.
+  - `TipoDoFoco()` reconhece `BueiroInteractable` e `BromeliaInteractable`.
+  - `PersonagensPadrao()` ganhou **Seu Osvaldo** (@osvaldo.bar, Bueiro) e **Lúcia Andrade** (@lu.plantas, Bromelia), com todas as falas e os dois epílogos.
   - Novo `public int CompletarPersonagens()`: acrescenta o personagem padrão de cada tipo que ainda não tem dono na lista, sem mexer nos existentes. `PreencherPadroes(false)` (no `Awake`) chama esse método quando a lista não está vazia, então o jogo já funciona em Play mesmo com a cena antiga.
 - `Assets/Editor/HistoriaBuilder.cs` — `Dengue > Configurar Historia` chama `CompletarPersonagens()` (com Undo e SetDirty), para os personagens novos aparecerem no Inspector do objeto "Historia".
 - Seção **4. Personagens** deste arquivo: os dois personagens novos.
@@ -1345,7 +1345,7 @@ Nomes sem acento, no padrão da cena (`Praca`, `Cenario`, `Mobilia`). Os focos q
 **Verificado:**
 - Compilação OK.
 - Menu rodado 2×: 7 personagens nas duas vezes, sem duplicar; os textos dos 5 originais estão intactos.
-- `TipoDoFoco` por reflection: `Ralo.prefab` → Ralo, `Bromelia.prefab` → Bromelia, Caixa d'Água da cena → CaixaDagua (sem regressão).
+- `TipoDoFoco` por reflection: `Bueiro.prefab` → Bueiro, `Bromelia.prefab` → Bromelia, Caixa d'Água da cena → CaixaDagua (sem regressão).
 - `CompletarPersonagens()` devolve 0 com a lista completa.
 
 **Observações para futuras sessões de IA:**
@@ -1510,7 +1510,7 @@ Nomes sem acento, no padrão da cena (`Praca`, `Cenario`, `Mobilia`). Os focos q
 
 | Grupo | Arquivos |
 |---|---|
-| Focos | `mosquito_zumbido_loop` (6 s: enxame de 5 mosquitos entre 470 e 640 Hz, com harmônicos e vibrato), `foco_agua_1-3` (bolhas + respingo), `foco_areia_1-2`, `foco_tampa_1-2`, `foco_garrafa_1-3` (vidro; o 3 é PET amassando), `foco_metal_1-2` (grelha do ralo), `foco_eliminado` (whoosh + Ré-Fá#-Lá subindo) |
+| Focos | `mosquito_zumbido_loop` (6 s: enxame de 5 mosquitos entre 470 e 640 Hz, com harmônicos e vibrato), `foco_agua_1-3` (bolhas + respingo), `foco_areia_1-2`, `foco_tampa_1-2`, `foco_garrafa_1-3` (vidro; o 3 é PET amassando), `foco_metal_1-2` (grelha do bueiro), `foco_eliminado` (whoosh + Ré-Fá#-Lá subindo) |
 | Hospital | `ocupacao_alerta` (bipe duplo), `ocupacao_desce` (duas notas subindo), `vitoria`, `derrota` |
 | Jogador | `passo_rua_1-4`, `passo_piso_1-4`, `pulo`, `aterrissagem` |
 | Celular / UI | `celular_notificacao`, `celular_abrir`, `celular_fechar`, `ui_clique` |
@@ -2002,7 +2002,7 @@ Spec: `docs/superpowers/specs/2026-10-25-parte-a-kit-do-agente-design.md`. Plano
   - A barra da mira enche de forma contínua.
   - Ao soltar, os passos já dados ficam guardados; só a fração do passo em andamento se perde.
   - A carga só é gasta quando o foco conclui.
-- **A mira mostra o problema**, por exemplo "Ralo destampado com água parada", com a linha "segure o clique" embaixo.
+- **A mira mostra o problema**, por exemplo "Bueiro destampado com água parada", com a linha "segure o clique" embaixo.
   - Ferramenta errada: nada acontece, e um aviso ensina a certa (`FocoHUDInfo.textoFerramentaErrada`).
   - Sem carga: "Acabou: **Areia**. Reabasteça na picape da UPA."
   - Saco cheio: "Saco cheio. Esvazie na **caçamba** do terreno baldio."
@@ -2028,7 +2028,7 @@ Spec: `docs/superpowers/specs/2026-10-25-parte-a-kit-do-agente-design.md`. Plano
 | Caixa d'água | Mãos | 3,0 s (10 × 0,3 s) | 2 |
 | Piscina de plástico | Mãos | 2,5 s | 0 (a cena não tem piscina; os 2 prefabs ficaram configurados) |
 | Garrafas | Saco de lixo | 0,4 s por garrafa | 3 grupos (5, 5 e 12 garrafas) |
-| Ralo | Tela | 2,0 s (3 × 0,667 s) | 4 |
+| Bueiro | Tela | 2,0 s (3 × 0,667 s) | 4 |
 | Bromélia | Água sanitária | 2,0 s (5 × 0,4 s) | 4 |
 
 Total: **22 focos** (o plano falava em 23 contando uma piscina que a cena não tem).
@@ -2155,7 +2155,7 @@ Como a taxa foi escolhida:
   - `PersonagensHospitalBuilder.cs`: `FalaEnfermeira` virou `public const`, com a fala nova;
   - `BalanceamentoSimulador.cs`: rota com kit, custo do kit e pneu → caçamba mais perto.
 - `Ferramentas/Audio/gerar_sons.py`: 7 receitas novas. Nenhum som antigo mudou.
-- Prefabs de foco (ferramenta, tempo e textos): `Assets/Meus/Vaso de Flor/Vaso de Flor.prefab`, `Assets/Meus/Caixa d'Agua.prefab`, `Assets/Meus/Assets Gerados/Focos/Ralo.prefab`, `Assets/Meus/Assets Gerados/Focos/Bromelia.prefab`, `Assets/Meus/Assets Gerados/Piscina de Plastico/Piscina de Plastico.prefab` e `Assets/Piscina de Plastico.prefab`.
+- Prefabs de foco (ferramenta, tempo e textos): `Assets/Meus/Vaso de Flor/Vaso de Flor.prefab`, `Assets/Meus/Caixa d'Agua.prefab`, `Assets/Meus/Assets Gerados/Focos/Bueiro.prefab`, `Assets/Meus/Assets Gerados/Focos/Bromelia.prefab`, `Assets/Meus/Assets Gerados/Piscina de Plastico/Piscina de Plastico.prefab` e `Assets/Piscina de Plastico.prefab`.
 - `Assets/Scenes/SampleScene.unity`, salva pelo builder:
   - Player com `KitDoAgente`, `SomDoKit` e `Main Camera/PontoDeCarga`;
   - `--- UI ---/KitHUD`;
@@ -2191,10 +2191,10 @@ Como a taxa foi escolhida:
 - Play Mode na `SampleScene`, com `eval_file`:
   - preparação: abertura pulada (cartelas paradas, `pausouJogo = false`), `timeScale = 1`, `Interactor.Bloqueado = false`, `ControleAtivo = false`, `fluxo.IniciarPartida()` e `runInBackground` ligado só no teste;
   - logs `[T14]` nos eventos do kit, do `Interactor`, da `RedeSocial` e do `FluxoDeJogo`.
-- **Cada tipo de foco** (vaso, ralo, bromélia, caixa d'água, garrafas e pneu), com `AvancarCom` pelo kit da cena:
+- **Cada tipo de foco** (vaso, bueiro, bromélia, caixa d'água, garrafas e pneu), com `AvancarCom` pelo kit da cena:
   - com uma ferramenta errada: `FerramentaErrada`, e `CurrentClicks` não mudou;
   - com a da tabela: concluiu (o pneu deu `Pegou`).
-- **Recusa pelo `Interactor`:** agente teleportado e mirando a bromélia e o ralo, com as Mãos; a conferência do aperto (`Interactor.Conferir`, por reflexão):
+- **Recusa pelo `Interactor`:** agente teleportado e mirando a bromélia e o bueiro, com as Mãos; a conferência do aperto (`Interactor.Conferir`, por reflexão):
   - `OnRecusado(FerramentaErrada)`;
   - toast com o `textoFerramentaErrada` do foco;
   - `CurrentClicks` 0 → 0.
@@ -2213,7 +2213,7 @@ Como a taxa foi escolhida:
   - a `Cacamba (3)` esvaziou e, vazia, recusou com "Nada para jogar na caçamba.";
   - a lata parou de novo no saco cheio, a `Cacamba (2)` esvaziou, e a lata concluiu.
 - **Rede social:** os 4 posts novos saíram, **uma vez cada**:
-  - ferramenta errada: uma vez **por tipo**. A Lúcia saiu na bromélia; a 2ª recusa na bromélia, 4 s depois, não repetiu; o Seu Osvaldo saiu no ralo;
+  - ferramenta errada: uma vez **por tipo**. A Lúcia saiu na bromélia; a 2ª recusa na bromélia, 4 s depois, não repetiu; o Seu Osvaldo saiu no bueiro;
   - reabastecer (UPA): saiu no 1º reabastecimento, no monte; a picape, depois, não repetiu;
   - carregando pneu (Carlos): saiu no 1º pego; pegar de novo não repetiu;
   - 1º saco na caçamba (Bruna): saiu no 1º esvaziamento; o 2º não repetiu.
@@ -2299,7 +2299,7 @@ Como a taxa foi escolhida:
   - **1ª fala da Lúcia ao eliminar:** a constante `HistoriaRedeSocial.FalaLuciaPrimeiraBromelia` diz "Ufa! O agente não arrancou nada: só pôs água sanitária diluída no copinho, e a bromélia ficou inteirinha." Ela vale no padrão do código e é gravada no personagem salvo na cena pelo passo 8 novo do builder (`ConfigurarLucia`, via `SerializedObject`).
 - **M — largar em cima da caçamba** (`KitDoAgente.cs`, `PneuInteractable.cs`, `Cacamba.cs`). Se o raio do chão acerta uma `Cacamba` (ou o do peito, com o agente encostado nela), o `LargarPneu` entrega: chama `EntregarPneu(cacamba.PontoDeDescarte)`, e o foco conclui. `Cacamba.PontoDeDescarte` (pivô + `alturaDescarte`) também é usado pelo `Usar`.
 - **N — escala da KitHUD** (`KitHUD.cs`): `CanvasScaler.matchWidthOrHeight = 0.5`, como os outros Canvas do jogo. Pela conta das escalas (não conferido em captura), a dica 1–5 continua sem encostar na DicaCorrer, que usa 0: sobram ~17 px em 21:9 e ~21 px em 4:3.
-- **O — ralo com 8 passos** (`KitDoAgenteBuilder.cs`, coluna nova `passos`; `Ralo.prefab`): `requiredClicks` passou de 3 para 8, e o tempo total continua 2,0 s (8 × 0,25 s). Ao soltar, a barra volta no máximo 1/8. As 4 instâncias herdam do prefab.
+- **O — bueiro com 8 passos** (`KitDoAgenteBuilder.cs`, coluna nova `passos`; `Bueiro.prefab`): `requiredClicks` passou de 3 para 8, e o tempo total continua 2,0 s (8 × 0,25 s). Ao soltar, a barra volta no máximo 1/8. As 4 instâncias herdam do prefab.
 
 **Arquivos alterados:**
 - Scripts: `Interactable.cs`, `PneuInteractable.cs`, `KitDoAgente.cs`, `Cacamba.cs`, `PontoDeReabastecimento.cs`, `SomDoKit.cs`, `HistoriaRedeSocial.cs`, `DengueHUD.cs`, `KitHUD.cs` e `DicaCorrer.cs`.
@@ -2309,7 +2309,7 @@ Como a taxa foi escolhida:
   - `PontosDeUsoTestes.cs`: 1 teste novo;
   - `KitDoAgenteTestes.cs` e `PontosDeUsoTestes.cs`: os assinantes do `OnReabasteceu` com o parâmetro novo.
 - Assets, pelo builder:
-  - `Assets/Meus/Assets Gerados/Focos/Ralo.prefab`: `requiredClicks` 8;
+  - `Assets/Meus/Assets Gerados/Focos/Bueiro.prefab`: `requiredClicks` 8;
   - `Assets/Meus/Assets Gerados/Focos/Bromelia.prefab`: a dica;
   - `Assets/Scenes/SampleScene.unity`: 4 linhas, conferidas contra o índice — `ehPicapeDaUpa` 1 na picape e 0 no monte, `cliquesIgualAoNumeroDeGarrafas` 1 na Lata 001 e a fala da Lúcia.
 - `Cacamba.mat`: só o ruído de float de sempre (R13-6, adiado).
@@ -2355,12 +2355,12 @@ Rota com kit (com pneu a 1,96 m/s, sem correr): 676 m correndo + 86 m com pneu +
   Custo do kit: (221 s − 105 s) / 22 = 5,2 s/foco.
 ```
   - Os 4 critérios continuam passando: 30 + custo vence com pico de 88%; 35 + custo vence; 40 + custo perde aos 7:31; parado perde aos 3:25. A taxa não mudou.
-  - O custo do kit caiu de 5,5 para 5,2 s/foco quase só pela referência. A rota mínima (o jogo antigo, 0,25 s por clique) passou a contar 8 cliques por ralo (+5 s). A rota com kit ganhou só 1 s, a 12ª garrafa da Lata 001.
+  - O custo do kit caiu de 5,5 para 5,2 s/foco quase só pela referência. A rota mínima (o jogo antigo, 0,25 s por clique) passou a contar 8 cliques por bueiro (+5 s). A rota com kit ganhou só 1 s, a 12ª garrafa da Lata 001.
 
 **Verificado em Play** (SampleScene sozinha; `runInBackground` ligado só no teste; abertura pulada como na T14; partida iniciada por `fluxo.IniciarPartida()`):
 - **G:** ainda no hospital, `Selecionar(Areia)` não marcou a dica. Na partida, a troca marcou.
 - **N:** `matchWidthOrHeight` = 0,5 na KitHUD.
-- **E e O:** a Lata 001 tem 12 passos; o ralo tem 8 passos de 0,25 s.
+- **E e O:** a Lata 001 tem 12 passos; o bueiro tem 8 passos de 0,25 s.
 - **B e C:** testados no 'pneu' (de pé, sem giro) e no 'pneu (4)' (inclinado, giro (14, 89, 330)), com o agente no lugar do pneu e virado ao longo do disco (o pior caso de antes).
   - A escala ficou 100 nos braços e no chão.
   - O pneu caiu com +90° só em Y, a inclinação original mantida.
@@ -2543,7 +2543,7 @@ Ritmo + custo do kit (s/foco; os últimos levam até 1,6x; custo do kit 11,2 s/f
 7. **Console:** 0 erros e 0 avisos nas duas sessões, conferido também por `Application.logMessageReceived`.
 
 **Conferências extras:**
-- **Enxame e mira:** mirar e chegar perto do Ralo (2) com enxame não logou `_EmissionColor`.
+- **Enxame e mira:** mirar e chegar perto do Bueiro (2) com enxame não logou `_EmissionColor`.
 - **Poses (andar e correr por um controle virtual do Input System):**
   - Com pneu: 2,38 m/s, sem corrida, camada "Carregando" em 1.
   - Sem pneu: 2,80 m/s e 5,80 m/s, camada em 0. Os ossos do braço voltam ao descanso: diferença de 0,4° a 1,3°.
@@ -2721,44 +2721,44 @@ Ritmo + custo do kit (s/foco; os últimos levam até 1,6x; custo do kit 11,2 s/f
 **Observações para futuras sessões de IA:** o foco ainda muda de estágio e pesa na barra; só o texto saiu da mira.
 
 
-### 2026-11-04 — Skill check no ralo
+### 2026-11-04 — Skill check no bueiro
 
-**Objetivo:** Trocar o "segurar até concluir" do ralo por uma sequência de skill checks, a pedido do usuário.
+**Objetivo:** Trocar o "segurar até concluir" do bueiro por uma sequência de skill checks, a pedido do usuário.
 
 **Arquivos alterados:**
 - `Assets/Scripts/SkillCheck.cs` (novo) — lógica pura: `SkillCheck` e `SessaoDeSkillCheck`.
 - `Assets/Scripts/SkillCheckHUD.cs` (novo) — anel no centro da tela, com Canvas próprio em código. O `Interactor` adiciona o componente no `Start`; nada na cena.
 - `Assets/Scripts/Interactor.cs` — em foco com `UsaSkillCheck`, um aperto inicia os checks; evento `OnErrouSkillCheck`.
 - `Assets/Scripts/Interactable.cs` — `UsaSkillCheck`, `SegundosPorVoltaDoCheck`, `ErrarSkillCheck`, `CancelarSkillCheck`.
-- `Assets/Scripts/RaloInteractable.cs` — erro zera o progresso, devolve a grelha e gasta a tela; campo `segundosPorVolta`.
+- `Assets/Scripts/BueiroInteractable.cs` — erro zera o progresso, devolve a grelha e gasta a tela; campo `segundosPorVolta`.
 - `Assets/Scripts/ControladorJogador.cs` — `Imobilizado`: sem andar, olhar nem pular, com a entrada ligada.
 - `Assets/Scripts/CelularController.cs` — o celular não abre durante o check.
 - `Assets/Scripts/DengueHUD.cs` e `Assets/Scripts/SomDoKit.cs` — aviso e som de erro.
-- `Assets/Editor/KitDoAgenteBuilder.cs` e `Assets/Meus/Assets Gerados/Focos/Ralo.prefab` — ralo com 3 passos (era 8).
+- `Assets/Editor/KitDoAgenteBuilder.cs` e `Assets/Meus/Assets Gerados/Focos/Bueiro.prefab` — bueiro com 3 passos (era 8).
 - `Assets/Editor/Testes/SkillCheckTestes.cs` (novo).
 
 **Configurações aplicadas:** 3 checks; 1,2 s por volta; zona de 15%, 12,5% e 10% do anel, sorteada entre 30% e 95% da volta; anel de 120 px em 1920x1080. Clicar fora da zona ou deixar a volta acabar é erro.
 
 **Observações técnicas:**
 - Testes EditMode: 232 de 232, já com o `Outline` do contador.
-- Play Mode: os 4 ralos têm 3 passos. O tempo esgotado zerou o progresso, gastou a tela e soltou o jogador. O check foi iniciado por reflexão; o clique real do mouse não foi exercitado.
+- Play Mode: os 4 bueiros têm 3 passos. O tempo esgotado zerou o progresso, gastou a tela e soltou o jogador. O check foi iniciado por reflexão; o clique real do mouse não foi exercitado.
 - O contador "1/3" não apareceu na captura sobre a parede clara, e o `Outline` foi acrescentado sem nova captura.
-- `Bloqueado` no meio do check cancela sem gastar a tela. O `BalanceamentoSimulador` segue com 2,0 s por ralo e não conta os erros nem a viagem extra à picape.
+- `Bloqueado` no meio do check cancela sem gastar a tela. O `BalanceamentoSimulador` segue com 2,0 s por bueiro e não conta os erros nem a viagem extra à picape.
 
 
-### 2026-11-04 — Visual do skill check do ralo
+### 2026-11-04 — Visual do skill check do bueiro
 
 **Objetivo:** Deixar só o skill check na tela durante a ação e melhorar o visual, a pedido do usuário.
 
 **Arquivos alterados:**
 - `Assets/Scripts/SkillCheckHUD.cs` — refeito: disco escuro, trilho fino, rastro do ponteiro, zona verde com brilho, ponteiro afilado e um pontinho por check no lugar do texto "1/3". Formas em sprites gerados com borda suave; zona e rastro usam `Image` Filled radial. Animações de entrada, acerto, conclusão e erro.
-- `Assets/Scripts/DengueHUD.cs` — durante o check, esconde a mira e o painel do alvo (texto, barra e 3/5). Nova `AcaoSkillCheck`: "Clique para encaixar a grelha", no lugar do "segure o clique" no ralo.
+- `Assets/Scripts/DengueHUD.cs` — durante o check, esconde a mira e o painel do alvo (texto, barra e 3/5). Nova `AcaoSkillCheck`: "Clique para encaixar a grelha", no lugar do "segure o clique" no bueiro.
 
 **Configurações aplicadas:** anel segue com 120 px em 1920x1080; ponteiro fica verde dentro da zona.
 
 **Observações técnicas:**
 - Testes EditMode: 232 de 232.
-- Play Mode, com check iniciado por script: mira desligada e `targetGroup` em alfa 0, conferidos por reflexão; anel e pontinhos conferidos em captura, sobre o ralo. As animações não foram vistas em movimento.
+- Play Mode, com check iniciado por script: mira desligada e `targetGroup` em alfa 0, conferidos por reflexão; anel e pontinhos conferidos em captura, sobre o bueiro. As animações não foram vistas em movimento.
 - Canvas `ScreenSpaceOverlay` não aparece no `screenshot`: para capturar, trocar o Canvas `SkillCheckHUD` para `ScreenSpaceCamera` por eval.
 - Compilar com o Editor em Play Mode recarrega o domínio e deixa referências nulas (`KitHUD.cs:127`, `SkillCheckHUD`). Sair do Play Mode antes de recompilar.
 
@@ -2922,8 +2922,8 @@ Ritmo + custo do kit (s/foco; os últimos levam até 1,6x; custo do kit 11,2 s/f
 
 **Observações técnicas:**
 - A cena agora é a única fonte de tempo, passos e balanceamento: rodar Configurar Kit do Agente ou Configurar Focos Vivos e Chuva não desfaz mais esses valores. O teste `Builders_NaoGravamOsCamposDaJanela` falha se algum deles voltar a gravar um campo da janela.
-- Foco novo criado do zero nasce com o padrão do script ou do prefab, porque a tabela do Kit não define mais o tempo. O `Ralo (1)` continua com 5 passos e o simulador segue lendo os 3 s dele: não foi unificado.
-- Nos focos de segurar, passos não muda o tempo total, só divide (`SegundosPorPasso`). Garrafas: passos é só leitura (um por garrafa). Ralo: cada passo é um skill check, e o tempo é o `segundosPorVolta`; `segundosParaConcluir` não vale em Play.
+- Foco novo criado do zero nasce com o padrão do script ou do prefab, porque a tabela do Kit não define mais o tempo. O `Bueiro (1)` continua com 5 passos e o simulador segue lendo os 3 s dele: não foi unificado.
+- Nos focos de segurar, passos não muda o tempo total, só divide (`SegundosPorPasso`). Garrafas: passos é só leitura (um por garrafa). Bueiro: cada passo é um skill check, e o tempo é o `segundosPorVolta`; `segundosParaConcluir` não vale em Play.
 - Aplicar grava primeiro no prefab de origem e depois nas instâncias: instância sem override segue herdando e as com override recebem o valor. Um único Ctrl+Z desfaz cena e prefab. A janela não chama `MarkSceneDirty`: com ele, a cena continuaria suja depois do Undo.
 - Prefab antigo é reserializado no primeiro Aplicar: o da bromélia ganha `podeEsvaziar`, `passosParaEsvaziar` e `segundosParaEsvaziar` com os valores padrão, sem mudar comportamento.
 - Calibração que estava no comentário removido do `FocosVivosBuilder` (taxa 0,0013 e alívio 0,055, com o custo de rota da Parte B): 30 s/foco vence com pico de 87%, 35 s/foco vence, 40 s/foco perde nas 10 sementes e o parado perde aos 3:21. Com a taxa em 0,0011, o parado leva 4:02.
@@ -3062,7 +3062,7 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 
 **Decisões do usuário:**
 - balde de areia, tela com moldura e borrifador na mão direita, com gesto ao usar;
-- depois de concluído, o ralo mostra a mesma tela com moldura, sob a grelha fechada e ajustada ao tamanho do ralo;
+- depois de concluído, o bueiro mostra a mesma tela com moldura, sob a grelha fechada e ajustada ao tamanho do bueiro;
 - sem carga: balde vazio, borrifador na mão e tela fora da mão; ao tentar usar, só o aviso que já existe.
 
 **Arquivos novos:** `docs/superpowers/specs/2026-11-06-itens-do-kit-na-mao-design.md` e `docs/superpowers/plans/2026-11-06-itens-do-kit-na-mao.md`.
@@ -3073,14 +3073,14 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - A cena aberta no Editor pode ser a `MenuInicial`: para a prévia, carregar a `SampleScene` em Play antes de procurar o Player.
 - Com o Animator desligado em Play, dá para posar o braço por IK via `eval_file`, sem criar clipe. Valeu para a prévia, não para o jogo.
 - Sob a grelha fechada, a moldura da tela quase some, e o que aparece é a malha entre as barras. Foi escolha do usuário, depois de comparar com a tela sobre a grelha.
-- Ao menos um ralo da cena tem escala 1,21 × 2,11: uma peça nova filha do prefab herda esse esticamento.
+- Ao menos um bueiro da cena tem escala 1,21 × 2,11: uma peça nova filha do prefab herda esse esticamento.
 - Olhar para o chão ainda não foi testado com o braço real. A spec prevê o braço acompanhar o olhar.
 - `PlayerSettings.runInBackground` foi restaurado para falso depois das prévias (conferido em `ProjectSettings.asset`).
 
 
 ### 2026-11-06 — Itens do kit na mão
 
-**Objetivo (pedido do usuário):** dar modelo 3D, pose e gesto ao balde de areia, à tela com moldura e ao borrifador, como o saco de lixo, e mostrar a mesma tela sob a grelha do ralo concluído.
+**Objetivo (pedido do usuário):** dar modelo 3D, pose e gesto ao balde de areia, à tela com moldura e ao borrifador, como o saco de lixo, e mostrar a mesma tela sob a grelha do bueiro concluído.
 
 **Arquivos novos:**
 - `Assets/Scripts/RegraDoItemNaMao.cs` — regra pura: qual item, quando há gesto, estado do Animator e giro do ombro.
@@ -3089,10 +3089,10 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - `Ferramentas/Blender/gerar_itens.py` e `Assets/Meus/Assets Gerados/Itens/` — modelos, texturas e materiais.
 - `Assets/Editor/Testes/RegraDoItemNaMaoTestes.cs`, `ItensNaMaoTestes.cs` e `ItensNaMaoAssetsTestes.cs`.
 
-**Arquivos alterados:** `Ferramentas/Blender/gerar_agente.py`, `AgenteSaude.fbx`, `Agente_AnimController.controller`, `Ralo.prefab`, `Assets/Scenes/SampleScene.unity`, `Assets/Editor/FocosBlenderBuilder.cs`, `Assets/Editor/PoseDeCarga.cs` e `Assets/Editor/PlayerBuilder.cs`.
+**Arquivos alterados:** `Ferramentas/Blender/gerar_agente.py`, `AgenteSaude.fbx`, `Agente_AnimController.controller`, `Bueiro.prefab`, `Assets/Scenes/SampleScene.unity`, `Assets/Editor/FocosBlenderBuilder.cs`, `Assets/Editor/PoseDeCarga.cs` e `Assets/Editor/PlayerBuilder.cs`.
 
 **Configurações aplicadas:**
-- Tela: 29 × 29 cm, escala 0,67 na mão, escala local 1 e centro a 2,9 cm no ralo, sob a grelha.
+- Tela: 29 × 29 cm, escala 0,67 na mão, escala local 1 e centro a 2,9 cm no bueiro, sob a grelha.
 - Sem carga: balde vazio, borrifador na mão e tela fora da mão.
 - Camada `ItemNaMao` com 6 estados: peso em 0,15 s e troca de estado em 0,12 s.
 - `fatorDoOlhar` 1: o ombro acompanha o olhar.
@@ -3103,11 +3103,11 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 
 **Verificado em Play, com mouse virtual segurando o clique real (`SampleScene`):**
 - vaso e bromélia: gesto, partículas e parada ao soltar, com o foco concluindo;
-- ralo: gesto no skill check, e a tela some da mão quando o erro gasta a última;
+- bueiro: gesto no skill check, e a tela some da mão quando o erro gasta a última;
 - sem carga: "Acabou: Areia" e "Acabou: Água sanitária", sem gesto;
 - pausa no meio do gesto: não prende a pose;
 - pneu e saco: pesos das camadas certos depois da reexportação;
-- os quatro ralos concluídos: `TelaInstalada` ativa, herdando a escala 1,21 × 2,11;
+- os quatro bueiros concluídos: `TelaInstalada` ativa, herdando a escala 1,21 × 2,11;
 - olhar a +80° e -60°: o braço não entra na câmera;
 - andar (2,80 m/s) e correr (5,80 m/s) com teclado virtual, depois da reexportação;
 - pausa com a Tela olhando para baixo: o ombro ficou parado por milhares de quadros, porque o Animator reescreve a pose com `timeScale` 0. A revisão final levantou a dúvida e a medição a descartou.
@@ -3135,31 +3135,31 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 
 **Decisões do usuário:**
 - **10% com água / 90% secos**, com **contagem fixa sorteada** (não chance por foco, nunca 0 com água);
-- **os ralos ficam sempre com água** (pedido posterior do usuário, na mesma rodada): ficam fora do sorteio, até com a fração em 0;
+- **os bueiros ficam sempre com água** (pedido posterior do usuário, na mesma rodada): ficam fora do sorteio, até com a fração em 0;
 - a chuva reenche tudo, como antes (`ReencherEsvaziados()` não mudou).
 
 **Arquivos alterados em `Assets/Scripts/`:**
-- `Interactable.cs` — `Start()` chama `NascerVazio()` em Play quando o sorteio não deu água ao foco (guard `Application.isPlaying`: fora do Play ou sem gerenciador, nasce cheio, e os testes EditMode continuam determinísticos); `NasceComAgua()` privado pergunta ao gerenciador; novo `public virtual bool SempreNasceComAgua => false` (o ralo sobrescreve para true); `NascerVazio()` (`internal`) só marca `Esvaziado = true` e chama o hook `AoNascerVazio()` — **sem `OnEsvaziado`** (não houve esvaziamento: sem splash, sem post de rede social, sem zumbido, nasce parado em ovo pesando 0, as Mãos dão `JaVazio` e a ferramenta certa conclui de vez).
-- `GerenciadorDeFocos.cs` — campo `[Range(0,1)] fracaoNascendoComAgua = 0,1`; `ComAguaNoNascimento(total)` = `Clamp(RoundToInt(fracao × total), 1, total)` (0 se total ou fração ≤ 0); `SortearNascimento(rng)` com Fisher-Yates sobre os focos de pé (`!IsComplete` **e `!SempreNasceComAgua`** — o ralo não entra no pool), definindo quem nasce seco (HashSet `nascidosSecos`); `NasceComAgua(foco)` com sorteio lazy na 1ª consulta (`new System.Random()` se rng null) e `true` para `SempreNasceComAgua`. Foco registrado DEPOIS do sorteio nasce com água, como sempre.
+- `Interactable.cs` — `Start()` chama `NascerVazio()` em Play quando o sorteio não deu água ao foco (guard `Application.isPlaying`: fora do Play ou sem gerenciador, nasce cheio, e os testes EditMode continuam determinísticos); `NasceComAgua()` privado pergunta ao gerenciador; novo `public virtual bool SempreNasceComAgua => false` (o bueiro sobrescreve para true); `NascerVazio()` (`internal`) só marca `Esvaziado = true` e chama o hook `AoNascerVazio()` — **sem `OnEsvaziado`** (não houve esvaziamento: sem splash, sem post de rede social, sem zumbido, nasce parado em ovo pesando 0, as Mãos dão `JaVazio` e a ferramenta certa conclui de vez).
+- `GerenciadorDeFocos.cs` — campo `[Range(0,1)] fracaoNascendoComAgua = 0,1`; `ComAguaNoNascimento(total)` = `Clamp(RoundToInt(fracao × total), 1, total)` (0 se total ou fração ≤ 0); `SortearNascimento(rng)` com Fisher-Yates sobre os focos de pé (`!IsComplete` **e `!SempreNasceComAgua`** — o bueiro não entra no pool), definindo quem nasce seco (HashSet `nascidosSecos`); `NasceComAgua(foco)` com sorteio lazy na 1ª consulta (`new System.Random()` se rng null) e `true` para `SempreNasceComAgua`. Foco registrado DEPOIS do sorteio nasce com água, como sempre.
 - `VasoInteractable`, `GarrafaInteractable`, `PneuInteractable`, `BromeliaInteractable`, `CaixaDaguaInteractable`, `PiscinaInteractable` — cada um com `AoNascerVazio()` escondendo o visual de água (água do pneu/vaso/caixa/piscina, filhos "agua" das garrafas, poças da bromélia com `secas` já no fim). Bromélia, caixa d'água e piscina ganharam `PodeReencher => base.PodeReencher && CurrentClicks == 0` e `AoReencher()` (chuva não enche por cima de secagem/fechamento começado pela metade) — vaso, garrafa e pneu já tinham guards equivalentes.
-- `RaloInteractable.cs` — só `SempreNasceComAgua => true` (o ralo nasce sempre molhado e nunca entra no sorteio). Os overrides de água desta mesma rodada (`AoNascerVazio`, `AoReencher`, `PodeReencher`) foram removidos: com `podeEsvaziar` desligado no prefab, `Esvaziado` nunca fica verdadeiro no ralo, então eram inalcançáveis.
+- `BueiroInteractable.cs` — só `SempreNasceComAgua => true` (o bueiro nasce sempre molhado e nunca entra no sorteio). Os overrides de água desta mesma rodada (`AoNascerVazio`, `AoReencher`, `PodeReencher`) foram removidos: com `podeEsvaziar` desligado no prefab, `Esvaziado` nunca fica verdadeiro no bueiro, então eram inalcançáveis.
 
-**Arquivo novo:** `Assets/Editor/Testes/NascimentoTestes.cs` (categoria ParteB): contagem fixa (18→2, 10→1, 1→1, 0→0; fração 0/0,5/1), sorteio determinístico por semente, foco fora do sorteio nasce com água, `NascerVazio` sem evento/zumbido/peso, água some e a chuva devolve (com escala e estágio Larva), ferramenta certa conclui, pneu seco pega na hora e nos braços a chuva não reenche, `Start` fora do Play não sorteia, ralo sempre com água e fora da conta do sorteio (fração 0,4: 1 de 3 comuns, não 2 de 4), e o visual de cada tipo (garrafas, bromélia com guard de secagem, caixa, piscina).
+**Arquivo novo:** `Assets/Editor/Testes/NascimentoTestes.cs` (categoria ParteB): contagem fixa (18→2, 10→1, 1→1, 0→0; fração 0/0,5/1), sorteio determinístico por semente, foco fora do sorteio nasce com água, `NascerVazio` sem evento/zumbido/peso, água some e a chuva devolve (com escala e estágio Larva), ferramenta certa conclui, pneu seco pega na hora e nos braços a chuva não reenche, `Start` fora do Play não sorteia, bueiro sempre com água e fora da conta do sorteio (fração 0,4: 1 de 3 comuns, não 2 de 4), e o visual de cada tipo (garrafas, bromélia com guard de secagem, caixa, piscina).
 
-**Configurações aplicadas:** `fracaoNascendoComAgua = 0,1` (default; os objetos já serializados herdam o valor). O sorteio conta só os focos que podem nascer secos (a cena tem **4 ralos**, que ficam sempre molhados, fora da conta). Nenhuma cena ou prefab foi editado.
+**Configurações aplicadas:** `fracaoNascendoComAgua = 0,1` (default; os objetos já serializados herdam o valor). O sorteio conta só os focos que podem nascer secos (a cena tem **4 bueiros**, que ficam sempre molhados, fora da conta). Nenhuma cena ou prefab foi editado.
 
 **Testes:** compilação verificada fora do Editor com o Roslyn do VS, usando refs e defines extraídos dos `.csproj` gerados pelo Unity (o `Assembly-CSharp-Editor.csproj`, regenerado às 00:18, já inclui o teste novo): Assembly-CSharp (110 fontes) e Assembly-CSharp-Editor (76 fontes) compilam sem erros. Depois, pelo **CLI oficial do Unity** (`unity command` no Editor aberto): `recompile` OK e Test Runner > EditMode **ParteB 195/195 verdes** e **suíte EditMode completa 427/427 verdes** (0 falhas, 0 pulados), sem regressões.
 
 **Observações técnicas:**
 - `SortearInicio` já filtra `Esvaziado`, então focos nascidos secos não ganham estágio no começo; o epílogo da rede social classifica por eliminação, não por `Esvaziado` (focos secos restantes ficam "pendentes", coerente).
-- **O ralo (4 na cena) fica sempre molhado:** `SempreNasceComAgua` o tira do pool do sorteio — a fração de 10% vale só para os focos que podem nascer secos. No prefab do ralo, `podeEsvaziar` é 0: ele nunca fica `Esvaziado`, e por isso não precisa de visual de água no nascimento seco nem de `AoReencher`.
-- Com isso ficam ~7 focos molhados no começo: os 4 ralos + 3 sorteados dos ~28 que podem nascer secos. `focosComMosquitoNoInicio = 3` sorteia os mosquitos entre esses molhados, então ralos podem zumbar desde o início (ajustável no Inspector).
+- **O bueiro (4 na cena) fica sempre molhado:** `SempreNasceComAgua` o tira do pool do sorteio — a fração de 10% vale só para os focos que podem nascer secos. No prefab do bueiro, `podeEsvaziar` é 0: ele nunca fica `Esvaziado`, e por isso não precisa de visual de água no nascimento seco nem de `AoReencher`.
+- Com isso ficam ~7 focos molhados no começo: os 4 bueiros + 3 sorteados dos ~28 que podem nascer secos. `focosComMosquitoNoInicio = 3` sorteia os mosquitos entre esses molhados, então bueiros podem zumbar desde o início (ajustável no Inspector).
 - O BalanceamentoSimulador simula todos os focos molhados (pior caso), sem mudança.
 - Para validar compilação sem abrir mão do Editor ocupado: `csc.exe` do VS (`MSBuild\Current\Bin\Roslyn`) + rsp montado dos `.csproj` do Unity (`/noconfig /nostdlib+ /langversion:9.0`, refs por HintPath e o `ProjectReference` trocado pelo DLL recém-compilado). O `csc` do `MonoBleedingEdge` não roda aqui (falha em `System.Text.Encoding.CodePages`).
 
 ### 2026-11-11 — Spec dos minigames dos focos (leva 1)
 
-**Objetivo:** dar a cada foco uma ação própria, diferente do skill check do ralo. Leva 1: base comum de minigame, pneu (balançar no ritmo até a água transbordar), bromélia (mirar o borrifador nas pocinhas) e caixa d'água (carregar a tampa e tampar). Vaso, garrafas e piscina ficam para a leva 2.
+**Objetivo:** dar a cada foco uma ação própria, diferente do skill check do bueiro. Leva 1: base comum de minigame, pneu (balançar no ritmo até a água transbordar), bromélia (mirar o borrifador nas pocinhas) e caixa d'água (carregar a tampa e tampar). Vaso, garrafas e piscina ficam para a leva 2.
 
 **Arquivos alterados:** `docs/superpowers/specs/2026-11-11-minigames-leva-1-design.md` (novo). Nenhum script, cena ou prefab foi editado.
 
@@ -3167,7 +3167,7 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 
 **Observações técnicas:**
 - Decisões do usuário: formato depende do foco (os três desta leva são na cena 3D); ir mal só perde tempo (sem gastar carga); a tampa da caixa d'água continua encostada na caixa.
-- O skill check do ralo passa para a interface comum `IMinigame`, com a regra do anel intacta.
+- O skill check do bueiro passa para a interface comum `IMinigame`, com a regra do anel intacta.
 - Próximo passo: plano de implementação, depois da revisão do spec pelo usuário.
 
 ### 2026-11-11 — Plano dos minigames dos focos (leva 1)
@@ -3182,19 +3182,19 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - A Tarefa 0 pede a decisão do usuário sobre commitar o nascimento seco, pendente nos mesmos arquivos que o plano edita.
 - Testes novos na categoria `Minigames`.
 
-### 2026-11-11 — Minigames: base IMinigame e ralo no adaptador
+### 2026-11-11 — Minigames: base IMinigame e bueiro no adaptador
 
-**Objetivo:** Tarefa 1 do plano dos minigames (leva 1). O skill check do ralo, escrito direto no `Interactor`, vira um caso da base comum `IMinigame`, para os próximos focos (pneu, bromélia, caixa d'água) ganharem minigames próprios. O ralo se comporta como antes, agora por um adaptador.
+**Objetivo:** Tarefa 1 do plano dos minigames (leva 1). O skill check do bueiro, escrito direto no `Interactor`, vira um caso da base comum `IMinigame`, para os próximos focos (pneu, bromélia, caixa d'água) ganharem minigames próprios. O bueiro se comporta como antes, agora por um adaptador.
 
 **Arquivos alterados:**
 - `Assets/Scripts/Minigame.cs` (novo) — `EntradaDoMinigame` (Olhar, Segurando, Apertou), `EstadoDoMinigame` (EmAndamento, Passo, Errou), `IMinigame` (`Atualizar(dt, entrada)`, `FracaoDoPasso`, `PodeSair`) e `IMinigameComMira` (`Mira` em graus a partir do olhar inicial). C# puro, o tempo entra pelo `dt`.
 - `Assets/Scripts/SkillCheck.cs` — `MinigameDeSkillCheck : IMinigame` embrulha a `SessaoDeSkillCheck` (`Sessao`): aperto → `Apertar`, senão `Atualizar(dt)`; `Acertou` → `Passo`, `Errou` → `Errou`; `PodeSair` false; `FracaoDoPasso` 0.
 - `Assets/Scripts/Interactable.cs` — saem `UsaSkillCheck`, `SegundosPorVoltaDoCheck`, `ErrarSkillCheck`, `CancelarSkillCheck`; entram `CriarMinigame(kit, semente)` (null = segurar; fábrica pura, que não muda o foco: o Interactor também a chama só para perguntar), `AoIniciarMinigame(sessao)` (chamado ao aceitar a sessão, antes do primeiro `Atualizar`), `AoErrarMinigame`, `AoSairDoMinigame`, `AoAtualizarMinigame`, `DicaDoMinigame`, `SegundosEstimados` e `ProgressoCom(kit, fracao)` (as duas contas da barra que estavam no `Interactor.AtualizarProgresso`).
-- `Assets/Scripts/RaloInteractable.cs` — `CriarMinigame` devolve o adaptador; `AoErrarMinigame` = o antigo `ErrarSkillCheck` (volta ao começo e gasta a tela); `AoSairDoMinigame` = o antigo `CancelarSkillCheck`; `SegundosEstimados => RequiredClicks × segundosPorVolta`.
+- `Assets/Scripts/BueiroInteractable.cs` — `CriarMinigame` devolve o adaptador; `AoErrarMinigame` = o antigo `ErrarSkillCheck` (volta ao começo e gasta a tela); `AoSairDoMinigame` = o antigo `CancelarSkillCheck`; `SegundosEstimados => RequiredClicks × segundosPorVolta`.
 - `Assets/Scripts/Interactor.cs` — `MinigameAtivo`; `SkillCheckAtivo` = a sessão do adaptador; `IniciarMinigame(foco)` (internal; o foco vira o alvo, imobiliza e guarda o olhar inicial), `AvancarMinigame(dt, entrada, sair)` (internal; alvo destruído/inativo encerra, `sair && PodeSair` sai, `Passo` → `AvancarCom` e resultado diferente de `Avancou` encerra, `Errou` → `AoErrarMinigame` + `OnErrouSkillCheck`, `AoAtualizarMinigame` todo quadro, mira aplicada por `DefinirOlhar`) e `AoBloquear()` (internal; o corpo do antigo bloco `Bloqueado` do `Update`, saindo do minigame sem culpa). O `Update` só monta a entrada e chama `AvancarMinigame` (pausado, nada anda). Só um aperto NOVO, conferido, num foco com minigame começa a sessão no lugar do segurar (`ConferirFoco(foco, apertoNovo)`, internal); a mira chegando ao foco com o botão já apertado não começa nada, não confere (sem aviso) e prende o segurar até soltar. Ao encerrar, segurar só volta a valer depois de soltar o botão. `Avancando` fica verdadeiro com minigame ativo que não seja o skill check. Kit e `ControladorJogador` são achados no primeiro uso (no EditMode o `Start` não roda). A barra usa `ProgressoCom(kit, fração)`, com a fração do minigame quando há um ativo.
-- `Assets/Scripts/DengueHUD.cs` — a linha de ação "encaixar a grelha" passa a sair para `foco is RaloInteractable` (era `UsaSkillCheck`).
+- `Assets/Scripts/DengueHUD.cs` — a linha de ação "encaixar a grelha" passa a sair para `foco is BueiroInteractable` (era `UsaSkillCheck`).
 - `Assets/Editor/BalanceamentoSimulador.cs` — a rota com kit soma `foco.SegundosEstimados` (era `SegundosPorPasso × RequiredClicks`).
-- `Assets/Editor/Testes/MinigameNoInteractorTestes.cs` (novo, categoria `Minigames`), `Assets/Editor/Testes/SkillCheckTestes.cs` (adaptador e chamadas novas), `Assets/Editor/Testes/ConfiguracoesGlobaisTestes.cs` (lê o campo `segundosPorVolta` do ralo).
+- `Assets/Editor/Testes/MinigameNoInteractorTestes.cs` (novo, categoria `Minigames`), `Assets/Editor/Testes/SkillCheckTestes.cs` (adaptador e chamadas novas), `Assets/Editor/Testes/ConfiguracoesGlobaisTestes.cs` (lê o campo `segundosPorVolta` do bueiro).
 
 **Configurações aplicadas:** nenhuma. Nenhuma cena ou prefab foi editado; nenhum campo serializado novo.
 
@@ -3202,8 +3202,8 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 
 **Observações técnicas:**
 - Ordem no quadro do minigame: `Atualizar` → `AoAtualizarMinigame` → mira → aplicar o resultado. Assim o `AoErrarMinigame`/`AoSairDoMinigame` vem depois do visual do quadro e pode desfazê-lo.
-- Como antes, só o aperto começa o skill check: passar a mira para um ralo segurando o botão não começa nada (o ponteiro correria sem o jogador querer e o erro gastaria a tela). Ao terminar, segurar não avança o ralo: é preciso soltar e apertar de novo.
-- Pendente: jogar um ralo no Editor (acerto, erro gastando a tela, celular no meio).
+- Como antes, só o aperto começa o skill check: passar a mira para um bueiro segurando o botão não começa nada (o ponteiro correria sem o jogador querer e o erro gastaria a tela). Ao terminar, segurar não avança o bueiro: é preciso soltar e apertar de novo.
+- Pendente: jogar um bueiro no Editor (acerto, erro gastando a tela, celular no meio).
 
 **Atualização:** depois desta entrada o `IMinigame` ganhou um quarto membro, `Agindo` (Tarefa 5, "bromélia de mirar o borrifador"), e o `Avancando` do Interactor passou a seguir `minigame.Agindo` (não mais "minigame ativo que não seja o skill check"). Na revisão final (2026-11-12), um clique rápido (apertar e soltar no mesmo quadro) num foco com minigame voltou a começar a sessão.
 
@@ -3230,13 +3230,13 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 **Arquivos alterados:**
 - `Assets/Scripts/PneuInteractable.cs` — campos serializados `periodoDaOnda` (0,9), `inclinacaoMaxima` (25) e `deslocamentoDaAgua` (0,05 m). `CriarMinigame` (fábrica pura) devolve `new OndaDoPneu(RequiredClicks, periodoDaOnda)` só com as Mãos num pneu não esvaziado; `ConviteDoMinigame` = "Clique para balançar o pneu" na mesma condição; `DicaDoMinigame` = "Balance o pneu ← →   |   Botão direito: sair"; `SegundosEstimados => Esvaziado ? 0 : 6`. `AoIniciarMinigame` guarda pose, ponto de apoio (ponto mais baixo dos `Renderer.bounds`), eixo (horizontal da câmera ao pneu; `Vector3.forward` sem `Camera.main`) e a água cheia (lida uma vez). `AoAtualizarMinigame` gira o pneu em torno do apoio por `Inclinacao × inclinacaoMaxima` (preso a ±), dá à água escala Y `Nivel` e a desloca para o lado baixo, e derramando solta `EstourarParticulas` no lado baixo a cada 0,25 s (só no Play). A pose original volta em `AoSairDoMinigame` (água na escala `1 − CurrentClicks/RequiredClicks`), no `AoTerminarAcao` (o Interactor encerra o último passo sem chamar o `AoSairDoMinigame`) e a água cheia também no `AoReencher`. Os ganchos não lançam em qualquer ordem.
 - `Assets/Scripts/Interactable.cs` — `ConviteDoMinigame(kit)` (texto da linha de ação ao mirar um foco cujo aperto novo começaria um minigame; null = "segure o clique").
-- `Assets/Scripts/RaloInteractable.cs` — `ConviteDoMinigame` devolve `DengueHUD.AcaoSkillCheck`.
-- `Assets/Scripts/DengueHUD.cs` — `AcaoDoFoco` usa `ConviteDoMinigame` no lugar do `foco is RaloInteractable`; com minigame ativo, a linha de ação mostra `DicaDoMinigame` do alvo (o nome do foco não muda).
-- `Assets/Editor/Testes/PneuBalancarTestes.cs` (novo, categoria `Minigames`), `Assets/Editor/Testes/MinigameNoInteractorTestes.cs` (convite do ralo).
+- `Assets/Scripts/BueiroInteractable.cs` — `ConviteDoMinigame` devolve `DengueHUD.AcaoSkillCheck`.
+- `Assets/Scripts/DengueHUD.cs` — `AcaoDoFoco` usa `ConviteDoMinigame` no lugar do `foco is BueiroInteractable`; com minigame ativo, a linha de ação mostra `DicaDoMinigame` do alvo (o nome do foco não muda).
+- `Assets/Editor/Testes/PneuBalancarTestes.cs` (novo, categoria `Minigames`), `Assets/Editor/Testes/MinigameNoInteractorTestes.cs` (convite do bueiro).
 
 **Configurações aplicadas:** nenhuma. Nenhuma cena ou prefab foi editado; campos novos com valor padrão no código.
 
-**Testes:** `PneuBalancarTestes` (10): MaosNoPneuCheioCriaAOnda, PneuEsvaziadoNaoTemMinigame, OutraFerramentaNaoTemMinigame, ConviteSoComMaosEPneuCheio, UltimoPassoEsvaziaEEncerra, SairDevolveAPose, BloqueioNoMeioDevolveAPose, AguaAcompanhaONivel, ReenchidoRecomecaDoZero, GanchosForaDeOrdemNaoLancam; mais ConviteDoRaloEhOTextoDoSkillCheck. Suíte EditMode completa em batch mode: **462/462**.
+**Testes:** `PneuBalancarTestes` (10): MaosNoPneuCheioCriaAOnda, PneuEsvaziadoNaoTemMinigame, OutraFerramentaNaoTemMinigame, ConviteSoComMaosEPneuCheio, UltimoPassoEsvaziaEEncerra, SairDevolveAPose, BloqueioNoMeioDevolveAPose, AguaAcompanhaONivel, ReenchidoRecomecaDoZero, GanchosForaDeOrdemNaoLancam; mais ConviteDoBueiroEhOTextoDoSkillCheck. Suíte EditMode completa em batch mode: **462/462**.
 
 **Observações técnicas:**
 - `SegundosEstimados` do pneu (6 s) passa a valer na rota do `BalanceamentoSimulador`; nenhum teste fixava o tempo do pneu.
@@ -3310,17 +3310,17 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 
 **Testes:** suíte EditMode completa em batch mode (`unity test`, sem filtro): **515/515**, `failed="0"` (no começo do ramo eram 427). Nenhum `warning CS` nem `error CS` no log do Unity dessa rodada.
 
-**Balanceamento (estimativa, sem rodar o menu):** o `Dengue > Simular Balanceamento` precisa do Editor aberto; a tentativa headless (`unity run -- -executeMethod BalanceamentoSimulador.Simular`) não imprimiu nada e foi abandonada. A conta abaixo vem da `SampleScene` e dos prefabs: contagem pelos `m_Script` (pneus, soltos na cena) e pelos `m_SourcePrefab` (bromélia, caixa d'água, ralo), com os `propertyPath` de `requiredClicks`/`segundosParaConcluir` das instâncias. Antes, o `SegundosEstimados` de todo foco era `segundosParaConcluir`.
+**Balanceamento (estimativa, sem rodar o menu):** o `Dengue > Simular Balanceamento` precisa do Editor aberto; a tentativa headless (`unity run -- -executeMethod BalanceamentoSimulador.Simular`) não imprimiu nada e foi abandonada. A conta abaixo vem da `SampleScene` e dos prefabs: contagem pelos `m_Script` (pneus, soltos na cena) e pelos `m_SourcePrefab` (bromélia, caixa d'água, bueiro), com os `propertyPath` de `requiredClicks`/`segundosParaConcluir` das instâncias. Antes, o `SegundosEstimados` de todo foco era `segundosParaConcluir`.
 
 | Foco | Na cena | Antes (s cada) | Agora (s cada) | Diferença (s) |
 |---|---|---|---|---|
 | Pneu | 10 | 1,5 | 6,0 | +45,0 |
 | Bromélia (5 pocinhas) | 4 | 2,0 | 5,2 | +12,8 |
 | Caixa d'água | 2 | 3,0 | 1,5 | −3,0 |
-| Ralo (5 voltas × 1,5 s) | 4 | 2,0 em 3 deles, 3,0 em 1 (total 9,0) | 7,5 | +21,0 |
+| Bueiro (5 voltas × 1,5 s) | 4 | 2,0 em 3 deles, 3,0 em 1 (total 9,0) | 7,5 | +21,0 |
 | **Total** | 20 | | | **+75,8 s** |
 
-- O `segundosPorVolta` do ralo vale 1,5 no prefab (o padrão do código é 1,2); a cena não sobrescreve. O ralo com 3,0 s é a instância que sobrescreve `segundosParaConcluir`. Os outros 10 focos (vaso, garrafas, piscina) não mudam.
+- O `segundosPorVolta` do bueiro vale 1,5 no prefab (o padrão do código é 1,2); a cena não sobrescreve. O bueiro com 3,0 s é a instância que sobrescreve `segundosParaConcluir`. Os outros 10 focos (vaso, garrafas, piscina) não mudam.
 - Referência: a última saída do simulador no registro (calibração da nota, 30 focos, 10 sementes, custo do kit 10,6 s/foco): 30 s + 10,6 s → vence em 26:11 (1.571 s); 20 s + 10,6 s → 19:44. A diferença entra no custo do kit: +75,8 s / 30 focos = +2,5 s/foco (10,6 → cerca de 13,1).
 - Mudança relativa: +75,8 s sobre 1.571 s = **4,8%** (cerca de 6%, ~+98 s, se os últimos focos, que levam até 1,6x, também escalarem). **Abaixo do limite de 15%**; nenhum número de balanceamento foi mexido. Estimativa: a saída real do simulador com o código novo não foi obtida.
 
@@ -3330,10 +3330,10 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 - `BromeliaInteractable`: `segundosPorPoca` 0,5; `segundosDoCopoCentral` 1,2; `raioDeAcerto` 4°.
 - `MiraDoBorrifador` (padrões do construtor): `cone` 30°; `raio` 4°.
 - `CaixaDaguaInteractable`: `segundosParaTampar` 0,8; `SegundosEstimados` 1,5 s; `posNosBracos`/`rotNosBracos` zero.
-- `RaloInteractable`: `segundosPorVolta` 1,2 no código (1,5 no prefab do ralo).
+- `BueiroInteractable`: `segundosPorVolta` 1,2 no código (1,5 no prefab do bueiro).
 
 **Pendente para o usuário (jogar no Editor, mouse e controle):**
-- Ralo: acerto; erro que gasta a tela; celular aberto no meio; mirar o ralo com o botão já segurado não inicia o anel.
+- Bueiro: acerto; erro que gasta a tela; celular aberto no meio; mirar o bueiro com o botão já segurado não inicia o anel.
 - Pneu: balançar com mouse e com controle; conferir o tempo no ritmo (cerca de 5,4 s na simulação) e ajustar ganho/taxa se preciso; conferir o eixo do balanço e o lado para onde a água desloca; sair no meio e voltar (a água continua de onde parou); pegar e levar à caçamba como antes.
 - Bromélia: toda pocinha alcançável dentro do cone; a névoa sai do bico só enquanto segura; sair no meio e voltar; a dose só é gasta ao concluir.
 - Caixa d'água: pegar a tampa, andar, devolver com o botão de largar, pegar de novo, soltar o botão e segurar para tampar; ajustar `posNosBracos`/`rotNosBracos` se a tampa tapar a visão; a tampa não deve pulsar com o destaque enquanto está nos braços; chuva com a tampa nos braços.
@@ -3350,7 +3350,7 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 4. Calibração no Inspector — `PneuInteractable`: `amortecimentoDaOnda`, `ganhoDaOnda`, `limiarDaBorda`, `taxaDeDerrame`, `grausPorSegundoCheio`, passados à `OndaDoPneu`. `BromeliaInteractable`: `coneDaMira`, `sensibilidadeDaMira` (multiplica o `Olhar` no `MiraDoBorrifador`, último parâmetro opcional `sensibilidade`; não finita ou <= 0 vale 1).
 5. HUD da tampa — `Assets/Scripts/KitHUD.cs`: `TextoDaLinha(kit)` (internal) escolhe a linha de carga: a do pneu (sem mudança) ou, com `kit.TampaCarregada`, "Carregando a tampa. Tampe a caixa d'água. [Botão direito] devolve." (`TextoLinhaTampa`); a faixa da stamina aparece nos dois.
 6. Pneu inclinado sem gancho — `PneuInteractable.OnDisable` (internal) chama o `AoSairDoMinigame` (pose original e água no nível dos passos dados); `AoIniciarMinigame` chama o `RestaurarPose` antes de guardar a pose (sessão anterior ainda marcada).
-7. Ralo, clique rápido — `Assets/Scripts/Interactor.cs` (`AtualizarSegurar`): o aperto novo (`LerApertou()`) num foco com minigame confere (`ConferirFoco`) mesmo se o botão já foi solto no mesmo quadro; o segurar dos outros focos não mudou.
+7. Bueiro, clique rápido — `Assets/Scripts/Interactor.cs` (`AtualizarSegurar`): o aperto novo (`LerApertou()`) num foco com minigame confere (`ConferirFoco`) mesmo se o botão já foi solto no mesmo quadro; o segurar dos outros focos não mudou.
 8. Caixa d'água sem kit — `CaixaDaguaInteractable.SegundosPorPassoCom(kit)`: sem kit, `segundosParaConcluir / requiredClicks` (como a base); com kit, como antes.
 9. Este registro: linhas **Atualização:** nas entradas da Tarefa 1 e da Tarefa 3.
 - Testes: `BromeliaBorrifarTestes`, `MiraDoBorrifadorTestes`, `PneuBalancarTestes`, `KitHUDTestes`, `TampaTestes` e `TesteUtil.Primitivo` (primitiva escondida, destruída no `LimparTudo`).
@@ -3360,14 +3360,14 @@ Esse recorde de 100 pontos ficou no `PlayerPrefs` da build, que é separado do E
 **Testes:** novos — `BromeliaBorrifarTestes`: PrefabReal_MirarOCentroESegurarSecaNoMaximoUma, PrefabReal_MirarCadaUmaSecaTodas, PitchInicial45_AMiraApontaParaAPocinha, MiraPresaAosLimitesDoPitch, SensibilidadeDaMiraChegaASessao; `MiraDoBorrifadorTestes`: RaioParaAsPocinhas_NaoAlcancaDuas, MiraYPresaAosLimites, SensibilidadeMultiplicaOOlhar_ValorRuimVale1; `PneuBalancarTestes`: ApoioIgnoraAsParticulasDoEnxame, TaxaDeDerrameChegaASessao, DesativadoNoMeioDevolveAPose, NovaSessaoComAAnteriorDePeVoltaAPoseAntes; `KitHUDTestes`: LinhaDeCarga_MaosLivresNaoTem, LinhaDeCarga_ComOPneu, LinhaDeCarga_ComATampa; `TampaTestes`: SemKitOPassoDuraODaBase. Classes tocadas 77/77; suíte EditMode completa em batch mode **531/531** (0 falhas).
 
 **Observações técnicas:**
-- O clique rápido do ralo (achado 7) depende da entrada do jogador (`LerApertou`/`LerSegurando`): coberto por leitura, sem teste.
+- O clique rápido do bueiro (achado 7) depende da entrada do jogador (`LerApertou`/`LerSegurando`): coberto por leitura, sem teste.
 - No EditMode o Unity não manda o `OnDisable` a este script (sem `ExecuteAlways`): o teste chama `pneu.OnDisable()` entre o `SetActive(false)` e o `SetActive(true)`.
 - A caixa de um `ParticleSystem` ainda não simulado é (0, 0, 0) com tamanho zero; o teste do apoio simula as partículas e tira o pneu do eixo da origem para o enxame mexer no apoio sem a correção.
 
 **Pendente para o usuário (jogar no Editor):**
 - Bromélia: mirar o centro e segurar sem mover (deve secar no máximo uma pocinha); secar cada pocinha olhando de cima e quase em cima da planta.
 - Pneu: jogar um pneu no estágio Mosquito (enxame visível) e conferir o pivô e o respingo; testar com FPS livre.
-- Ralo: cliques muito rápidos e pausa no meio do anel.
+- Bueiro: cliques muito rápidos e pausa no meio do anel.
 - Tampa: pegar e andar sem olhar para a caixa (a linha da HUD explica?); correr até a stamina acabar; terminar a partida com ela.
 - Interrupções: celular e fim de partida no meio do pneu e da bromélia.
 - Rodar `Dengue > Simular Balanceamento`.
@@ -3698,7 +3698,7 @@ Como: `Application.runInBackground = true` só no teste; abertura pulada (corrot
 
 ### 2026-11-17 — Meta "Sem retrabalho" trocada por "Sem erros"
 
-**Objetivo (pedido do usuário):** a estrela "Sem retrabalho" (nenhum foco reenchido pela chuva) era quase impossível, porque não dá para limpar todos os focos antes da primeira chuva. Ela passa a valer para quem não erra nenhum minigame de limpar foco (por exemplo, a tela do ralo que rasga).
+**Objetivo (pedido do usuário):** a estrela "Sem retrabalho" (nenhum foco reenchido pela chuva) era quase impossível, porque não dá para limpar todos os focos antes da primeira chuva. Ela passa a valer para quem não erra nenhum minigame de limpar foco (por exemplo, a tela do bueiro que rasga).
 
 **Arquivos alterados:**
 - `Assets/Scripts/AvaliacaoDaPartida.cs`: `MetaDaPartida.SemRetrabalho` virou `SemErros` (nome na tela: "Sem erros"); `DadosDaPartida` ganhou `Erros`; a meta vale com `Erros == 0`; os detalhes viraram "0 erros", "1 erro" e "perdida: N erros".
@@ -3708,9 +3708,9 @@ Como: `Application.runInBackground = true` só no teste; abertura pulada (corrot
 
 **O que não mudou:** o desconto de 100 pontos por reenchido continua na nota (linha "Reenchidos N × 100"). O enum mantém a mesma posição (1), então nada serializado muda de valor.
 
-**Verificação:** `unity test` EditMode com filtro `NotaTestes|PlacarTestes|InterfaceDaNotaTestes`: 60 de 60 passaram. **Não verificado:** a suíte inteira, Play e build; o erro real do ralo derrubando a meta em Play (o evento `OnErrouSkillCheck` é o mesmo que já mostra o toast "A tela rasgou!").
+**Verificação:** `unity test` EditMode com filtro `NotaTestes|PlacarTestes|InterfaceDaNotaTestes`: 60 de 60 passaram. **Não verificado:** a suíte inteira, Play e build; o erro real do bueiro derrubando a meta em Play (o evento `OnErrouSkillCheck` é o mesmo que já mostra o toast "A tela rasgou!").
 
-**Observações técnicas:** hoje só o ralo (skill check) devolve `EstadoDoMinigame.Errou`; qualquer minigame novo que devolver `Errou` passa pelo mesmo evento e conta como erro sem mudar o placar.
+**Observações técnicas:** hoje só o bueiro (skill check) devolve `EstadoDoMinigame.Errou`; qualquer minigame novo que devolver `Errou` passa pelo mesmo evento e conta como erro sem mudar o placar.
 
 
 ### 2026-11-17 — Design: fotos dos focos na rede social
@@ -3807,7 +3807,7 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 
 - **Agente parado 60 s de verdade:** no limite do relógio, Dona Neusa postou a foto do `Vaso de Flor`, o foco com foto mais perto do agente (13,5 m, a previsão feita antes pelas distâncias), com o texto "Agente, olha esse vaso. Pratinho com água é convite pro mosquito."; o card entrou no topo do feed com a foto; `UltimaFoto` = `Vaso de Flor`.
 - **Foco eliminado** (`Interact()` 10 vezes, até `IsComplete`): o card daquele foco ganhou o selo, a foto escureceu para 0,62 e o pop terminou em escala 1 (lido 2 s depois); o relógio zerou; saiu o post de eliminação da Dona Neusa.
-- **Limite repetido** (`timerSemFoco` posto em 59,7 por reflexão): Seu Osvaldo postou a foto do `Ralo (4)` (o 2º mais perto, 14,2 m), outro foco; notificação com a miniatura do ralo, "enviou uma foto", cabeçalho −190 e texto −118. Uma 3ª vez (para a captura, porque o banner do ralo já tinha saído em 4,5 s): Lúcia Andrade com a `Bromelia (1)` (18,8 m).
+- **Limite repetido** (`timerSemFoco` posto em 59,7 por reflexão): Seu Osvaldo postou a foto do `Bueiro (4)` (o 2º mais perto, 14,2 m), outro foco; notificação com a miniatura do bueiro, "enviou uma foto", cabeçalho −190 e texto −118. Uma 3ª vez (para a captura, porque o banner do bueiro já tinha saído em 4,5 s): Lúcia Andrade com a `Bromelia (1)` (18,8 m).
 - **Capturas:** `1 - celular fechado, notificacao com a foto.png` (banner da bromélia com a miniatura), `2 - celular aberto, post com a foto.png` (card da bromélia no topo, com o círculo vermelho), `3 - celular aberto, card carimbado.png` (card do vaso, escurecido, com o selo RESOLVIDO; o feed foi rolado até ele por código).
 - **Console:** nenhum erro do jogo. O único erro novo é do próprio CLI ("Failed to handle /api/exec request: Main thread operation timed out after 5000ms"), no momento da entrada no Play.
 - Fora do Play: `runInBackground` false e a `SampleScene` sem mudanças (`isDirty` falso).
@@ -3818,7 +3818,7 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 - **Eliminar pelo kit:** o foco foi eliminado por `Interact()` (o caminho sem kit). Um pneu não conclui assim (precisa da caçamba).
 - **A tela de verdade:** as capturas usam Screen Space Camera, não o Overlay do jogo; a Game view do Editor não foi vista.
 - **Build exportada.**
-- **Step 3 da Task 6 (gerador × aprovadas), aceite do usuário pendente.** As 31 fotos do jogo são as aprovadas byte a byte (hash). Mas uma foto regerada a partir da pose guardada no `poses.tsv` sai deslocada por menos de um pixel, porque o `poses.tsv` (formato do spec) guarda a pose com 3 casas e em ângulos de Euler: fora da faixa do círculo, máx. Δ 145/157/169, médio 0,246/0,190/0,058 e Δ>2 em 0,22/0,24/0,20% dos pixels (focos 04 Bromélia (4), 15 pneu (10) do monte, 24 Ralo (1)). Com a pose exata que o gerador dá (o quaternion do `LookRotation`), Δ = 0: a receita do gerador reproduz as aprovadas. O critério ficou como decisão do controlador (R4′, em `.superpowers/sdd/2026-11-17-fotos-dos-focos/contexto-execucao.md`), sem aceite do usuário; a página `capturas/decisao-step3-fotos-dos-focos.html` mostra a tabela e as opções: (a) aceitar como está, ou (b) guardar a pose em quaternion com posição completa, o que muda o spec (seção 3 e apêndice), o importar e o `FotoDoFoco`. Só importa se o usuário refizer uma foto sem mudar a pose.
+- **Step 3 da Task 6 (gerador × aprovadas), aceite do usuário pendente.** As 31 fotos do jogo são as aprovadas byte a byte (hash). Mas uma foto regerada a partir da pose guardada no `poses.tsv` sai deslocada por menos de um pixel, porque o `poses.tsv` (formato do spec) guarda a pose com 3 casas e em ângulos de Euler: fora da faixa do círculo, máx. Δ 145/157/169, médio 0,246/0,190/0,058 e Δ>2 em 0,22/0,24/0,20% dos pixels (focos 04 Bromélia (4), 15 pneu (10) do monte, 24 Bueiro (1)). Com a pose exata que o gerador dá (o quaternion do `LookRotation`), Δ = 0: a receita do gerador reproduz as aprovadas. O critério ficou como decisão do controlador (R4′, em `.superpowers/sdd/2026-11-17-fotos-dos-focos/contexto-execucao.md`), sem aceite do usuário; a página `capturas/decisao-step3-fotos-dos-focos.html` mostra a tabela e as opções: (a) aceitar como está, ou (b) guardar a pose em quaternion com posição completa, o que muda o spec (seção 3 e apêndice), o importar e o `FotoDoFoco`. Só importa se o usuário refizer uma foto sem mudar a pose.
 
 **Observações técnicas:**
 - **Post de "parado" cobre a foto:** com o agente parado, o post de `aoFicarParado` (a cada 35 s) saiu cerca de 10 s depois da foto, empurrou o card para a 2ª posição e trocou o banner. É o comportamento de antes (o design só troca a bronca `aoDemorarSemFoco` pela foto), mas pode esconder a ajuda de quem está parado. Fica para o usuário decidir.
@@ -3869,7 +3869,7 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 **Objetivo (pedido do usuário):** toda bromélia do mapa deve ter o minigame. Antes, metade dos focos nascia sem água pelo sorteio do começo da partida, e uma bromélia sem água não tem minigame.
 
 **Arquivos alterados:**
-- `Assets/Scripts/BromeliaInteractable.cs`: `SempreNasceComAgua` passa a `true`, como no ralo. O cabeçalho do arquivo diz isso.
+- `Assets/Scripts/BromeliaInteractable.cs`: `SempreNasceComAgua` passa a `true`, como no bueiro. O cabeçalho do arquivo diz isso.
 - `Assets/Editor/Testes/NascimentoTestes.cs`: teste novo `Bromelia_NasceSempreComAgua_ForaDoSorteio`.
 
 **Configurações aplicadas:** nenhuma. A `fracaoNascendoComAgua` (0,5 na `SampleScene`) continua valendo para os outros focos.
@@ -3877,7 +3877,7 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 **Testes:** suíte EditMode inteira, 622/622.
 
 **Observações técnicas:**
-- **Balanceamento:** as 4 bromélias saem do sorteio, como o ralo. A fração de 0,5 passa a valer só para os focos que sobram, então o mapa começa com mais focos com água do que antes.
+- **Balanceamento:** as 4 bromélias saem do sorteio, como o bueiro. A fração de 0,5 passa a valer só para os focos que sobram, então o mapa começa com mais focos com água do que antes.
 - **Não verificado em Play.**
 - A chuva continua podendo encher uma bromélia já esvaziada, e o `NascerVazio` continua existindo, embora a bromélia não passe mais por ele no começo da partida.
 
@@ -3928,7 +3928,7 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 
 **Verificação:**
 - Suíte EditMode inteira 626/626 (categoria `Fotos` 48/48).
-- Play na `SampleScene` (abertura pulada, partida em jogo e relógios reiniciados por reflexão, janela de conflito em 0): com os 10 pneus eliminados, `AvancarRelogiosDosTipos(105,1 s)` postou a foto do `Vaso de Flor` pela Dona Neusa e nenhuma de pneu; relógios depois: pneu e vaso 0, caixa 75,1, garrafas 60,1, ralo 45,1, bromélia 30,1 (o escalonamento de 15 s). Console sem erros.
+- Play na `SampleScene` (abertura pulada, partida em jogo e relógios reiniciados por reflexão, janela de conflito em 0): com os 10 pneus eliminados, `AvancarRelogiosDosTipos(105,1 s)` postou a foto do `Vaso de Flor` pela Dona Neusa e nenhuma de pneu; relógios depois: pneu e vaso 0, caixa 75,1, garrafas 60,1, bueiro 45,1, bromélia 30,1 (o escalonamento de 15 s). Console sem erros.
 - **Não verificado:** uma partida jogada de verdade, com o tempo andando sozinho (o Editor sem foco não avança quadros).
 
 **Observações técnicas:**
@@ -3947,3 +3947,173 @@ Como: `Application.runInBackground = true` só durante o teste (em runtime; o `P
 **Verificação:** suíte EditMode inteira 627/627.
 
 **Detalhes da revisão final que ficaram como estão:** a nova tentativa de uma foto recusada ainda sai com o celular aberto (como antes); um tipo já todo eliminado no registro ocupa uma vaga no escalonamento; quando só sobra o foco da última foto de um tipo, a foto não se repete (decisão do design).
+
+### 2026-11-22 — Focos já limpos sorteados, focos novos Lona e Pote de bicho, e os minigames deles
+
+**Objetivo (pedido do usuário):** dar a sensação de partida nova a cada vez. No começo, uma parte dos focos já vem "limpa" (resolvida), sorteada. O jogo ganha dois tipos novos de foco, cada um com minigame próprio. **O usuário posiciona os focos na cena manualmente**, então nenhuma instância foi colocada.
+
+**Decisões do usuário:**
+- "Limpo" = já resolvido: some do mapa, fica fora da lista do Tab e do total. Não é o nascimento seco.
+- Tipos novos escolhidos: Lona com poça e Pote de água de bicho. As prévias do Blender foram aprovadas.
+- Minigame do pote: esponja em volta de um círculo predefinido, com as Mãos, e a esponja só aparece na hora de limpar.
+- Minigame da lona: "inclinar e escorrer".
+- As prévias em Play dos dois minigames foram aprovadas antes da implementação.
+
+**Arquivos novos:**
+- `Assets/Scripts/GrupoDeFocos.cs`: marcador; os focos filhos saem juntos no sorteio dos já limpos (para um monte de pneus, por exemplo).
+- `Assets/Scripts/LonaInteractable.cs`:
+  - Com as Mãos, cada passo tira uma poça. Concluída, a `Esticada` some e a `Dobrada` aparece; os tijolos ficam.
+  - Minigame `SessaoDaLona` (vista de perto): a esticada e as poças passam para um pivô `__InclinarLona` que inclina até `inclinacaoMaxima` (8°) e sobe o que afundaria. A faixa verde com setas fica na borda −x (a saída).
+  - As medidas e a grade de alturas (15×10, maior altura das 9 células em volta) saem dos vértices da esticada. O FBX da lona é importado legível (`isReadable`).
+  - Sair no meio guarda as poças que saíram e devolve as outras ao lugar, no pai original (o nó `Lona` do FBX).
+- `Assets/Scripts/InclinarLona.cs`: lógica pura do minigame da lona.
+  - A inclinação vem do ponteiro, presa ao disco de raio 1, e volta sozinha a zero (`retorno` 1,2/s).
+  - As poças aceleram com a inclinação (`aceleracao` 0,8 m/s², `atrito` 1,4/s) e param nas bordas +x/±y com `margem` 0,1.
+  - Passar de x < −meia extensão é sair. Um passo por saída, nunca `Errou`.
+- `Assets/Scripts/PoteDeBichoInteractable.cs`:
+  - Com as Mãos, a água velha (e a sujeira) sai no primeiro passo e a água limpa aparece no fim; o pote fica na cena.
+  - Minigame `SessaoDoPote` (vista de perto de cima): a água velha sai ao entrar. 48 tracinhos na parede de dentro, em `raioDoCirculo` 0,092 m e `alturaDoCirculo` 0,05 m, brancos tracejados e verdes quando limpos. A esponja (amarela com fibra verde) segue o mouse.
+  - Sair sem passo nenhum devolve a água velha.
+- `Assets/Scripts/EsfregarCirculo.cs`: lógica pura do minigame do pote.
+  - A esponja anda `metrosPorGrau` 0,0016 por grau do ponteiro, presa a um disco.
+  - Segurando o clique e no traço (`tolerancia` 0,03 m), limpa o trecho e o arco desde onde a esponja estava no quadro anterior (mexer rápido não pula trecho).
+  - Passo k devido com `Limpos >= ceil(48·k/passos)`.
+- `Ferramentas/Blender/gerar_lona_pote.py`: modelos e prévias.
+  - Lona: `Esticada` (grade com calombos e bacias, bordas assentadas no chão), `Dobrada`, `Tijolos` e `Poca_1..4`.
+  - Pote: `Pote` (torno com base larga), `Agua_Velha`, `Sujeira` e `Agua_Limpa`.
+- `Assets/Meus/Assets Gerados/Focos/`: `Lona.fbx/.prefab`, `PoteDeBicho.fbx/.prefab` e os materiais `Foco_Lona`, `Foco_LonaDobra`, `Foco_Tijolo`, `Foco_AguaVelha`, `Foco_Sujeira`, `Foco_Pote`, `Foco_PoteBase` e `Foco_AguaLona` (a água das poças da lona, mais clara para aparecer no azul).
+- Testes: `Assets/Editor/Testes/JaLimposTestes.cs`, `LonaPoteTestes.cs` e `MinigamesLonaPoteTestes.cs`.
+- Spec: `docs/superpowers/specs/2026-11-22-focos-ja-limpos-lona-pote-design.md`.
+
+**Arquivos alterados:**
+- `Assets/Scripts/GerenciadorDeFocos.cs`:
+  - campos `fracaoJaLimpos` (1/3) e `minimoAtivosPorTipo` (1);
+  - em Play, o `Garantir` sorteia (`SortearJaLimpos`), desliga a `UnidadeDe` cada sorteado e registra só o resto (antes de qualquer `Start` copiar `Focos`);
+  - `JaLimposDe(n)` é a conta, que o simulador também usa.
+- `Assets/Scripts/HistoriaRedeSocial.cs`:
+  - `TipoFoco.Lona` e `TipoFoco.PoteDeBicho`, no fim do enum;
+  - `TipoDoFoco`;
+  - personagens Seu Aristides (@aristides.obras, lona) e Marina Costa (@marina.e.thor, pote do cachorro Thor);
+  - um post de chuva para cada tipo.
+- `Assets/Scripts/FocoListaHUD.cs`: categorias "Lona" e "Pote de bicho".
+- `Assets/Editor/FocosBlenderBuilder.cs`:
+  - menus Dengue > Criar Lona e Dengue > Criar Pote de Bicho;
+  - paleta nova;
+  - `Instanciar(nome, legivel)`, para a lona importar legível.
+- `Assets/Editor/ConfiguracoesGlobais.cs`: os tipos novos em `Tipos` e os campos novos do sorteio no grupo "Ciclo de vida".
+- `Assets/Editor/KitDoAgenteBuilder.cs`: os prefabs novos e as linhas da tabela, com Mãos e os textos de ferramenta errada.
+- `Assets/Editor/SomBuilder.cs`: o som de água nos dois tipos, com pitch próprio.
+- `Assets/Editor/BalanceamentoSimulador.cs`: simula com os focos da cena menos `JaLimposDe` e mostra a conta no log.
+- `Assets/Editor/Testes/HistoriaChuvaTestes.cs`: 5 posts de chuva por tipo em vez de 3.
+- `Assets/Scenes/SampleScene.unity`: só os 2 personagens e os 2 posts de chuva novos (`CompletarPersonagens`) e as 2 linhas de som. Nenhum foco foi adicionado.
+
+**Configurações aplicadas:**
+- `fracaoJaLimpos = 1/3` e `minimoAtivosPorTipo = 1` (padrões).
+- Lona: 4 passos (um por poça) e 2,4 s no segurar.
+- Pote: 4 passos.
+- Os dois pedem as Mãos.
+
+**Testes:**
+- Suíte EditMode inteira: **654/654**.
+- **Em Play** (`SampleScene` carregada por `eval_file`, abertura pulada, celular fechado, `runInBackground` só no teste, focos temporários sem salvar):
+  - **Sorteio:** registrou 21 dos 31 focos da cena (10 já limpos).
+  - **Pote:** vista de cima com o arco verde, o tracejado e a esponja. A volta inteira deu os 4 passos, a água limpa apareceu, a câmera voltou e o agente foi liberado.
+  - **Lona:** vista de cima inclinada, com a faixa verde e as poças andando. As 4 poças saíram e a lona concluiu dobrada. Sair no meio guardou 3 passos e devolveu a última poça ao lugar.
+
+**Observações técnicas:**
+- **Balanceamento não recalibrado:** com 1/3 a menos de focos, a partida fica mais curta. Rodar **Dengue > Simular Balanceamento** depois de pôr os focos novos na cena.
+- **Monte de pneus:** sem `GrupoDeFocos`, pneus do monte podem sair um a um. A `PilhadePneu` da cena **não recebeu** o marcador (o usuário cuida da cena). Ponha `GrupoDeFocos` no pai se quiser que saia inteiro.
+- O pote nascido seco ainda é foco (os ovos ficam na parede) e tem minigame. A lona nascida seca não tem minigame: o segurar dobra.
+- O "Criar Lona/Pote" refaz o prefab do zero e perde os textos do kit. Depois de rodá-lo, rode **Dengue > Configurar Kit do Agente** (ou reaplique a tabela).
+- O `CriarMateriais` regrava os `Foco_*.mat` antigos com diferenças de arredondamento no `_Color`, que são ruído. Foram revertidos.
+- **Para testar em Play:** o pipeline do Unity travou uma vez depois de `run_tests` (os comandos davam timeout). Um Ctrl+R no Editor (recompilar) devolveu a conexão.
+
+### 2026-11-22 — Foco já limpo aparece no mapa, resolvido
+
+**Objetivo (pedido do usuário, depois de posicionar os focos e testar):** o foco sorteado como já limpo sumia do mapa. Agora ele continua lá, no estado já resolvido, mas fora da partida.
+
+**Decisão (minha, comunicada ao usuário):** pneu e garrafas continuam sumindo. Para eles, resolvido é ter sido levado embora, e deixá-los no chão faria parecer que ainda são focos. Os outros aparecem resolvidos:
+- caixa d'água tampada;
+- vaso com o pratinho cheio de areia e sem água;
+- piscina emborcada;
+- bueiro com a grelha e a tela;
+- bromélia seca;
+- lona dobrada;
+- pote com água limpa.
+
+**Arquivos alterados:**
+- `Assets/Scripts/Interactable.cs`:
+  - `virtual AparecerJaLimpo` (padrão false = some);
+  - `JaLimpo`;
+  - `MarcarJaLimpo()` (internal): seta a flag de concluído **sem** `OnCompleted`, então não aceita passo, não zumbe e a chuva não mexe;
+  - `virtual AoFicarJaLimpo()` (padrão: `OnComplete()`);
+  - o `Start` chama `AoFicarJaLimpo` depois do `OnStart` e pula o nascimento seco.
+- `Assets/Scripts/GerenciadorDeFocos.cs`: `DeixarJaLimpo(foco)`, que marca quem aparece e desliga quem some. O `Garantir` usa no lugar do `SetActive(false)` direto.
+- `VasoInteractable`, `BromeliaInteractable`, `CaixaDaguaInteractable`, `PiscinaInteractable`, `BueiroInteractable`, `LonaInteractable` e `PoteDeBichoInteractable`:
+  - todos com `AparecerJaLimpo => true`;
+  - o vaso (água fora e `SetSandFill(1)`) e a bromélia (`AoNascerVazio`) sobrescrevem o `AoFicarJaLimpo`, porque o `OnComplete` deles não deixa o visual final;
+  - os outros usam o `OnComplete` deles.
+- `Assets/Editor/Testes/JaLimposTestes.cs`: 3 testes novos:
+  - quem aparece fica ligado, concluído, sem evento, sem zumbido e sem reencher;
+  - pneu e garrafas somem;
+  - visual no `Start` da lona dobrada, do pote com água limpa e do vaso com areia.
+
+**Testes:**
+- Suíte EditMode inteira: **657/657**.
+- Em Play, na cena do usuário (42 focos): 28 na partida e 14 já limpos. Destes, 8 continuaram no mapa resolvidos (1 bromélia, 1 lona, 2 potes, 4 vasos) e 6 sumiram (3 pneus, 3 garrafas).
+
+**Observações técnicas:**
+- O foco já limpo continua com collider (bloqueia a passagem como antes), mas o Interactor não o mira (`CanInteract` false).
+- As animações de fechar (tampa, piscina, bueiro) rodam no `Start`, com o agente ainda no hospital.
+- **Incidente no teste:** o Play foi parado no meio da verificação, e um script de foto rodou fora do Play e criou `__CamLimpos` na cena aberta. A câmera foi removida na hora, com `DestroyImmediate`, e a cena **não** foi salva. A cena ficou marcada como alterada, possivelmente por edições do próprio usuário.
+
+---
+
+### 2026-11-22 — Fotos dos focos novos (lonas, potes de bicho, vasos, bromélias)
+
+**Objetivo:** dar foto, para o post da rede social, aos 10 focos que o usuário colocou na cena e que ainda não tinham `FotoDoFoco`. Os focos que já tinham foto não foram mexidos.
+
+**Como foi feito:**
+- Foram geradas 4 opções por foco (numeradas de 32 a 41) e montadas folhas de contato. O usuário riscou as que não gostou.
+- Em cada foco foi usada a opção de maior nota entre as não riscadas: 32A (Bromelia), 33A (Bromelia (1)), 34A (--- FOCOS ---/Lona), 35A (Lona), 36B (--- FOCOS ---/Lona (1)), 38A (PoteDeBicho (1)), 39A (PoteDeBicho (2)), 40A (Vaso de Flor) e 41A (Vaso de Flor (1)).
+- Em cada um desses focos:
+  - entrou um `FotoDoFoco` com a pose escolhida (FOV 60);
+  - o PNG foi gerado pelo `FotosDosFocosBuilder.Gerar`.
+- **PoteDeBicho (37, na varanda):** o usuário recusou as 4 opções. Foi gerada uma rodada nova, com a câmera mais perto e mais baixa, mirando o pote e aceitando teto acima. Depois foi feita uma terceira rodada, com fotos de fora da casa azul. O usuário decidiu que esse foco fica **sem foto**. O `HistoriaRedeSocial.Candidato` já trata foco sem `FotoDoFoco` como não elegível, então ele nunca sai em post. Se for o último pote de bicho que sobrou, o relógio do tipo dá `SemFoco` e zera.
+
+**Arquivos alterados:**
+- `Assets/Scenes/SampleScene.unity`: 9 componentes `FotoDoFoco` novos. A cena foi salva e estava limpa antes da mudança.
+- `Assets/Meus/Assets Gerados/Fotos dos Focos/`: 9 PNGs novos, com sufixo quando o nome já existia:
+  - `Bromelia.png`, `Bromelia (1) (2).png`;
+  - `Lona.png`, `Lona (1).png`, `Lona (2).png`;
+  - `PoteDeBicho (1).png`, `PoteDeBicho (2).png`;
+  - `Vaso de Flor (3).png`, `Vaso de Flor (1) (2).png`.
+
+**Observações técnicas:**
+- As opções e as poses estão em `.superpowers/sdd/2026-11-17-fotos-dos-focos/novos/` (`poses_novos.tsv`) e `novos37/` (`poses_37.tsv`).
+- Os focos novos ainda não estão em `aprovadas/poses.tsv`. Por isso, o menu "Importar fotos aprovadas" não os recria.
+
+---
+
+### 2026-11-24 — Foco "ralo" renomeado para "bueiro"
+
+**Objetivo:** a pedido do usuário, trocar "ralo" por "bueiro" em tudo: textos do jogo, código, arquivos, cenas e documentação. As entradas anteriores deste histórico e os documentos de `docs/superpowers/` também foram atualizados, então os nomes antigos não aparecem mais neles.
+
+**Arquivos renomeados (com o `.meta`, GUID preservado):**
+- `Assets/Scripts/RaloInteractable.cs` → `BueiroInteractable.cs`.
+- `Assets/Meus/Assets Gerados/Focos/Ralo.fbx` e `Ralo.prefab` → `Bueiro.fbx` e `Bueiro.prefab`.
+- `Assets/Meus/Assets Gerados/Fotos dos Focos/Ralo (1..4).png` → `Bueiro (1..4).png`.
+
+**Arquivos alterados:**
+- Código: classe `BueiroInteractable`, `TipoFoco.Bueiro` (mesma posição no enum), `AdicionarTelaAoBueiro`, menu **Dengue > Criar Bueiro**, constantes, variáveis, nomes de testes e comentários em `Assets/Scripts` e `Assets/Editor`.
+- Textos: falas e epílogos do Seu Osvaldo (código e `SampleScene`), HUD e dica do `Bueiro.prefab`, tabela do `KitDoAgenteBuilder`.
+- Nomes de objetos: `SampleScene`, `MenuInicial` e as cópias `Assets/_Recovery/0 (6)` e `0 (7)` (ignoradas pelo git).
+- `Bueiro.fbx`: o nó interno também foi renomeado, direto no binário, sem reexportar. A geometria é a mesma.
+- `Ferramentas/Blender/gerar_focos.py` e `gerar_itens.py`.
+- `.superpowers/sdd/2026-11-17-fotos-dos-focos/aprovadas/poses.tsv`: 4 caminhos, usados pelo menu "Importar fotos aprovadas".
+
+**Testes:** com o Editor fechado, suíte EditMode em batch: 657 de 657. Um teste temporário (já apagado) conferiu no prefab, na `SampleScene` e no `MenuInicial`: nenhum script ou malha perdidos, 4 bueiros na cena, cada um com a sua foto. **Não verificado:** Play e build.
+
+**Observações técnicas:**
+- Os registros de revisão em `.superpowers/` (diffs, relatórios), `.claude/settings.local.json` e os arquivos gerados (`Builds/`, `.csproj`, `.vs/`) não foram mexidos. O build existente só muda quando for refeito.
+- A rodada em batch tirou `SENTIS_ANALYTICS_ENABLED` do `ProjectSettings.asset`; o arquivo foi restaurado.

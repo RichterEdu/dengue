@@ -104,8 +104,10 @@ public static class KitDoAgenteBuilder
     {
         "Assets/Meus/Vaso de Flor/Vaso de Flor.prefab",
         "Assets/Meus/Caixa d'Agua.prefab",
-        MeusOrganizador.Destino + "/Focos/Ralo.prefab",
+        MeusOrganizador.Destino + "/Focos/Bueiro.prefab",
         MeusOrganizador.Destino + "/Focos/Bromelia.prefab",
+        MeusOrganizador.Destino + "/Focos/Lona.prefab",
+        MeusOrganizador.Destino + "/Focos/PoteDeBicho.prefab",
         MeusOrganizador.Destino + "/Piscina de Plastico/Piscina de Plastico.prefab",
         "Assets/Piscina de Plastico.prefab",
     };
@@ -137,15 +139,23 @@ public static class KitDoAgenteBuilder
             "Garrafas largadas juntando água",
             TextoGarrafaFerramentaErrada,
             null),
-        (typeof(RaloInteractable), "ralos", Ferramenta.Tela,
-            "Ralo destampado com água parada",
-            "Isso não resolve o ralo. Ralo se protege com <b>tela</b> e grelha fechada.",
+        (typeof(BueiroInteractable), "bueiros", Ferramenta.Tela,
+            "Bueiro destampado com água parada",
+            "Isso não resolve o bueiro. Bueiro se protege com <b>tela</b> e grelha fechada.",
             null),
         (typeof(BromeliaInteractable), "bromélias", Ferramenta.AguaSanitaria,
             "Bromélia com água acumulada nas folhas",
             "Não precisa arrancar nem cobrir. Bromélia se trata com <b>água sanitária</b> diluída.",
             "Bromélia guarda água entre as folhas. Regue o copinho com água sanitária diluída " +
             "(1 colher de sopa por litro) duas vezes por semana."),
+        (typeof(LonaInteractable), "lonas", Ferramenta.Maos,
+            "Lona largada com água nas dobras",
+            "Lona não precisa de nada do kit. Tire a água com as <b>mãos</b>, dobre e guarde.",
+            null),
+        (typeof(PoteDeBichoInteractable), "potes", Ferramenta.Maos,
+            "Pote de bicho com água velha",
+            "Pote de bicho se lava com esponja, com as <b>mãos</b>. Depois, água limpa.",
+            null),
     };
 
     // A cena do jogo sendo configurada (a do FluxoDeJogo achado), só durante

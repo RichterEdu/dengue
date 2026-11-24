@@ -172,6 +172,8 @@ public class FocoListaHUD : MonoBehaviour
         if (foco is CaixaDaguaInteractable) return ("caixaDagua", "Caixa d'água");
         if (foco is PiscinaInteractable) return ("piscina", "Piscina de plástico");
         if (foco is GarrafaInteractable) return ("garrafas", "Garrafas");
+        if (foco is LonaInteractable) return ("lona", "Lona");
+        if (foco is PoteDeBichoInteractable) return ("poteDeBicho", "Pote de bicho");
 
         if (info != null && !string.IsNullOrWhiteSpace(info.nome))
         {

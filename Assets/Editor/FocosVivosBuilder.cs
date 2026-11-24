@@ -26,7 +26,7 @@ using UnityEngine.SceneManagement;
  *       "Gotas de Chuva", filho da Main Camera) e as referências ligadas
  *       em quem usa o gerenciador e a chuva.
  *    2. Atalho: podeEsvaziar nos vasos, pneus e garrafas da cena, e no
- *       prefab deles quando o foco vem do prefab. Ralo, bromélia e caixa
+ *       prefab deles quando o foco vem do prefab. Bueiro, bromélia e caixa
  *       d'água ficam de fora.
  *    3. Pneus em tamanho real: escala uniforme que leva a maior dimensão
  *       do pneu a 0,7 m, assentado no chão. A medida é a do próprio pneu

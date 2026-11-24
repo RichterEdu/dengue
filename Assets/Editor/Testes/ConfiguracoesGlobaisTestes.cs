@@ -212,28 +212,28 @@ public class ConfiguracoesGlobaisTestes
     }
 
     [Test]
-    public void Aplicar_Ralo_GravaSegundosPorVolta_ENaoSegundosParaConcluir()
+    public void Aplicar_Bueiro_GravaSegundosPorVolta_ENaoSegundosParaConcluir()
     {
-        RaloInteractable ralo = Foco<RaloInteractable>(3);
-        TesteUtil.Setar(ralo, "segundosParaConcluir", 2f);
+        BueiroInteractable bueiro = Foco<BueiroInteractable>(3);
+        TesteUtil.Setar(bueiro, "segundosParaConcluir", 2f);
 
-        ConfiguracoesGlobais.Aplicar(Tipo<RaloInteractable>(), new Interactable[] { ralo },
+        ConfiguracoesGlobais.Aplicar(Tipo<BueiroInteractable>(), new Interactable[] { bueiro },
                                      new ConfiguracoesGlobais.Valores { Passos = 4, Tempo = 0.9f });
 
-        Assert.AreEqual(4, ralo.RequiredClicks);
-        Assert.AreEqual(0.9f, Lido(ralo, "segundosPorVolta"), 1e-5f);
-        Assert.AreEqual(2f, Lido(ralo, "segundosParaConcluir"), 1e-5f);
+        Assert.AreEqual(4, bueiro.RequiredClicks);
+        Assert.AreEqual(0.9f, Lido(bueiro, "segundosPorVolta"), 1e-5f);
+        Assert.AreEqual(2f, Lido(bueiro, "segundosParaConcluir"), 1e-5f);
     }
 
     [Test]
-    public void Aplicar_Ralo_VoltaMinima()
+    public void Aplicar_Bueiro_VoltaMinima()
     {
-        RaloInteractable ralo = Foco<RaloInteractable>(3);
+        BueiroInteractable bueiro = Foco<BueiroInteractable>(3);
 
-        ConfiguracoesGlobais.Aplicar(Tipo<RaloInteractable>(), new Interactable[] { ralo },
+        ConfiguracoesGlobais.Aplicar(Tipo<BueiroInteractable>(), new Interactable[] { bueiro },
                                      new ConfiguracoesGlobais.Valores { Tempo = 0f });
 
-        Assert.AreEqual(0.1f, Lido(ralo, "segundosPorVolta"), 1e-5f, "volta de 0 s tiraria o tempo de reação");
+        Assert.AreEqual(0.1f, Lido(bueiro, "segundosPorVolta"), 1e-5f, "volta de 0 s tiraria o tempo de reação");
     }
 
     [Test]

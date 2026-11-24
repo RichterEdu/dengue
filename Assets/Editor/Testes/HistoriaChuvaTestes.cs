@@ -333,6 +333,7 @@ public class HistoriaChuvaTestes
         Assert.AreEqual(1, so.FindProperty("aoEntregarPneuPrimeiraVez").arraySize);
         Assert.AreEqual(4, so.FindProperty("aoPreverChuva").arraySize);
         Assert.AreEqual(1, so.FindProperty("aoEsvaziarPrimeiraVez").arraySize);
-        Assert.AreEqual(3, so.FindProperty("aoReencherPrimeiraVez").arraySize);
+        // Vaso, pneu, garrafas, lona e pote de bicho.
+        Assert.AreEqual(5, so.FindProperty("aoReencherPrimeiraVez").arraySize);
     }
 }

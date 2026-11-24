@@ -320,65 +320,65 @@ public class ItensNaMaoAssetsTestes
             Assert.AreEqual(CamadaDoCorpo, t.gameObject.layer, t.name);
     }
 
-    /* ---- Tela instalada no ralo ---- */
+    /* ---- Tela instalada no bueiro ---- */
 
-    private const string CaminhoRalo = "Assets/Meus/Assets Gerados/Focos/Ralo.prefab";
+    private const string CaminhoBueiro = "Assets/Meus/Assets Gerados/Focos/Bueiro.prefab";
     private const float MeiaLarguraDaGrelha = 0.15f;   // G do gerar_focos.py
 
-    private static SerializedObject RaloSerializado()
+    private static SerializedObject BueiroSerializado()
     {
-        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoRalo);
-        return new SerializedObject(prefab.GetComponent<RaloInteractable>());
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoBueiro);
+        return new SerializedObject(prefab.GetComponent<BueiroInteractable>());
     }
 
-    private static GameObject TelaDoRalo()
+    private static GameObject TelaDoBueiro()
     {
-        return (GameObject)RaloSerializado().FindProperty("tela").objectReferenceValue;
+        return (GameObject)BueiroSerializado().FindProperty("tela").objectReferenceValue;
     }
 
     [Test]
-    public void Ralo_TelaApontaParaATelaInstalada()
+    public void Bueiro_TelaApontaParaATelaInstalada()
     {
-        GameObject tela = TelaDoRalo();
+        GameObject tela = TelaDoBueiro();
 
         Assert.AreEqual("TelaInstalada", tela.name);
-        Assert.IsFalse(tela.activeSelf, "a tela só aparece com o ralo concluído");
+        Assert.IsFalse(tela.activeSelf, "a tela só aparece com o bueiro concluído");
     }
 
     [Test]
-    public void Ralo_TelaFicaAjustadaSobAGrelha()
+    public void Bueiro_TelaFicaAjustadaSobAGrelha()
     {
-        SerializedObject ralo = RaloSerializado();
-        var tampa = (Transform)ralo.FindProperty("tampa").objectReferenceValue;
-        Transform tela = TelaDoRalo().transform;
+        SerializedObject bueiro = BueiroSerializado();
+        var tampa = (Transform)bueiro.FindProperty("tampa").objectReferenceValue;
+        Transform tela = TelaDoBueiro().transform;
         Bounds moldura = tela.GetComponentsInChildren<MeshFilter>(true)
             .First(f => f.name == "Moldura").sharedMesh.bounds;
 
-        Assert.AreEqual(tampa.parent, tela.parent, "herda a escala do ralo, ao lado da grelha");
+        Assert.AreEqual(tampa.parent, tela.parent, "herda a escala do bueiro, ao lado da grelha");
         Assert.AreEqual(Vector3.one, tela.localScale);
         Assert.AreEqual(0.029f, tela.localPosition.y, 0.0001f);
         Assert.LessOrEqual(moldura.extents.x, MeiaLarguraDaGrelha);
         Assert.LessOrEqual(moldura.extents.z, MeiaLarguraDaGrelha);
         Assert.Less(tela.localPosition.y + moldura.extents.y,
-                    ralo.FindProperty("posFechada").vector3Value.y, "abaixo da grelha fechada");
+                    bueiro.FindProperty("posFechada").vector3Value.y, "abaixo da grelha fechada");
     }
 
     [Test]
-    public void Ralo_ObjetoAntigoSegueInativo()
+    public void Bueiro_ObjetoAntigoSegueInativo()
     {
-        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoRalo);
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoBueiro);
         Transform antigo = prefab.GetComponentsInChildren<Transform>(true).First(t => t.name == "Tela");
 
         Assert.IsFalse(antigo.gameObject.activeSelf);
     }
 
     [Test]
-    public void Ralo_RodarDuasVezesNaoDuplica()
+    public void Bueiro_RodarDuasVezesNaoDuplica()
     {
-        ItensNaMaoBuilder.AdicionarTelaAoRalo();
-        ItensNaMaoBuilder.AdicionarTelaAoRalo();
+        ItensNaMaoBuilder.AdicionarTelaAoBueiro();
+        ItensNaMaoBuilder.AdicionarTelaAoBueiro();
 
-        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoRalo);
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CaminhoBueiro);
         Assert.AreEqual(1, prefab.GetComponentsInChildren<Transform>(true).Count(t => t.name == "TelaInstalada"));
     }
 }

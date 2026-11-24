@@ -3,9 +3,9 @@ using NUnit.Framework;
 /* ============================================================
  *  SkillCheckTestes.cs
  *  ---------------------------------------------------------------------
- *  Testes EditMode do skill check do ralo: acerto, erro e tempo esgotado
+ *  Testes EditMode do skill check do bueiro: acerto, erro e tempo esgotado
  *  na lógica pura; o adaptador MinigameDeSkillCheck (acerto = Passo, erro
- *  = Errou); progresso e tela no RaloInteractable.
+ *  = Errou); progresso e tela no BueiroInteractable.
  *
  *  Rodar:  unity command run_tests --mode EditMode --filter_type category --filter SkillCheck
  * ============================================================ */
@@ -14,7 +14,7 @@ using NUnit.Framework;
 public class SkillCheckTestes
 {
     private KitDoAgente kit;
-    private RaloInteractable ralo;
+    private BueiroInteractable bueiro;
 
     [SetUp]
     public void Montar()
@@ -22,10 +22,10 @@ public class SkillCheckTestes
         kit = TesteUtil.Com<KitDoAgente>("Kit (teste)");
         kit.Selecionar(Ferramenta.Tela);
 
-        ralo = TesteUtil.Com<RaloInteractable>("Ralo (teste)");
-        TesteUtil.Setar(ralo, "ferramentaNecessaria", Ferramenta.Tela);
-        TesteUtil.Setar(ralo, "requiredClicks", 3);
-        TesteUtil.Setar(ralo, "punchScale", 0f);
+        bueiro = TesteUtil.Com<BueiroInteractable>("Bueiro (teste)");
+        TesteUtil.Setar(bueiro, "ferramentaNecessaria", Ferramenta.Tela);
+        TesteUtil.Setar(bueiro, "requiredClicks", 3);
+        TesteUtil.Setar(bueiro, "punchScale", 0f);
     }
 
     [TearDown]
@@ -81,40 +81,40 @@ public class SkillCheckTestes
     }
 
     [Test]
-    public void Ralo_Errar_ZeraProgressoEGastaATela()
+    public void Bueiro_Errar_ZeraProgressoEGastaATela()
     {
-        ralo.AvancarCom(kit);
-        ralo.AoErrarMinigame(kit);
+        bueiro.AvancarCom(kit);
+        bueiro.AoErrarMinigame(kit);
 
-        Assert.AreEqual(0, ralo.CurrentClicks);
-        Assert.AreEqual(0f, ralo.Fechamento);
-        Assert.AreEqual(ResultadoDoPasso.SemCarga, ralo.Verificar(kit));
+        Assert.AreEqual(0, bueiro.CurrentClicks);
+        Assert.AreEqual(0f, bueiro.Fechamento);
+        Assert.AreEqual(ResultadoDoPasso.SemCarga, bueiro.Verificar(kit));
     }
 
     [Test]
-    public void Ralo_Cancelar_ZeraProgressoMasGuardaATela()
+    public void Bueiro_Cancelar_ZeraProgressoMasGuardaATela()
     {
-        ralo.AvancarCom(kit);
-        ralo.AoSairDoMinigame();
+        bueiro.AvancarCom(kit);
+        bueiro.AoSairDoMinigame();
 
-        Assert.AreEqual(0, ralo.CurrentClicks);
+        Assert.AreEqual(0, bueiro.CurrentClicks);
         Assert.IsTrue(kit.Estoque.TemCarga(Ferramenta.Tela));
     }
 
     [Test]
-    public void Ralo_TresAcertos_ConcluiEGastaUmaTela()
+    public void Bueiro_TresAcertos_ConcluiEGastaUmaTela()
     {
-        ralo.AvancarCom(kit);
-        ralo.AvancarCom(kit);
-        Assert.AreEqual(ResultadoDoPasso.Concluiu, ralo.AvancarCom(kit));
+        bueiro.AvancarCom(kit);
+        bueiro.AvancarCom(kit);
+        Assert.AreEqual(ResultadoDoPasso.Concluiu, bueiro.AvancarCom(kit));
         Assert.IsFalse(kit.Estoque.TemCarga(Ferramenta.Tela));
     }
 
     [Test]
-    public void FocoComum_NaoTemMinigame_RaloTemOSkillCheck()
+    public void FocoComum_NaoTemMinigame_BueiroTemOSkillCheck()
     {
         Assert.IsNull(TesteUtil.Com<Interactable>("Foco (teste)").CriarMinigame(kit, 0));
-        Assert.IsInstanceOf<MinigameDeSkillCheck>(ralo.CriarMinigame(kit, 0));
+        Assert.IsInstanceOf<MinigameDeSkillCheck>(bueiro.CriarMinigame(kit, 0));
     }
 
     [Test]

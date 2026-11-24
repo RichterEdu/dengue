@@ -191,7 +191,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6512592797582320043}
   m_Layer: 0
-  m_Name: Ralo
+  m_Name: Bueiro
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -412,7 +412,7 @@ GameObject:
   - component: {fileID: 104691468456278345}
   - component: {fileID: 4284925836572460184}
   m_Layer: 0
-  m_Name: Ralo
+  m_Name: Bueiro
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -466,7 +466,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4c2d0525c2bb8e04384a60443c63b417, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RaloInteractable
+  m_EditorClassIdentifier: Assembly-CSharp::BueiroInteractable
   requiredClicks: 5
   interactionRange: 3
   ferramentaNecessaria: 2
@@ -507,12 +507,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fc28580580c90794d882da7f064e2aa4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FocoHUDInfo
-  nome: o ralo
-  textoAoMirar: "Ralo destampado com \xE1gua parada"
-  dica: "Ralo aberto junta \xE1gua parada. Mantenha fechado ou com tela e limpe toda
-    semana."
+  nome: o bueiro
+  textoAoMirar: "Bueiro destampado com \xE1gua parada"
+  dica: "Bueiro aberto junta \xE1gua parada. Mantenha fechado ou com tela e limpe
+    toda semana."
   textoAoEliminar: 
-  textoFerramentaErrada: "Isso n\xE3o resolve o ralo. Ralo se protege com <b>tela</b>
+  textoFerramentaErrada: "Isso n\xE3o resolve o bueiro. Bueiro se protege com <b>tela</b>
     e grelha fechada."
   usarCorPropria: 0
   corDaBarra: {r: 0.25, g: 1, b: 0.8, a: 1}

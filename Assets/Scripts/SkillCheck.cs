@@ -3,7 +3,7 @@ using System;
 /* ============================================================
  *  SkillCheck.cs
  *  ---------------------------------------------------------------------
- *  Lógica pura (sem Unity) do skill check do ralo: um ponteiro dá uma
+ *  Lógica pura (sem Unity) do skill check do bueiro: um ponteiro dá uma
  *  volta no anel e o jogador aperta com ele dentro da zona. Ponteiro e
  *  zona são frações da volta (0..1, horário, a partir do topo).
  *
@@ -113,7 +113,7 @@ public class SessaoDeSkillCheck
     }
 }
 
-/* O skill check do ralo como minigame (criado pelo RaloInteractable). */
+/* O skill check do bueiro como minigame (criado pelo BueiroInteractable). */
 public class MinigameDeSkillCheck : IMinigame
 {
     public SessaoDeSkillCheck Sessao { get; }
@@ -136,7 +136,7 @@ public class MinigameDeSkillCheck : IMinigame
 
     public float FracaoDoPasso => 0f;
 
-    /* O botão de largar não sai do ralo: a regra do anel não muda. */
+    /* O botão de largar não sai do bueiro: a regra do anel não muda. */
     public bool PodeSair => false;
 
     /* Dentro do check não há som de ação nem gesto do item na mão. */

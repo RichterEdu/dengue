@@ -20,7 +20,7 @@ using UnityEngine;
  *      gesto nem névoa: quem borrifa ali é a cópia do borrifador presa à
  *      câmera (BorrifadorDePerto, que lê o BorrifadorNaMao).
  *    - O ombro gira com o olhar (LateUpdate, sobre a pose do Animator): o
- *      ralo e o vaso ficam no chão e, com a pose presa ao corpo, olhar
+ *      bueiro e o vaso ficam no chão e, com a pose presa ao corpo, olhar
  *      para baixo subiria o item para cima do foco.
  *
  *  O Animator do corpo pode ainda não estar pronto ao carregar a cena:

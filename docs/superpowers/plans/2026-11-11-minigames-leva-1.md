@@ -4,7 +4,7 @@
 
 **Goal:** Trocar o "segurar até a barra encher" por uma ação própria em três focos: pneu (balançar no ritmo), bromélia (mirar o borrifador) e caixa d'água (carregar a tampa).
 
-**Architecture:** Uma interface `IMinigame` (C# puro) substitui o skill check escrito direto no `Interactor`; o foco cria a sessão e cada `Passo` dela vira o `AvancarCom(kit)` de sempre. O ralo passa a usar a mesma interface por um adaptador. A tampa da caixa d'água não é minigame: é um segundo objeto carregável no `KitDoAgente`.
+**Architecture:** Uma interface `IMinigame` (C# puro) substitui o skill check escrito direto no `Interactor`; o foco cria a sessão e cada `Passo` dela vira o `AvancarCom(kit)` de sempre. O bueiro passa a usar a mesma interface por um adaptador. A tampa da caixa d'água não é minigame: é um segundo objeto carregável no `KitDoAgente`.
 
 **Tech Stack:** Unity 6000.5.6f1, URP, Input System 1.20, C# 9, NUnit (testes EditMode em `Assets/Editor/Testes/`).
 
@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Ir mal só perde tempo: nenhum minigame novo gasta carga nem zera o foco. Só o ralo gasta a tela no erro.
+- Ir mal só perde tempo: nenhum minigame novo gasta carga nem zera o foco. Só o bueiro gasta a tela no erro.
 - Nenhuma cena ou prefab é editado: todo campo serializado novo tem valor padrão no código.
 - `requiredClicks` vem da cena (5 na maioria dos focos) e não muda: as sessões recebem `RequiredClicks` como número de passos.
 - Enums `Ferramenta` e `ResultadoDoPasso` são salvos como número: valores novos só no fim. Este plano não cria nenhum.
@@ -36,17 +36,17 @@
 
 ### Task 0: Limpar a base (decisão do usuário)
 
-O branch `itens-na-mao` tem o nascimento seco (2026-11-10) não commitado nos mesmos arquivos que este plano edita (`Interactable.cs`, `PneuInteractable.cs`, `BromeliaInteractable.cs`, `CaixaDaguaInteractable.cs`, `RaloInteractable.cs`, `GerenciadorDeFocos.cs`, `FocoHUDInfo.cs`, `GarrafaInteractable.cs`, `PiscinaInteractable.cs`, `NascimentoTestes.cs`, cena e materiais).
+O branch `itens-na-mao` tem o nascimento seco (2026-11-10) não commitado nos mesmos arquivos que este plano edita (`Interactable.cs`, `PneuInteractable.cs`, `BromeliaInteractable.cs`, `CaixaDaguaInteractable.cs`, `BueiroInteractable.cs`, `GerenciadorDeFocos.cs`, `FocoHUDInfo.cs`, `GarrafaInteractable.cs`, `PiscinaInteractable.cs`, `NascimentoTestes.cs`, cena e materiais).
 
 - [ ] **Step 1:** Perguntar ao usuário se o nascimento seco pode ser commitado como está. Não commitar sem a resposta.
 - [ ] **Step 2:** Com o sim, commitar esse trabalho num commit próprio ("Nascimento seco") e criar o branch `minigames-leva-1` a partir dele.
 - [ ] **Step 3:** Rodar a suíte EditMode completa. Esperado: 427/427, `Failed: 0`. Esse é o número de partida.
 
-### Task 1: Base `IMinigame`, ralo no adaptador e `Interactor`
+### Task 1: Base `IMinigame`, bueiro no adaptador e `Interactor`
 
 **Files:**
 - Create: `Assets/Scripts/Minigame.cs`, `Assets/Editor/Testes/MinigameNoInteractorTestes.cs`
-- Modify: `Assets/Scripts/Interactable.cs` (bloco "Skill check", linhas 185-190), `Assets/Scripts/RaloInteractable.cs`, `Assets/Scripts/Interactor.cs`, `Assets/Scripts/SkillCheck.cs`, `Assets/Editor/BalanceamentoSimulador.cs:321-415`
+- Modify: `Assets/Scripts/Interactable.cs` (bloco "Skill check", linhas 185-190), `Assets/Scripts/BueiroInteractable.cs`, `Assets/Scripts/Interactor.cs`, `Assets/Scripts/SkillCheck.cs`, `Assets/Editor/BalanceamentoSimulador.cs:321-415`
 - Modify (chamadas): todos os usos de `UsaSkillCheck`, `ErrarSkillCheck`, `CancelarSkillCheck`, `SegundosPorVoltaDoCheck` (grep em `Assets/`), incluindo `SkillCheckTestes.cs`
 
 **Interfaces:**
@@ -91,10 +91,10 @@ O branch `itens-na-mao` tem o nascimento seco (2026-11-10) não commitado nos me
   - `FocoSemMinigameNaoInicia`: `Interactable` puro → `IniciarMinigame == false`.
   - Em `SkillCheckTestes.cs`: `AdaptadorAcertoViraPasso` e `AdaptadorErroViraErrou` para `MinigameDeSkillCheck`.
 - [ ] **Step 2:** Rodar a categoria `Minigames`. Esperado: não compila (`IMinigame` não existe).
-- [ ] **Step 3:** Implementar as interfaces acima; remover `UsaSkillCheck`, `SegundosPorVoltaDoCheck`, `ErrarSkillCheck`, `CancelarSkillCheck` da base e migrar o ralo (`CriarMinigame` devolve o adaptador; `AoErrarMinigame` = o `ErrarSkillCheck` de hoje; `AoSairDoMinigame` = o `CancelarSkillCheck` de hoje). `BalanceamentoSimulador` passa a somar `foco.SegundosEstimados` onde hoje soma `SegundosPorPasso * RequiredClicks`; o ralo declara `SegundosEstimados => RequiredClicks * segundosPorVolta`.
+- [ ] **Step 3:** Implementar as interfaces acima; remover `UsaSkillCheck`, `SegundosPorVoltaDoCheck`, `ErrarSkillCheck`, `CancelarSkillCheck` da base e migrar o bueiro (`CriarMinigame` devolve o adaptador; `AoErrarMinigame` = o `ErrarSkillCheck` de hoje; `AoSairDoMinigame` = o `CancelarSkillCheck` de hoje). `BalanceamentoSimulador` passa a somar `foco.SegundosEstimados` onde hoje soma `SegundosPorPasso * RequiredClicks`; o bueiro declara `SegundosEstimados => RequiredClicks * segundosPorVolta`.
 - [ ] **Step 4:** Rodar `Minigames` e `SkillCheck`: tudo verde. Rodar a suíte completa: `Failed: 0`.
-- [ ] **Step 5:** No Editor, jogar um ralo: acerto, erro (gasta a tela) e celular no meio se comportam como antes.
-- [ ] **Step 6:** Registrar no `contexto do jogo.md` e commitar ("Minigames: base IMinigame e ralo no adaptador").
+- [ ] **Step 5:** No Editor, jogar um bueiro: acerto, erro (gasta a tela) e celular no meio se comportam como antes.
+- [ ] **Step 6:** Registrar no `contexto do jogo.md` e commitar ("Minigames: base IMinigame e bueiro no adaptador").
 
 ### Task 2: `OndaDoPneu` (lógica pura)
 
@@ -265,5 +265,5 @@ O branch `itens-na-mao` tem o nascimento seco (2026-11-10) não commitado nos me
 
 - [ ] **Step 1:** Suíte EditMode completa: `Failed: 0`, e o total subiu em relação ao número da Tarefa 0.
 - [ ] **Step 2:** `Dengue > Simular Balanceamento` (ou o menu equivalente do `BalanceamentoSimulador`): comparar o tempo total estimado com o de antes e anotar a diferença no registro. Se passar de 15%, avisar o usuário antes de mexer em qualquer número de balanceamento.
-- [ ] **Step 3:** Partida inteira no Editor com mouse; meia partida com controle. Conferir: ralo igual a antes; pneu, bromélia e caixa novos; vaso, garrafas e piscina ainda no segurar; nota e recorde aparecem no fim.
+- [ ] **Step 3:** Partida inteira no Editor com mouse; meia partida com controle. Conferir: bueiro igual a antes; pneu, bromélia e caixa novos; vaso, garrafas e piscina ainda no segurar; nota e recorde aparecem no fim.
 - [ ] **Step 4:** Registro final no `contexto do jogo.md` com os valores calibrados, e commit.

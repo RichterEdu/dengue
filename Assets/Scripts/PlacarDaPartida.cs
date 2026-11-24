@@ -10,7 +10,7 @@ using UnityEngine;
  *
  *  - Metas: Resposta rápida e Hospital sob controle caem quando o limite
  *    passa (Conferir, todo frame); Sem erros cai no primeiro minigame
- *    errado, como a tela rasgada do ralo (Interactor.OnErrouSkillCheck).
+ *    errado, como a tela rasgada do bueiro (Interactor.OnErrouSkillCheck).
  *    O reenchido (OnFocoReenchido) só é contado, para o desconto. Cada meta cai uma vez só (OnMetaPerdida)
  *    e só durante a partida (iniciada e não encerrada). MetaViva lê o
  *    conjunto das perdidas; não recalcula dos números.
@@ -177,7 +177,7 @@ public class PlacarDaPartida : MonoBehaviour
         Reenchidos++;
     }
 
-    /* Um minigame errado (a tela do ralo rasgou): Sem erros cai. */
+    /* Um minigame errado (a tela do bueiro rasgou): Sem erros cai. */
     internal void HandleErrouMinigame(Interactable foco)
     {
         if (!EmPartida)

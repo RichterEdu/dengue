@@ -23,12 +23,12 @@ empaca, mas pode estar esquecendo um tipo inteiro (nunca achou os vasos) — e n
 ## Design
 
 1. **Relógio por tipo** (`HistoriaRedeSocial`): um para cada tipo que tem foco na cena (hoje: pneu, vaso, caixa
-   d'água, garrafas, ralo, bromélia). Anda só em jogo e com o celular fechado, como o relógio de hoje.
+   d'água, garrafas, bueiro, bromélia). Anda só em jogo e com o celular fechado, como o relógio de hoje.
 2. **Zera** quando um foco daquele tipo é eliminado e quando sai uma foto daquele tipo. Eliminar foco de outro tipo
    não mexe nele.
 3. **Vence aos 90 s** (`tempoPorTipo`, Inspector) ou no valor da lista opcional `temposPorTipo` (tipo → segundos)
    para os tipos que o usuário quiser diferentes.
-4. **Começo escalonado**: os tipos presentes, na ordem do enum `TipoFoco` (pneu, vaso, caixa, garrafas, ralo,
+4. **Começo escalonado**: os tipos presentes, na ordem do enum `TipoFoco` (pneu, vaso, caixa, garrafas, bueiro,
    bromélia), começam com o relógio atrasado `i × intervaloEntreTipos` (15 s): na saída do hospital, o 1º vence aos
    90 s, o 2º aos 105 s... o 6º aos 165 s. Assim os posts não se amontoam.
 5. **A foto**: a mesma escolha de hoje (`EscolhaDaFoto`), só que entre os focos daquele tipo — os de outros tipos

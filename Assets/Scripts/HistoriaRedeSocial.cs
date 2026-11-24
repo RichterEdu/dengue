@@ -96,8 +96,10 @@ public enum TipoFoco
     Piscina,
     Garrafas,
     // Novos tipos sempre no FIM: o enum é salvo como número na cena.
-    Ralo,
-    Bromelia
+    Bueiro,
+    Bromelia,
+    Lona,
+    PoteDeBicho
 }
 
 [System.Serializable]
@@ -1281,8 +1283,10 @@ public class HistoriaRedeSocial : MonoBehaviour
         if (foco is CaixaDaguaInteractable) return TipoFoco.CaixaDagua;
         if (foco is PiscinaInteractable) return TipoFoco.Piscina;
         if (foco is GarrafaInteractable) return TipoFoco.Garrafas;
-        if (foco is RaloInteractable) return TipoFoco.Ralo;
+        if (foco is BueiroInteractable) return TipoFoco.Bueiro;
         if (foco is BromeliaInteractable) return TipoFoco.Bromelia;
+        if (foco is LonaInteractable) return TipoFoco.Lona;
+        if (foco is PoteDeBichoInteractable) return TipoFoco.PoteDeBicho;
         return TipoFoco.Nenhum;
     }
 
@@ -1506,22 +1510,22 @@ public class HistoriaRedeSocial : MonoBehaviour
             },
             new PersonagemDoBairro
             {
-                autor = "Seu Osvaldo", usuario = "@osvaldo.bar", tipo = TipoFoco.Ralo,
-                aoChegarPerto = "O agente tá olhando os ralos da calçada aqui do bar. Eu sempre deixo a grelha de lado pra lavar o chão...",
+                autor = "Seu Osvaldo", usuario = "@osvaldo.bar", tipo = TipoFoco.Bueiro,
+                aoChegarPerto = "O agente tá olhando os bueiros da calçada aqui do bar. Eu sempre deixo a grelha de lado pra lavar o chão...",
                 aoEliminar = new List<string>
                 {
-                    "O agente botou a grelha de volta no ralo e ainda pôs tela. Nunca pensei que ralo virava criadouro.",
-                    "Mais um ralo fechado com tela. Faltam {restantesTipo}.",
+                    "O agente botou a grelha de volta no bueiro e ainda pôs tela. Nunca pensei que bueiro virava criadouro.",
+                    "Mais um bueiro fechado com tela. Faltam {restantesTipo}.",
                 },
-                aoEliminarUltimo = "Todos os ralos da rua fechados e com tela. O balcão do bar nunca teve tão pouco mosquito.",
-                aoLargarPelaMetade = "O agente mexeu no ralo e largou a grelha fora do lugar. A água continua lá embaixo!",
-                aoUsarFerramentaErrada = "Vi o agente querendo resolver o ralo com outra coisa. Ralo é com tela, moço!",
+                aoEliminarUltimo = "Todos os bueiros da rua fechados e com tela. O balcão do bar nunca teve tão pouco mosquito.",
+                aoLargarPelaMetade = "O agente mexeu no bueiro e largou a grelha fora do lugar. A água continua lá embaixo!",
+                aoUsarFerramentaErrada = "Vi o agente querendo resolver o bueiro com outra coisa. Bueiro é com tela, moço!",
                 aoMandarFoto = new List<string>
                 {
-                    "Esse ralo tá sem tela faz tempo e junta água toda vez que chove. Agente, consegue ver?",
+                    "Esse bueiro tá sem tela faz tempo e junta água toda vez que chove. Agente, consegue ver?",
                 },
-                epilogoLimpo = "Coloquei tela em todos os ralos do bar e agora ensino os clientes. Ralo aberto aqui não passa mais.",
-                epilogoPendente = "Os ralos continuam abertos, cheios d'água. À noite o bar vira festa de mosquito.",
+                epilogoLimpo = "Coloquei tela em todos os bueiros do bar e agora ensino os clientes. Bueiro aberto aqui não passa mais.",
+                epilogoPendente = "Os bueiros continuam abertos, cheios d'água. À noite o bar vira festa de mosquito.",
             },
             new PersonagemDoBairro
             {
@@ -1541,6 +1545,46 @@ public class HistoriaRedeSocial : MonoBehaviour
                 },
                 epilogoLimpo = "As bromélias continuam na praça. Toda semana a criançada me ajuda a esvaziar as folhas com a mangueira.",
                 epilogoPendente = "Os vizinhos querem arrancar minhas bromélias por causa do mosquito. Bastava esvaziar a água.",
+            },
+            new PersonagemDoBairro
+            {
+                autor = "Seu Aristides", usuario = "@aristides.obras", tipo = TipoFoco.Lona,
+                aoChegarPerto = "O agente parou na lona que eu deixei cobrindo o entulho da reforma. Com a chuva de ontem, deve ter água em cima...",
+                aoEliminar = new List<string>
+                {
+                    "O agente tirou a água da lona e dobrou ela direitinho. Eu achava que lona protegia, não que criava mosquito.",
+                    "Mais uma lona esvaziada e dobrada. Faltam {restantesTipo}.",
+                },
+                aoEliminarUltimo = "Nenhuma lona largada com água no bairro. Agora eu guardo a minha dobrada, debaixo do telhado.",
+                aoLargarPelaMetade = "O agente começou a esvaziar a lona e largou. Ainda tem poça em cima dela!",
+                aoUsarFerramentaErrada = "Lona não precisa de nada do kit, agente: é tirar a água com as mãos, dobrar e guardar.",
+                aoMandarFoto = new List<string>
+                {
+                    "Essa lona tá jogada no quintal faz semanas. Cada dobra dela virou uma piscininha.",
+                    "Olha a lona que sobrou da obra. Agente, dá pra passar aqui?",
+                },
+                epilogoLimpo = "Terminei a reforma e guardei a lona dobrada no depósito. Na obra nova, já combinei com o pessoal: nada de lona largada.",
+                epilogoPendente = "A lona continua no quintal, cheia de água. Os pedreiros reclamam dos mosquitos o dia inteiro.",
+            },
+            new PersonagemDoBairro
+            {
+                autor = "Marina Costa", usuario = "@marina.e.thor", tipo = TipoFoco.PoteDeBicho,
+                aoChegarPerto = "O agente tá olhando o pote de água do Thor. Eu troco a água... quando lembro.",
+                aoEliminar = new List<string>
+                {
+                    "O agente lavou o pote do Thor com esponja e pôs água limpa. Não sabia que os ovos ficam grudados na parede!",
+                    "Mais um pote de bicho lavado. Água fresquinha e sem mosquito. Faltam {restantesTipo}.",
+                },
+                aoEliminarUltimo = "Todos os potes de bicho da rua lavados! O Thor aprovou a água nova.",
+                aoLargarPelaMetade = "O agente começou a lavar o pote e parou no meio. Tem que esfregar a parede toda, viu?",
+                aoUsarFerramentaErrada = "Pote de bicho não leva areia nem tela! É lavar com esponja e trocar a água.",
+                aoMandarFoto = new List<string>
+                {
+                    "O pote de água do cachorro do vizinho tá verde. Agente, passa aqui?",
+                    "Tirei foto do pote do Thor. Acho que tá precisando de uma lavada.",
+                },
+                epilogoLimpo = "Agora o pote do Thor é lavado com esponja todo sábado. Ele fica sentado esperando a água nova.",
+                epilogoPendente = "O pote do Thor continua com água velha. Ontem tinha larva nadando lá dentro.",
             },
         };
     }
@@ -1740,6 +1784,12 @@ public class HistoriaRedeSocial : MonoBehaviour
                 -1, HumorPost.Negativo) },
             new PostPorTipo { tipo = TipoFoco.Garrafas, post = Novo("Bruna Lima", "@bru.lima",
                 "Choveu e as garrafas largadas encheram de água de novo. Garrafa vai pro saco e pra lixeira.",
+                -1, HumorPost.Negativo) },
+            new PostPorTipo { tipo = TipoFoco.Lona, post = Novo("Seu Aristides", "@aristides.obras",
+                "Choveu e a lona do quintal juntou água de novo. Tem que dobrar e guardar, senão não adianta.",
+                -1, HumorPost.Negativo) },
+            new PostPorTipo { tipo = TipoFoco.PoteDeBicho, post = Novo("Marina Costa", "@marina.e.thor",
+                "Choveu e o pote do Thor encheu de água suja. Os ovos da parede continuam lá: tem que lavar.",
                 -1, HumorPost.Negativo) },
         };
     }

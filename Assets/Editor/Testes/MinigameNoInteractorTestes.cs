@@ -265,29 +265,29 @@ public class MinigameNoInteractorTestes
     public void CriarMinigameNaoMudaOFoco()
     {
         kit.Selecionar(Ferramenta.Tela);
-        RaloInteractable ralo = TesteUtil.Com<RaloInteractable>("Ralo (teste)");
-        TesteUtil.Setar(ralo, "ferramentaNecessaria", Ferramenta.Tela);
-        TesteUtil.Setar(ralo, "requiredClicks", 3);
-        TesteUtil.Setar(ralo, "punchScale", 0f);
-        ralo.AvancarCom(kit);
-        int cliques = ralo.CurrentClicks;
-        float fechamento = ralo.Fechamento;
+        BueiroInteractable bueiro = TesteUtil.Com<BueiroInteractable>("Bueiro (teste)");
+        TesteUtil.Setar(bueiro, "ferramentaNecessaria", Ferramenta.Tela);
+        TesteUtil.Setar(bueiro, "requiredClicks", 3);
+        TesteUtil.Setar(bueiro, "punchScale", 0f);
+        bueiro.AvancarCom(kit);
+        int cliques = bueiro.CurrentClicks;
+        float fechamento = bueiro.Fechamento;
         int telas = kit.Estoque.Quantidade(Ferramenta.Tela);
 
-        ralo.CriarMinigame(kit, 1);
-        ralo.CriarMinigame(kit, 2);
+        bueiro.CriarMinigame(kit, 1);
+        bueiro.CriarMinigame(kit, 2);
 
-        Assert.AreEqual(cliques, ralo.CurrentClicks);
-        Assert.AreEqual(fechamento, ralo.Fechamento);
+        Assert.AreEqual(cliques, bueiro.CurrentClicks);
+        Assert.AreEqual(fechamento, bueiro.Fechamento);
         Assert.AreEqual(telas, kit.Estoque.Quantidade(Ferramenta.Tela));
     }
 
     [Test]
-    public void ConviteDoRaloEhOTextoDoSkillCheck()
+    public void ConviteDoBueiroEhOTextoDoSkillCheck()
     {
-        RaloInteractable ralo = TesteUtil.Com<RaloInteractable>("Ralo (teste)");
+        BueiroInteractable bueiro = TesteUtil.Com<BueiroInteractable>("Bueiro (teste)");
 
-        Assert.AreEqual(DengueHUD.AcaoSkillCheck, ralo.ConviteDoMinigame(kit));
+        Assert.AreEqual(DengueHUD.AcaoSkillCheck, bueiro.ConviteDoMinigame(kit));
         Assert.IsNull(foco.ConviteDoMinigame(kit), "foco sem convite próprio");
     }
 

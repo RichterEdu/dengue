@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Dar modelo 3D, pose e gesto ao balde de areia, à tela com moldura e ao borrifador, e mostrar a mesma tela sob a grelha do ralo concluído.
+**Goal:** Dar modelo 3D, pose e gesto ao balde de areia, à tela com moldura e ao borrifador, e mostrar a mesma tela sob a grelha do bueiro concluído.
 
 **Architecture:** Uma regra C# pura decide o item e o gesto. O componente `ItensNaMao`, no Player, aplica isso aos objetos filhos de `RightHand` e a uma camada nova do Animator, sem tocar no `FeedbackDeCarga`. Modelos e poses saem de scripts do Blender, e o menu `Dengue > Configurar Itens na Mão` monta tudo de forma idempotente.
 
@@ -13,11 +13,11 @@
 ## Global Constraints
 
 - Trabalhar na branch `itens-na-mao`, nunca na `main`. Commits terminam com `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- Não mudar `FeedbackDeCarga`, `KitDoAgente`, `Interactor`, `DengueHUD`, `RaloInteractable` nem `EstoqueDoKit`.
-- Não regerar o `Ralo.fbx`. Não mudar saco, pneu, balanceamento, textos ou estoque.
+- Não mudar `FeedbackDeCarga`, `KitDoAgente`, `Interactor`, `DengueHUD`, `BueiroInteractable` nem `EstoqueDoKit`.
+- Não regerar o `Bueiro.fbx`. Não mudar saco, pneu, balanceamento, textos ou estoque.
 - Enum salvo como número: valores novos sempre no fim, nunca reordenar `Ferramenta`.
 - Scripts e comentários em pt-BR, com o cabeçalho de comentário usado no projeto.
-- Tela: 29 × 29 cm, moldura de 1,7 cm, 0,8 cm de espessura; na mão, escala 0,67; no ralo, escala local 1 e centro a 2,9 cm.
+- Tela: 29 × 29 cm, moldura de 1,7 cm, 0,8 cm de espessura; na mão, escala 0,67; no bueiro, escala local 1 e centro a 2,9 cm.
 - Peso da camada em 0,15 s; troca de estado em 0,12 s; `fatorDoOlhar` padrão 1.
 - Python no Git Bash deste Windows: rodar com `python -X utf8`, e escrever scripts com a ferramenta Write, não por heredoc.
 - `AGENTS.md` só muda com pedido explícito do usuário. Toda alteração entra no `contexto do jogo.md`.
@@ -28,7 +28,7 @@
 - **Reabastecer com o balde vazio na mão:** a areia volta na hora, sem trocar de ferramenta (Task 2).
 - **Animator ainda não pronto ao carregar a cena:** nenhum erro; a pose entra quando ele iniciar (Task 2).
 - **Pausa no meio do gesto:** com `dt = 0`, o peso não anda, e ao voltar sem gesto a pose de segurar retorna (Task 2).
-- **Menus rodados duas vezes:** nada duplica no Player nem no prefab do ralo (Tasks 5 e 6).
+- **Menus rodados duas vezes:** nada duplica no Player nem no prefab do bueiro (Tasks 5 e 6).
 
 ---
 
@@ -394,35 +394,35 @@ git add Assets/Editor/ItensNaMaoBuilder.cs Assets/Editor/Testes/ItensNaMaoAssets
 git commit -m "Itens na mão: montagem no Player"
 ```
 
-### Task 6: Tela instalada no ralo
+### Task 6: Tela instalada no bueiro
 
 **Files:**
-- Modify: `Assets/Editor/ItensNaMaoBuilder.cs`, `Assets/Editor/FocosBlenderBuilder.cs`, `Assets/Meus/Assets Gerados/Focos/Ralo.prefab`
+- Modify: `Assets/Editor/ItensNaMaoBuilder.cs`, `Assets/Editor/FocosBlenderBuilder.cs`, `Assets/Meus/Assets Gerados/Focos/Bueiro.prefab`
 - Test: `Assets/Editor/Testes/ItensNaMaoAssetsTestes.cs`
 
 **Interfaces:**
 - Consumes: `Tela.fbx`, Task 3.
-- Produces: `public static void ItensNaMaoBuilder.AdicionarTelaAoRalo()`. Objeto `TelaInstalada` no `Ralo.prefab`. O menu passa a chamá-la.
+- Produces: `public static void ItensNaMaoBuilder.AdicionarTelaAoBueiro()`. Objeto `TelaInstalada` no `Bueiro.prefab`. O menu passa a chamá-la.
 
 - [ ] **Step 1: Escrever os testes**
 
 ```csharp
-[Test] public void Ralo_TelaApontaParaATelaInstalada();  // campo "tela" = TelaInstalada, inativa
-[Test] public void Ralo_TelaFicaAjustadaSobAGrelha();
+[Test] public void Bueiro_TelaApontaParaATelaInstalada();  // campo "tela" = TelaInstalada, inativa
+[Test] public void Bueiro_TelaFicaAjustadaSobAGrelha();
 // escala local 1, irmã da Tampa, y local 0.029; meia-largura 0.145 <= 0.15 da grelha
 // e topo 0.033 abaixo de posFechada.y 0.034
-[Test] public void Ralo_ObjetoAntigoSegueInativo();      // "Tela" do FBX inativo
-[Test] public void Ralo_RodarDuasVezesNaoDuplica();
+[Test] public void Bueiro_ObjetoAntigoSegueInativo();      // "Tela" do FBX inativo
+[Test] public void Bueiro_RodarDuasVezesNaoDuplica();
 ```
 
 - [ ] **Step 2: Rodar e ver falhar**
 
 Run: `unity command run_tests --mode EditMode --filter_type category --filter ItensNaMao`
-Expected: os testes do ralo falham.
+Expected: os testes do bueiro falham.
 
-- [ ] **Step 3: Implementar `AdicionarTelaAoRalo()`**
+- [ ] **Step 3: Implementar `AdicionarTelaAoBueiro()`**
 
-Usar `PrefabUtility.LoadPrefabContents`, reaproveitar `TelaInstalada` se existir, instanciar o `Tela.fbx` ao lado da `Tampa`, ajustar o campo por `SerializedObject`, salvar com `SaveAsPrefabAsset` e descarregar em `finally`. Não recriar o prefab pelo `CriarRalo`: isso perderia os valores gravados pelo kit. Chamar a função no menu, e no fim do `CriarRalo`, depois de `SalvarPrefab`.
+Usar `PrefabUtility.LoadPrefabContents`, reaproveitar `TelaInstalada` se existir, instanciar o `Tela.fbx` ao lado da `Tampa`, ajustar o campo por `SerializedObject`, salvar com `SaveAsPrefabAsset` e descarregar em `finally`. Não recriar o prefab pelo `CriarBueiro`: isso perderia os valores gravados pelo kit. Chamar a função no menu, e no fim do `CriarBueiro`, depois de `SalvarPrefab`.
 
 - [ ] **Step 4: Rodar o menu e os testes**
 
@@ -433,8 +433,8 @@ Expected: todos passam.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Assets/Editor/ItensNaMaoBuilder.cs Assets/Editor/FocosBlenderBuilder.cs "Assets/Meus/Assets Gerados/Focos/Ralo.prefab" Assets/Editor/Testes/ItensNaMaoAssetsTestes.cs
-git commit -m "Itens na mão: tela instalada no ralo"
+git add Assets/Editor/ItensNaMaoBuilder.cs Assets/Editor/FocosBlenderBuilder.cs "Assets/Meus/Assets Gerados/Focos/Bueiro.prefab" Assets/Editor/Testes/ItensNaMaoAssetsTestes.cs
+git commit -m "Itens na mão: tela instalada no bueiro"
 ```
 
 ### Task 7: Verificação final e registro
@@ -462,10 +462,10 @@ Expected: nenhuma falha; total acima dos 336 da Parte C.
 | Olhar para um foco no chão com cada item | Item segue no canto; foco e mira visíveis |
 | Olhar a ±80° | Braço não entra na câmera; se entrar, reduzir `fatorDoOlhar` |
 | Segurar no vaso e na bromélia | Gesto e partículas; param ao soltar |
-| Skill check no ralo | Gesto da tela; no erro com a última tela, ela some |
+| Skill check no bueiro | Gesto da tela; no erro com a última tela, ela some |
 | Balde vazio e borrifador sem carga, no foco certo | Sem gesto; aviso "Acabou: ..." |
 | Reabastecer com o balde vazio | Areia volta; sem gesto |
-| Os quatro ralos concluídos | `tela` ativa, sob a grelha, ajustada à escala; malha legível entre as barras |
+| Os quatro bueiros concluídos | `tela` ativa, sob a grelha, ajustada à escala; malha legível entre as barras |
 | Pausar no meio do gesto e voltar | Sem pose presa |
 
 - [ ] **Step 4: Restaurar `PlayerSettings.runInBackground` e sair do Play**

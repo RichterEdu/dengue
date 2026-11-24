@@ -39,7 +39,7 @@ using UnityEngine.InputSystem;
  *    segurar mais não emenda num JaVazio). JaVazio é recusa, como a
  *    ferramenta errada.
  *  - Minigame (Minigame.cs; foco cujo CriarMinigame devolve uma sessão,
- *    como o skill check do ralo): só um aperto NOVO, conferido, começa a
+ *    como o skill check do bueiro): só um aperto NOVO, conferido, começa a
  *    sessão no lugar do segurar (ConferirFoco), mesmo que o botão já tenha
  *    sido solto no mesmo quadro (clique rápido); a mira chegando ao foco com
  *    o botão já apertado não começa nada nem avisa, e o segurar fica preso
@@ -493,7 +493,7 @@ public class Interactor : MonoBehaviour
     }
 
     /* Fim do minigame: o jogador volta a andar. Segurar só vale de novo
-     * depois de soltar o botão (o ralo não avança segurando). Vista de
+     * depois de soltar o botão (o bueiro não avança segurando). Vista de
      * perto: solta o enquadramento e, com a câmera ativa, o jogador só
      * volta a andar quando ela chegar aos olhos (AtualizarVolta). */
     private void EncerrarMinigame()
@@ -558,7 +558,7 @@ public class Interactor : MonoBehaviour
         }
 
         // Um clique rápido (apertou e soltou no mesmo quadro) num foco com
-        // minigame também confere: começa a sessão como antes (o ralo). No
+        // minigame também confere: começa a sessão como antes (o bueiro). No
         // segurar dos outros focos nada muda.
         bool apertou = LerApertou();
         bool conferir = segurando
@@ -615,7 +615,7 @@ public class Interactor : MonoBehaviour
      * fica liberado (true). Com minigame para este kit, só um aperto novo
      * conta: conferido, começa a sessão (e o segurar não é liberado). A mira
      * chegando com o botão já apertado não começa nada, não confere (sem
-     * aviso, como o ralo antigo) e prende o segurar até soltar: no ralo, o
+     * aviso, como o bueiro antigo) e prende o segurar até soltar: no bueiro, o
      * ponteiro andaria sem o jogador querer e o erro gastaria a tela. */
     internal bool ConferirFoco(Interactable foco, bool apertoNovo)
     {

@@ -9,7 +9,7 @@ using UnityEngine;
  *  Campos vazios usam o padrão configurado no DengueHUD.
  *
  *  Kit do agente (Parte A): o texto ao mirar mostra o PROBLEMA, não a
- *  solução (ex.: "Ralo destampado com água parada"); quem ensina a
+ *  solução (ex.: "Bueiro destampado com água parada"); quem ensina a
  *  ferramenta certa é o textoFerramentaErrada, no aviso de recusa.
  *
  *  Marcadores que podem ser usados nos textos:

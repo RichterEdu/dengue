@@ -47,7 +47,7 @@ public class KitDoAgente : MonoBehaviour
     [Tooltip("Cargas de areia (cada uma cobre o pratinho de um vaso).")]
     [SerializeField] private int cargaAreia = 1;
 
-    [Tooltip("Telas (cada uma tampa um ralo).")]
+    [Tooltip("Telas (cada uma tampa um bueiro).")]
     [SerializeField] private int cargaTela = 1;
 
     [Tooltip("Doses de água sanitária (cada uma trata uma bromélia).")]

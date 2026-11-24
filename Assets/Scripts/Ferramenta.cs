@@ -11,7 +11,7 @@ using System;
  *
  *    1 Mãos            caixa d'água, piscina, pegar pneu   sempre
  *    2 Areia           pratinho do vaso                     consumível
- *    3 Tela            ralo                                 consumível
+ *    3 Tela            bueiro                                 consumível
  *    4 Água sanitária  bromélia                             consumível (doses)
  *    5 Saco de lixo    garrafas                             não gasta: enche
  *

@@ -13,7 +13,7 @@ using UnityEngine;
  *  OnEsvaziado, sem zumbido, pesando 0, as Mãos dão JaVazio, a
  *  ferramenta certa resolve de vez e a chuva (ReencherEsvaziados)
  *  devolve a água de cada tipo: pneu, vaso, garrafas, bromélia, caixa
- *  d'água e piscina. O ralo fica de fora: nasce sempre com água.
+ *  d'água e piscina. O bueiro fica de fora: nasce sempre com água.
  *
  *  O Start não roda no EditMode e, fora do Play, ele não sorteia o
  *  nascimento (todo foco nasce cheio, como antes): os testes ficam
@@ -427,23 +427,23 @@ public class NascimentoTestes
         Assert.AreEqual(new Vector3(1f, 0.3f, 1f), agua.transform.localScale, "na escala original");
     }
 
-    /* O ralo nasce sempre com água: fica fora do sorteio do começo. */
+    /* O bueiro nasce sempre com água: fica fora do sorteio do começo. */
     [Test]
-    public void Ralo_NasceSempreComAgua_ForaDoSorteio()
+    public void Bueiro_NasceSempreComAgua_ForaDoSorteio()
     {
         List<Interactable> focos = NovosFocos(3);
-        RaloInteractable ralo = TesteUtil.Com<RaloInteractable>("Ralo (teste)");
-        gerenciador.Registrar(new List<Interactable>(focos) { ralo });
+        BueiroInteractable bueiro = TesteUtil.Com<BueiroInteractable>("Bueiro (teste)");
+        gerenciador.Registrar(new List<Interactable>(focos) { bueiro });
 
-        // Fração 0: todo foco comum nasce seco, menos o ralo.
+        // Fração 0: todo foco comum nasce seco, menos o bueiro.
         TesteUtil.Setar(gerenciador, "fracaoNascendoComAgua", 0f);
         gerenciador.SortearNascimento(new System.Random(1));
         Assert.AreEqual(0, ContarComAgua(focos), "os comuns nascem secos");
-        Assert.IsTrue(ralo.SempreNasceComAgua);
-        Assert.IsTrue(gerenciador.NasceComAgua(ralo), "o ralo fica sempre com água");
+        Assert.IsTrue(bueiro.SempreNasceComAgua);
+        Assert.IsTrue(gerenciador.NasceComAgua(bueiro), "o bueiro fica sempre com água");
 
         // Fração 0,4: só os 3 comuns entram na conta, round(0,4 × 3) = 1.
-        // Se o ralo entrasse no pool, seriam round(0,4 × 4) = 2.
+        // Se o bueiro entrasse no pool, seriam round(0,4 × 4) = 2.
         TesteUtil.Setar(gerenciador, "fracaoNascendoComAgua", 0.4f);
         gerenciador.SortearNascimento(new System.Random(2));
         Assert.AreEqual(1, ContarComAgua(focos), "o sorteio conta só quem pode nascer seco");

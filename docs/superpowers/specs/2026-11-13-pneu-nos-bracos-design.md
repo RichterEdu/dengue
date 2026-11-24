@@ -52,7 +52,7 @@ O usuário jogou e não gostou de duas coisas:
 - Conferir em Play se mirar a bromélia para começar também é fácil.
 
 ## Fora do escopo
-- Caixa d'água, ralo, vaso, garrafas, piscina e itens na mão.
+- Caixa d'água, bueiro, vaso, garrafas, piscina e itens na mão.
 - Animação nova dos braços para o balanço.
 - Sons novos: o derrame usa o que já existe.
 - Recalibrar o balanceamento geral: rodar o simulador depois.

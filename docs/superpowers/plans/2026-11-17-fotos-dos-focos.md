@@ -160,7 +160,7 @@
   - `Empacado_FocoDestruido_Ignora`: destruir (`Object.DestroyImmediate`) o mais perto depois do `RegistrarFocos` → a foto é do outro, sem exceção.
   - `TipoSemDono_PostaComoUpa`: foco `Interactable` puro (tipo `Nenhum`) → autor "UPA Vila Nova", texto de `aoMandarFotoSemDono`.
   - `AoMandarFoto_SegueOrdemDepoisSorteiaSemRepetir`: 6 posts de pneus (Carlos tem 3 textos) → os 3 primeiros em ordem e nenhum par seguido igual.
-  - `CompletarPersonagens_PreencheAoMandarFotoVazio`: no padrão do `HistoriaKitTestes`, personagem Ralo salvo com `aoMandarFoto` vazio → preenchido com o texto do Seu Osvaldo; um com texto próprio não muda.
+  - `CompletarPersonagens_PreencheAoMandarFotoVazio`: no padrão do `HistoriaKitTestes`, personagem Bueiro salvo com `aoMandarFoto` vazio → preenchido com o texto do Seu Osvaldo; um com texto próprio não muda.
   - `PostRedeSocial_FotoEFocoNaoSaoSerializados`: `JsonUtility.ToJson` de um post com `foto` e `foco` não contém `"foto"` nem `"foco"`.
 - [ ] **Step 2: Rodar e ver falhar** (não compila).
 - [ ] **Step 3: Implementar** `FotoDoFoco`, os campos de `PostRedeSocial` e de `PersonagemDoBairro`, os textos padrão em `PersonagensPadrao` (os 7 personagens) e `AoMandarFotoSemDonoPadrao()`, `PreencherPadroes` (lista vazia → padrão), `CompletarPersonagens` (`aoMandarFoto` vazio → padrão do tipo), e a lógica do narrador descrita acima.

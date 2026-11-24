@@ -16,7 +16,7 @@ Problema que a B resolve: hoje um foco esperando é igual a um foco recém-achad
 não há escolha de "o que fazer primeiro". A ideia original, "a chuva reenche o que só foi esvaziado", não cabia
 mais depois da A, em que todo foco recebe a ação definitiva. Por isso a B **cria o atalho de esvaziar**.
 
-Cena atual: 22 focos (6 pneus, 4 ralos, 4 bromélias, 3 vasos, 3 grupos de garrafas, 2 caixas d'água; não há piscina).
+Cena atual: 22 focos (6 pneus, 4 bueiros, 4 bromélias, 3 vasos, 3 grupos de garrafas, 2 caixas d'água; não há piscina).
 
 ### Decisões do usuário
 - Papel da chuva: **atalho que cobra depois**.
@@ -51,7 +51,7 @@ Cena atual: 22 focos (6 pneus, 4 ralos, 4 bromélias, 3 vasos, 3 grupos de garra
 - Depois de esvaziado, **a ferramenta certa ainda resolve de vez**: Areia no vaso, Saco nas garrafas, pegar o pneu e entregá-lo.
 - Mãos num foco já esvaziado dão `ResultadoDoPasso.JaVazio`, com o aviso "Já está vazio, mas a chuva enche de novo. A **areia** resolve de vez." (o nome da ferramenta muda por foco).
 - **Pneu:** como as Mãos já são a ferramenta dele, o caminho normal da A vira o esvaziar. O último passo só esvazia e o pneu **fica no lugar**. Segurar de novo com as Mãos **pega** o pneu, num passo instantâneo, como na A.
-- Ralo, bromélia e caixa d'água não têm atalho. Para eles, Mãos continuam dando `FerramentaErrada`; a caixa d'água continua sendo tampada com as Mãos.
+- Bueiro, bromélia e caixa d'água não têm atalho. Para eles, Mãos continuam dando `FerramentaErrada`; a caixa d'água continua sendo tampada com as Mãos.
 
 ### Chuva
 - Estados: **Seco → Previsão (45 s) → Chovendo (20 s) → Seco**.
@@ -219,7 +219,7 @@ Os 56 testes da Parte A continuam passando; os que mudam de comportamento (pneu,
   - o sorteio do início respeita `focosComMosquitoNoInicio`.
 - **Esvaziar:**
   - Mãos esvaziam vaso, garrafas e pneu;
-  - ralo, bromélia e caixa d'água continuam como antes;
+  - bueiro, bromélia e caixa d'água continuam como antes;
   - foco já vazio dá `JaVazio`;
   - esvaziar não conclui e não dispara `OnCompleted`;
   - com a ação definitiva começada, o atalho não vale;

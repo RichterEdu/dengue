@@ -224,7 +224,7 @@ Desenha, por cima da cena:
 - a **próxima**: igual, a meia transparência, sem anel fechando;
 - o **estouro** do acerto: anel verde que cresce e some, com gotinhas;
 - a **mira**: anel branco pequeno com miolo amarelo;
-- a **contagem**: um ponto por bolinha, aceso ao acertar, como no anel do ralo;
+- a **contagem**: um ponto por bolinha, aceso ao acertar, como no anel do bueiro;
 - a **dica**, numa faixa escura.
 
 O campo vira tela assim: `y = ±1` é a borda de cima e a de baixo. As bolinhas só aparecem quando a câmera chega
@@ -236,7 +236,7 @@ embaixo, porque a barra do kit não aparece nela.
 
 Cores: o verde `(0,25; 1; 0,8)` e o escuro `(0,04; 0,07; 0,10; 0,72)` da `SkillCheckHUD`.
 
-Com a sessão ativa, a `DengueHUD` esconde a mira normal e o painel do alvo, como já faz no skill check do ralo.
+Com a sessão ativa, a `DengueHUD` esconde a mira normal e o painel do alvo, como já faz no skill check do bueiro.
 O resto da HUD (barra do hospital, barra do kit, celular, lista de focos, avisos) fica como está.
 
 ### 6. O borrifador de perto

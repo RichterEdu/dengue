@@ -56,7 +56,7 @@ using UnityEngine;
  *
  *  Minigame: um foco pode trocar o segurar por uma sessão própria
  *  (CriarMinigame, ver Minigame.cs); cada Passo dela é um AvancarCom(kit).
- *  O ralo devolve o skill check. Sessão com vista de perto
+ *  O bueiro devolve o skill check. Sessão com vista de perto
  *  (IMinigameDePerto): AoVoltarDaVistaDePerto avisa quando a câmera
  *  voltou aos olhos.
  *
@@ -201,7 +201,7 @@ public class Interactable : MonoBehaviour
      * guardar o estado do começo. */
     public virtual void AoIniciarMinigame(IMinigame sessao) { }
 
-    /* A sessão errou (só o ralo pune: gasta a tela e volta ao começo). */
+    /* A sessão errou (só o bueiro pune: gasta a tela e volta ao começo). */
     public virtual void AoErrarMinigame(KitDoAgente kit) { }
 
     /* Saída voluntária ou cancelamento (Bloqueado), sem culpa do jogador. */
@@ -252,6 +252,14 @@ public class Interactable : MonoBehaviour
         initialScale = transform.localScale;
         OnStart();
 
+        // Sorteado como já limpo (GerenciadorDeFocos.SortearJaLimpos): fica
+        // no mapa já resolvido, sem nascimento seco nem evento nenhum.
+        if (JaLimpo)
+        {
+            AoFicarJaLimpo();
+            return;
+        }
+
         // Nascimento seco (em Play): quem o sorteio do gerenciador não deu
         // água nasce Esvaziado, como se já tivesse sido esvaziado antes de
         // o agente chegar. Fora do Play (testes EditMode) não sorteia, e
@@ -260,8 +268,32 @@ public class Interactable : MonoBehaviour
             NascerVazio();
     }
 
-    /* Este foco nasce sempre com água, fora do sorteio do começo (o ralo). */
+    /* Este foco nasce sempre com água, fora do sorteio do começo (o bueiro). */
     public virtual bool SempreNasceComAgua => false;
+
+    /* Sorteado como já limpo, este foco continua no mapa, resolvido (true),
+     * ou some, como quem foi levado embora (false, o padrão: pneu e
+     * garrafas)? Quem fica sobrescreve com true e, se o OnComplete não
+     * deixar o visual final, também o AoFicarJaLimpo. */
+    public virtual bool AparecerJaLimpo => false;
+
+    /* Sorteado como já limpo e mostrado resolvido (MarcarJaLimpo). */
+    public bool JaLimpo { get; private set; }
+
+    /* Já limpo: o foco conta como concluído (não aceita passo, não zumbe)
+     * sem disparar OnCompleted, porque não está na partida. O visual vem
+     * no Start (AoFicarJaLimpo), depois do OnStart do tipo. */
+    internal void MarcarJaLimpo()
+    {
+        JaLimpo = true;
+        concluido = true;
+    }
+
+    /* O visual de já resolvido. Por padrão, o mesmo da conclusão. */
+    protected virtual void AoFicarJaLimpo()
+    {
+        OnComplete();
+    }
 
     /* Nasce com água? Em Play, o gerenciador da cena responde (sorteio do
      * começo); sem gerenciador ou fora do Play, sim. */

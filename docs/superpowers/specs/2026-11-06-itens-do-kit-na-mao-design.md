@@ -15,19 +15,19 @@ Estado atual relevante:
 - `Ferramenta`: Mãos, Areia, Tela, Água sanitária e Saco de lixo. As Mãos não ganham modelo.
 - Saco: gerado por `Ferramentas/Blender/gerar_saco.py`, filho do osso `RightHand` (`SacoNaMao`), montado pelo
   `PoseDeCarga` e controlado pelo `FeedbackDeCarga`. A camada `CarregandoSaco` do Animator ergue o braço direito.
-- Resultado nos focos: a areia sobe no pratinho do vaso, as poças da bromélia secam e a grelha volta ao ralo.
-- Ralo: ao concluir, `RaloInteractable.OnComplete` ativa o campo `tela`, hoje o objeto `Tela` do `Ralo.fbx`, uma placa
+- Resultado nos focos: a areia sobe no pratinho do vaso, as poças da bromélia secam e a grelha volta ao bueiro.
+- Bueiro: ao concluir, `BueiroInteractable.OnComplete` ativa o campo `tela`, hoje o objeto `Tela` do `Bueiro.fbx`, uma placa
   verde sob a grelha. Nenhuma instância da cena tem override desse campo.
 - Sem carga: `Interactable.Verificar` devolve `SemCarga`, o `Interactor` recusa o aperto, a HUD mostra "Acabou: ..." e o
   `SomDoKit` toca o erro. Com isso, `Avancando` não liga.
-- Ralo com skill check: `Interactor.Avancando` fica falso e o estado ativo está em `Interactor.SkillCheckAtivo`.
+- Bueiro com skill check: `Interactor.Avancando` fica falso e o estado ativo está em `Interactor.SkillCheckAtivo`.
 
 ### Decisões do usuário
-- Alcance: **item na mão + gesto + marca no foco**. Vaso e bromélia já têm a marca; o ralo recebe a tela nova.
+- Alcance: **item na mão + gesto + marca no foco**. Vaso e bromélia já têm a marca; o bueiro recebe a tela nova.
 - Itens: **balde de areia, tela com moldura e borrifador**.
 - Balde: fica como na prévia aprovada, com pose própria.
 - Tela: **peça quadrada de malha vazada com moldura verde**. A versão em rolo foi descartada.
-- Depois de concluído, o ralo mostra **essa mesma tela, sob a grelha fechada e ajustada ao tamanho do ralo**.
+- Depois de concluído, o bueiro mostra **essa mesma tela, sob a grelha fechada e ajustada ao tamanho do bueiro**.
 - Sem carga: o **balde fica vazio**, o **borrifador continua na mão** e a **tela não aparece**.
 - Tentar usar sem carga mostra só o aviso que já existe.
 
@@ -35,7 +35,7 @@ Estado atual relevante:
 - **Poses e gestos animados no Blender**, no padrão do saco. Gesto feito por código brigaria com o Animator, e item
   preso à câmera se separaria da mão visível.
 - **Componente novo, separado do `FeedbackDeCarga`**, que continua cuidando do saco e do pneu.
-- **O braço acompanha o olhar.** O ralo e o vaso ficam no chão: com a pose presa ao corpo, olhar para baixo subiria o
+- **O braço acompanha o olhar.** O bueiro e o vaso ficam no chão: com a pose presa ao corpo, olhar para baixo subiria o
   item para o meio da tela, em cima do foco.
 
 ## Jogabilidade
@@ -74,16 +74,16 @@ Não há comportamento novo. A recusa já impede o gesto e mostra o aviso e o so
 o borrifador sem carga e para a tela, que não aparece mas continua selecionada.
 
 Quando a última carga acaba, o item segue a tabela no mesmo quadro: ao concluir com a última tela, ela some da mão e
-aparece no ralo. Errar o skill check gasta a tela, e ela some da mão se a carga zerar.
+aparece no bueiro. Errar o skill check gasta a tela, e ela some da mão se a carga zerar.
 
-### Marca no ralo
+### Marca no bueiro
 
-Ao concluir, o ralo mostra a tela com moldura **sob a grelha fechada**, no lugar da placa antiga e na mesma altura dela.
-Ela cobre a boca do ralo e se apoia na moldura de concreto, com 29 × 29 cm no espaço local do ralo. Por ser filha do
-prefab, acompanha a escala de cada instância e fica ajustada também nos ralos esticados.
+Ao concluir, o bueiro mostra a tela com moldura **sob a grelha fechada**, no lugar da placa antiga e na mesma altura dela.
+Ela cobre a boca do bueiro e se apoia na moldura de concreto, com 29 × 29 cm no espaço local do bueiro. Por ser filha do
+prefab, acompanha a escala de cada instância e fica ajustada também nos bueiros esticados.
 
 A moldura verde fica quase toda sob o quadro da grelha, e o que aparece é a malha entre as barras. O restante do fluxo do
-ralo não muda.
+bueiro não muda.
 
 ## Modelos
 
@@ -108,7 +108,7 @@ A malha da tela é uma textura em grade com furos reais, gerada pelo `gerar_iten
 a cada 5 cm). Material URP Lit com Alpha Clip e as duas faces visíveis; importação com repetição e mip maps preservando
 a cobertura do alfa, para a malha não sumir de longe.
 
-Na mão, a tela usa escala 0,67 (19,4 cm). No ralo, usa escala local 1, cabendo sob a grelha. Um só modelo atende aos dois
+Na mão, a tela usa escala 0,67 (19,4 cm). No bueiro, usa escala local 1, cabendo sob a grelha. Um só modelo atende aos dois
 casos.
 
 ## Animação
@@ -168,20 +168,20 @@ Menu **Dengue > Configurar Itens na Mão**, idempotente:
    camada `ItemNaMao`, recriada a cada vez.
 2. `AplicarNoPlayer(player)`: cria `BaldeNaMao`, `TelaNaMao` e `BorrifadorNaMao` como filhos de `RightHand`, inativos,
    com posição, giro e escala em constantes; cria as partículas; adiciona e liga o `ItensNaMao`.
-3. `AdicionarTelaAoRalo()`: abre o `Ralo.prefab` com `PrefabUtility.LoadPrefabContents`, cria `TelaInstalada` (instância
+3. `AdicionarTelaAoBueiro()`: abre o `Bueiro.prefab` com `PrefabUtility.LoadPrefabContents`, cria `TelaInstalada` (instância
    do `Tela.fbx`, inativa) ao lado da `Tampa`, com escala local 1 e centro a 2,9 cm de altura local, logo abaixo da
    grelha fechada (3,4 cm), e aponta o campo `tela` para ela.
 4. Salva a cena.
 
-O objeto `Tela` do `Ralo.fbx` fica no prefab, inativo e sem referência: o `Ralo.fbx` não é regerado.
+O objeto `Tela` do `Bueiro.fbx` fica no prefab, inativo e sem referência: o `Bueiro.fbx` não é regerado.
 
 Mudanças em arquivos existentes:
-- `FocosBlenderBuilder.CriarRalo`: chama `AdicionarTelaAoRalo()` no fim, para o prefab recriado não perder a tela nova.
+- `FocosBlenderBuilder.CriarBueiro`: chama `AdicionarTelaAoBueiro()` no fim, para o prefab recriado não perder a tela nova.
 - `PlayerBuilder.cs` e `PoseDeCarga.cs`: comentários avisando que, depois do Configurar Player, é preciso rodar também
   este menu, porque ele destrói o `Modelo` e recria o controller.
 - `gerar_agente.py`: ações novas. O `AgenteSaude.fbx` é reexportado.
 
-Nada muda em `FeedbackDeCarga`, `KitDoAgente`, `Interactor`, `DengueHUD`, `RaloInteractable` ou `EstoqueDoKit`.
+Nada muda em `FeedbackDeCarga`, `KitDoAgente`, `Interactor`, `DengueHUD`, `BueiroInteractable` ou `EstoqueDoKit`.
 
 ## Testes
 
@@ -190,10 +190,10 @@ EditMode, em `Assets/Editor/Testes/ItensNaMaoTestes.cs`:
 - `Gesticula`: foco certo, ponto de uso, ferramenta diferente da necessária, skill check, sem avançar e sem item.
 - `ItensNaMao.Aplicar`: ativa só o objeto certo, esconde a areia no balde vazio e reage ao `OnMudou`.
 - Ausência da camada: um único aviso, sem exceção.
-- Assets: a camada `ItemNaMao` tem os 6 estados; o `Ralo.prefab` aponta `tela` para `TelaInstalada`, inativa; os três
+- Assets: a camada `ItemNaMao` tem os 6 estados; o `Bueiro.prefab` aponta `tela` para `TelaInstalada`, inativa; os três
   filhos de `RightHand` existem no Player da cena.
-- Ralo: a tela nova fica inativa no início e ativa depois de concluído.
-- Ajuste ao ralo: no prefab, a `TelaInstalada` tem escala local 1, cabe na área da grelha e fica abaixo dela.
+- Bueiro: a tela nova fica inativa no início e ativa depois de concluído.
+- Ajuste ao bueiro: no prefab, a `TelaInstalada` tem escala local 1, cabe na área da grelha e fica abaixo dela.
 
 A suíte existente continua passando.
 
@@ -201,7 +201,7 @@ Em Play Mode, com capturas:
 - os três itens, nas poses de segurar e usar;
 - enquadramento olhando para a frente e para um foco no chão;
 - balde vazio e borrifador sem carga, com o aviso ao tentar usar;
-- os quatro ralos concluídos, com a tela sob a grelha e ajustada à escala de cada um;
+- os quatro bueiros concluídos, com a tela sob a grelha e ajustada à escala de cada um;
 - troca de ferramenta com o botão apertado e pegar um pneu com a tela selecionada antes.
 
 ## Fora do escopo
@@ -217,7 +217,7 @@ Em Play Mode, com capturas:
 - **Reexportar o agente** pode afetar clipes existentes. Conferir locomoção, pneu e saco depois da troca.
 - **Giro do braço com o olhar** é o ponto menos provado: nas prévias o braço foi posto à mão, relativo à câmera. Se ficar
   ruim, o `fatorDoOlhar` reduz ou desliga o efeito.
-- **Ralos esticados na cena:** ao menos um tem escala 1,21 × 2,11. Herdar a escala é o que ajusta a tela a esse ralo, mas
-  os furos da malha esticam junto. A captura dos quatro ralos decide se algum precisa de correção.
+- **Bueiros esticados na cena:** ao menos um tem escala 1,21 × 2,11. Herdar a escala é o que ajusta a tela a esse bueiro, mas
+  os furos da malha esticam junto. A captura dos quatro bueiros decide se algum precisa de correção.
 - **Tela sob a grelha:** a calçada não tem buraco, então a malha fica sobre o piso da cena. A captura com a grelha fechada
   confirma se os furos continuam legíveis entre as barras.

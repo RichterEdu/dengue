@@ -13,7 +13,7 @@ using UnityEngine;
  *    - Focos, vitória, tempo, hospital e estrelas somam; reenchidos
  *      descontam (nota nunca abaixo de zero).
  *    - Sem erros: nenhum minigame errado na partida (a tela rasgada do
- *      ralo conta como erro). O reenchido só desconta pontos.
+ *      bueiro conta como erro). O reenchido só desconta pontos.
  *    - Vitória, tempo, hospital e estrelas só contam com Venceu.
  *    - Comparações com o que a tela mostra: segundos por FloorToInt,
  *      pico por RoundToInt(pico x 100).

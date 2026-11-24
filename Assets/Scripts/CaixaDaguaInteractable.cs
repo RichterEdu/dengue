@@ -211,6 +211,9 @@ public class CaixaDaguaInteractable : Interactable
         }
     }
 
+    /* Sorteado como já limpo, fica no mapa tampada (o OnComplete). */
+    public override bool AparecerJaLimpo => true;
+
     protected override void OnStart()
     {
         Fechamento = 0f;

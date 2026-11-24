@@ -76,12 +76,18 @@ public static class BalanceamentoSimulador
         }
 
         Interactable[] focos = Object.FindObjectsByType<Interactable>(FindObjectsInactive.Include);
-        int total = focos.Length;
-        if (total == 0)
+        int naCena = focos.Length;
+        if (naCena == 0)
         {
             Debug.LogWarning("[Balanceamento] Nenhum foco (Interactable) na cena aberta.");
             return;
         }
+
+        // Em Play, uma fração dos focos já começa limpa e fica fora da
+        // partida (GerenciadorDeFocos.SortearJaLimpos): a partida simulada
+        // tem só os que sobram. As rotas continuam passando por todos.
+        int jaLimpos = gerenciador.JaLimposDe(naCena);
+        int total = naCena - jaLimpos;
 
         // As duas rotas primeiro: o custo do kit entra na tabela de ritmos.
         ControladorJogador jogador = Object.FindAnyObjectByType<ControladorJogador>();
@@ -99,7 +105,7 @@ public static class BalanceamentoSimulador
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.AppendLine($"[Balanceamento] {total} focos · ocupação inicial {Pct(fluxo.OcupacaoInicial)} · mínima {Pct(fluxo.OcupacaoMinima)} · alívio por foco {Pct1(fluxo.AlivioPorFoco)}");
+        sb.AppendLine($"[Balanceamento] {total} focos na partida ({naCena} na cena, {jaLimpos} já limpos) · ocupação inicial {Pct(fluxo.OcupacaoInicial)} · mínima {Pct(fluxo.OcupacaoMinima)} · alívio por foco {Pct1(fluxo.AlivioPorFoco)}");
         float pesoOvo = gerenciador.PesoDoEstagio(EstagioDoFoco.Ovo);
         float pesoMosquito = gerenciador.PesoDoEstagio(EstagioDoFoco.Mosquito);
         sb.AppendLine($"Taxa depois da rampa: {PctS(fluxo.TaxaPara(TempoMaximo, pesoOvo, false))} com todos em ovo · {PctS(fluxo.TaxaPara(TempoMaximo, pesoMosquito, false))} com todos em mosquito · a ocupação começa a descer com {FocosParaDescer(fluxo, total, pesoMosquito)} focos restantes em mosquito");
@@ -330,7 +336,7 @@ public static class BalanceamentoSimulador
      * partida, correndo, com o estoque do KitDoAgente da cena (começa cheio,
      * saco vazio):
      *   - ação de cada foco: o SegundosEstimados dele (SegundosPorPasso ×
-     *     passos; ralo: uma volta do ponteiro por check; garrafas: um passo
+     *     passos; bueiro: uma volta do ponteiro por check; garrafas: um passo
      *     por garrafa; pneu: o tempo de esvaziar, com água);
      *   - consumível zerado: antes de ir ao foco, desvia para o ponto de
      *     reabastecimento mais perto que tenha a ferramenta;

@@ -12,7 +12,7 @@ using UnityEngine;
  *  - Atualizar devolve no máximo um Passo por quadro. Cada Passo vira um
  *    AvancarCom(kit) do foco; a sessão não sabe quando o foco termina,
  *    quem diz é o AvancarCom.
- *  - Errou chama Interactable.AoErrarMinigame (só o ralo gasta carga).
+ *  - Errou chama Interactable.AoErrarMinigame (só o bueiro gasta carga).
  *  - FracaoDoPasso (0..1) é o quanto do passo atual já foi feito, para a
  *    barra da HUD. PodeSair = o botão de largar sai do minigame.
  *  - Agindo = a sessão faz a sua ação neste quadro (o Avancando do
@@ -26,7 +26,7 @@ using UnityEngine;
  *    a +proporção), centro em (0, 0).
  *  - IMinigameDePerto: sessão que quer a câmera nessa pose enquanto durar.
  *
- *  O skill check do ralo entra por um adaptador (MinigameDeSkillCheck,
+ *  O skill check do bueiro entra por um adaptador (MinigameDeSkillCheck,
  *  em SkillCheck.cs).
  * ============================================================ */
 
@@ -53,7 +53,7 @@ public interface IMinigame
     /* 0..1 do passo atual, para a barra da HUD. */
     float FracaoDoPasso { get; }
 
-    /* O botão de largar sai do minigame (ralo: false). */
+    /* O botão de largar sai do minigame (bueiro: false). */
     bool PodeSair { get; }
 
     /* A sessão está fazendo a sua ação neste quadro: vira o Avancando do

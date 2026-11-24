@@ -33,6 +33,13 @@ using UnityEngine;
  *      foco: sempre sai a mesma quantidade, sorteando quem. O sorteio é
  *      preguiçoso, na primeira pergunta (todas as Awake já rodaram e os
  *      focos da cena já estão registrados).
+ *    - Já limpos (SortearJaLimpos): em Play, antes do registro, uma
+ *      fração fixa dos focos da cena é sorteada para começar limpa, como
+ *      se a vizinhança já tivesse resolvido. Ficam fora de tudo (lista,
+ *      total, nascimento, início). Quem tem AparecerJaLimpo continua no
+ *      mapa já resolvido (caixa tampada, vaso com areia, lona dobrada...);
+ *      pneu e garrafas somem (foram levados embora). Sempre sobra
+ *      minimoAtivosPorTipo de cada tipo, e um GrupoDeFocos sai inteiro.
  *
  *  No EditMode o Awake/Start/Update não rodam: os testes chamam
  *  Registrar, Avancar e SortearInicio direto, e o FluxoDeJogo do campo
@@ -80,6 +87,14 @@ public class GerenciadorDeFocos : MonoBehaviour
     [Tooltip("Fração dos focos que nasce com água (contagem fixa, arredondada, no mínimo 1); o resto nasce seco, como se já tivesse sido esvaziado.")]
     [Range(0f, 1f)]
     [SerializeField] private float fracaoNascendoComAgua = 0.5f;
+
+    [Tooltip("Fração dos focos da cena que já começa limpa (contagem fixa, arredondada, sorteando quais): esses focos são desligados e ficam fora da partida, da lista e do total. Cada partida fica com um conjunto diferente.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float fracaoJaLimpos = 1f / 3f;
+
+    [Tooltip("Quantos focos de cada tipo (classe) ficam sempre na partida, mesmo com o sorteio dos já limpos.")]
+    [Min(0)]
+    [SerializeField] private int minimoAtivosPorTipo = 1;
 
     /* Um foco eliminado (conta uma vez por foco). */
     public event Action<Interactable> OnFocoEliminado;
@@ -236,7 +251,10 @@ public class GerenciadorDeFocos : MonoBehaviour
         fluxoAssinado = null;
     }
 
-    /* Registra todos os focos da cena (inclusive inativos), uma vez só. */
+    /* Registra todos os focos da cena (inclusive inativos), uma vez só.
+     * Em Play, antes do registro, sorteia os que já começam limpos: esses
+     * são desligados e nem entram na lista (quem copia Focos no Start já
+     * recebe a lista sem eles). Fora do Play não sorteia nada. */
     public void Garantir()
     {
         if (registrou)
@@ -244,7 +262,143 @@ public class GerenciadorDeFocos : MonoBehaviour
 
         registrou = true;
         // Sem FindObjectsSortMode: a sobrecarga com ele está obsoleta no Unity 6.5.
-        Registrar(FindObjectsByType<Interactable>(FindObjectsInactive.Include));
+        Interactable[] daCena = FindObjectsByType<Interactable>(FindObjectsInactive.Include);
+        if (!Application.isPlaying)
+        {
+            Registrar(daCena);
+            return;
+        }
+
+        HashSet<Interactable> limpos = new HashSet<Interactable>(SortearJaLimpos(daCena, new System.Random()));
+        foreach (Interactable foco in limpos)
+            DeixarJaLimpo(foco);
+
+        List<Interactable> naPartida = new List<Interactable>();
+        foreach (Interactable foco in daCena)
+        {
+            if (!limpos.Contains(foco))
+                naPartida.Add(foco);
+        }
+        Registrar(naPartida);
+    }
+
+    /* Um foco sorteado como já limpo: o que aparece resolvido fica no mapa
+     * (MarcarJaLimpo; o visual vem no Start dele); o que se leva embora
+     * (pneu, garrafas) é desligado. Fora da partida nos dois casos. */
+    internal static void DeixarJaLimpo(Interactable foco)
+    {
+        if (foco.AparecerJaLimpo)
+            foco.MarcarJaLimpo();
+        else
+            foco.gameObject.SetActive(false);
+    }
+
+    /* A unidade do sorteio dos já limpos (o que é sorteado junto com o
+     * foco): o GrupoDeFocos mais próximo acima dele ou, sem grupo, o
+     * próprio foco. */
+    internal static GameObject UnidadeDe(Interactable foco)
+    {
+        GrupoDeFocos grupo = foco.GetComponentInParent<GrupoDeFocos>(true);
+        return grupo != null ? grupo.gameObject : foco.gameObject;
+    }
+
+    /* Quantos focos começam limpos, de 'elegiveis': round(fracaoJaLimpos ×
+     * elegiveis), entre 0 e elegiveis. O simulador de balanceamento usa a
+     * mesma conta. */
+    internal int JaLimposDe(int elegiveis)
+    {
+        if (elegiveis <= 0 || fracaoJaLimpos <= 0f)
+            return 0;
+        return Mathf.Clamp(Mathf.RoundToInt(fracaoJaLimpos * elegiveis), 0, elegiveis);
+    }
+
+    /* Sorteia os focos que já começam limpos (não mexe em nada; quem
+     * desliga é o Garantir). Elegíveis: os focos ligados e ainda não
+     * concluídos. A unidade do sorteio é a UnidadeDe (um GrupoDeFocos sai
+     * inteiro); as unidades são embaralhadas (Fisher-Yates) e entram na
+     * conta em ordem enquanto couberem em JaLimposDe(elegíveis) e deixarem
+     * pelo menos minimoAtivosPorTipo focos de cada tipo na partida. Um
+     * grupo que estouraria a conta é pulado, então o total pode ficar um
+     * pouco abaixo dela. */
+    internal List<Interactable> SortearJaLimpos(IEnumerable<Interactable> daCena, System.Random rng)
+    {
+        if (rng == null)
+            rng = new System.Random();
+
+        List<Interactable> limpos = new List<Interactable>();
+        if (daCena == null)
+            return limpos;
+
+        // Unidades na ordem em que aparecem, cada uma com os seus focos.
+        List<GameObject> unidades = new List<GameObject>();
+        Dictionary<GameObject, List<Interactable>> focosDa = new Dictionary<GameObject, List<Interactable>>();
+        Dictionary<Type, int> ativosPorTipo = new Dictionary<Type, int>();
+        int elegiveis = 0;
+        foreach (Interactable foco in daCena)
+        {
+            if (foco == null || foco.IsComplete || !foco.gameObject.activeInHierarchy)
+                continue;
+
+            GameObject unidade = UnidadeDe(foco);
+            if (!focosDa.TryGetValue(unidade, out List<Interactable> lista))
+            {
+                lista = new List<Interactable>();
+                focosDa.Add(unidade, lista);
+                unidades.Add(unidade);
+            }
+            lista.Add(foco);
+            elegiveis++;
+
+            Type tipo = foco.GetType();
+            ativosPorTipo.TryGetValue(tipo, out int n);
+            ativosPorTipo[tipo] = n + 1;
+        }
+
+        int alvo = JaLimposDe(elegiveis);
+        if (alvo == 0)
+            return limpos;
+
+        for (int i = unidades.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (unidades[i], unidades[j]) = (unidades[j], unidades[i]);
+        }
+
+        Dictionary<Type, int> saindo = new Dictionary<Type, int>();
+        foreach (GameObject unidade in unidades)
+        {
+            if (limpos.Count >= alvo)
+                break;
+
+            List<Interactable> lista = focosDa[unidade];
+            if (limpos.Count + lista.Count > alvo)
+                continue;
+
+            // Quantos de cada tipo esta unidade tiraria da partida.
+            saindo.Clear();
+            foreach (Interactable foco in lista)
+            {
+                saindo.TryGetValue(foco.GetType(), out int n);
+                saindo[foco.GetType()] = n + 1;
+            }
+
+            bool deixaOMinimo = true;
+            foreach (KeyValuePair<Type, int> par in saindo)
+            {
+                if (ativosPorTipo[par.Key] - par.Value < minimoAtivosPorTipo)
+                {
+                    deixaOMinimo = false;
+                    break;
+                }
+            }
+            if (!deixaOMinimo)
+                continue;
+
+            foreach (KeyValuePair<Type, int> par in saindo)
+                ativosPorTipo[par.Key] -= par.Value;
+            limpos.AddRange(lista);
+        }
+        return limpos;
     }
 
     /* Cria o ciclo de cada foco novo, assina os eventos dele e conta os já
@@ -347,7 +501,7 @@ public class GerenciadorDeFocos : MonoBehaviour
 
     /* O foco nasce com água? Em Play, o Interactable pergunta no Start
      * dele; a resposta vem do sorteio do começo. Foco fora dele (nascido
-     * depois, sem sorteio) nasce com água, como sempre nasceu. O ralo
+     * depois, sem sorteio) nasce com água, como sempre nasceu. O bueiro
      * (SempreNasceComAgua) também, sempre. */
     internal bool NasceComAgua(Interactable foco)
     {
@@ -360,7 +514,7 @@ public class GerenciadorDeFocos : MonoBehaviour
     }
 
     /* Sorteia quem nasce seco: de 'quantos' focos de pé que podem nascer
-     * secos (o ralo não pode, fica fora), ComAguaNoNascimento(quantos)
+     * secos (o bueiro não pode, fica fora), ComAguaNoNascimento(quantos)
      * nascem com água (contagem fixa) e o resto seco, cada um sorteado
      * (Fisher-Yates). Reordenar a lista de focos depois do sorteio não
      * muda a resposta de ninguém. */

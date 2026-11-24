@@ -1,5 +1,5 @@
 """
-Gera os focos de criadouro "Ralo" e "Bromélia" (low poly, estáticos) no
+Gera os focos de criadouro "Bueiro" e "Bromélia" (low poly, estáticos) no
 Blender e exporta FBX + prévias renderizadas.
 
 Uso:
@@ -8,8 +8,8 @@ Uso:
 Convenções:
   - Metros, Z pra cima, pivô na base (z = 0 = chão).
   - Cada foco é um objeto raiz (Empty) com filhos nomeados para o script do
-    Unity achar: Ralo -> Caixa, Tampa, Agua, Tela; Bromelia -> Vaso, Folhas, Flor, Agua_Centro, Agua_1..4.
-  - Ralo: estado inicial = grelha tirada e encostada ao lado, água à mostra.
+    Unity achar: Bueiro -> Caixa, Tampa, Agua, Tela; Bromelia -> Vaso, Folhas, Flor, Agua_Centro, Agua_1..4.
+  - Bueiro: estado inicial = grelha tirada e encostada ao lado, água à mostra.
   - Bromélia: estado inicial = água parada no copo central e nas axilas das folhas.
 """
 import bpy, bmesh, math, sys, os
@@ -76,11 +76,11 @@ def caixa(bm, cx, cy, cz, sx, sy, sz, mat=0):
     for f in {f for v in r['verts'] for f in v.link_faces}:
         f.material_index = mat
 
-# ================================================================== RALO
-# Caixa de ralo de calçada: moldura de concreto 0,42 m, boca 0,26 m,
+# ================================================================== BUEIRO
+# Caixa de bueiro de calçada: moldura de concreto 0,42 m, boca 0,26 m,
 # fundo afundado 12 cm, com água parada a 3 cm abaixo da boca.
-RALO_POS = (-0.45, 0.0, 0.0)
-ralo = raiz('Ralo', RALO_POS)
+BUEIRO_POS = (-0.45, 0.0, 0.0)
+bueiro = raiz('Bueiro', BUEIRO_POS)
 
 EXT, BOCA, ALT, PROF = 0.21, 0.13, 0.03, 0.12
 bm = bmesh.new()
@@ -96,13 +96,13 @@ for sx, sy, cx, cy in ((BOCA * 2, esp, 0, BOCA - esp / 2), (BOCA * 2, esp, 0, -B
     caixa(bm, cx, cy, -PROF / 2, sx, sy, PROF, 1)
 # fundo — mat 2
 caixa(bm, 0, 0, -PROF - 0.005, BOCA * 2, BOCA * 2, 0.01, 2)
-objeto('Caixa', bm, ['Concreto', 'ConcretoEscuro', 'Fundo'], ralo)
+objeto('Caixa', bm, ['Concreto', 'ConcretoEscuro', 'Fundo'], bueiro)
 
 # água parada (lâmina)
 bm = bmesh.new()
 # 1 cm abaixo da borda: acima do chão, senão a calçada do jogo (sem buraco) esconde a água
 caixa(bm, 0, 0, ALT - 0.01, BOCA * 2, BOCA * 2, 0.004)
-agua_ralo = objeto('Agua', bm, ['Agua'], ralo)
+agua_bueiro = objeto('Agua', bm, ['Agua'], bueiro)
 
 # grelha (tampa): quadro + barras, com pivô no centro da face de baixo
 G = BOCA + 0.02     # meia-largura, apoia na moldura
@@ -116,7 +116,7 @@ n = 7
 for i in range(n):
     x = -G + 0.024 + (i + 0.5) * (2 * G - 0.048) / n
     caixa(bm, x, 0, H / 2, 0.012, G * 2 - 0.02, H, 1 if i % 3 == 1 else 0)
-tampa = objeto('Tampa', bm, ['Grelha', 'Ferrugem'], ralo)
+tampa = objeto('Tampa', bm, ['Grelha', 'Ferrugem'], bueiro)
 TAMPA_FECHADA = (Vector((0, 0, ALT)), (0.0, 0.0, 0.0))
 TAMPA_ABERTA = (Vector((EXT + G - 0.02, -0.04, 0.045)), (0.0, math.radians(-18), math.radians(14)))
 
@@ -126,13 +126,13 @@ caixa(bm, 0, 0, ALT - 0.002, BOCA * 2 + 0.03, BOCA * 2 + 0.03, 0.003)
 for i in range(-5, 6):
     caixa(bm, i * BOCA / 5.5, 0, ALT, 0.003, BOCA * 2 + 0.03, 0.002)
     caixa(bm, 0, i * BOCA / 5.5, ALT, BOCA * 2 + 0.03, 0.003, 0.002)
-tela = objeto('Tela', bm, ['Tela'], ralo)
+tela = objeto('Tela', bm, ['Tela'], bueiro)
 
-def ralo_estado(fechado):
+def bueiro_estado(fechado):
     pos, rot = TAMPA_FECHADA if fechado else TAMPA_ABERTA
     tampa.location = pos + (Vector((0, 0, 0.004)) if fechado else Vector())
     tampa.rotation_euler = rot
-    agua_ralo.hide_render = fechado
+    agua_bueiro.hide_render = fechado
     tela.hide_render = not fechado
 
 # ================================================================== BROMÉLIA
@@ -244,9 +244,9 @@ def exportar(raiz_ob, nome):
     raiz_ob.location = old
     print('FBX OK', fbx, os.path.getsize(fbx))
 
-ralo_estado(False)
+bueiro_estado(False)
 brom_estado(False)
-exportar(ralo, 'Ralo')
+exportar(bueiro, 'Bueiro')
 exportar(brom, 'Bromelia')
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'Focos.blend'))
 
@@ -263,9 +263,9 @@ if RENDER:
     luz.rotation_euler = (math.radians(50), math.radians(-10), math.radians(-35))
     scene.collection.objects.link(luz)
 
-    # calçada com buraco onde está o ralo
+    # calçada com buraco onde está o bueiro
     bm = bmesh.new()
-    x0, x1 = RALO_POS[0] - EXT, RALO_POS[0] + EXT
+    x0, x1 = BUEIRO_POS[0] - EXT, BUEIRO_POS[0] + EXT
     y0, y1 = -EXT, EXT
     S = 2.0
     for (a, b, c, d) in (((-S, -S), (S, -S), (S, y0), (-S, y0)), ((-S, y1), (S, y1), (S, S), (-S, S)),
@@ -303,17 +303,17 @@ if RENDER:
         bpy.ops.render.render(write_still=True)
         print('RENDER', nome)
 
-    rp = Vector(RALO_POS)
+    rp = Vector(BUEIRO_POS)
     bp = Vector(BROM_POS)
     # visão de quem está em pé (olho ~1,6 m), como o jogador vê
     olhar(rp + Vector((0.55, -0.95, 1.05)), rp + Vector((0.05, 0, 0)), 45)
-    ralo_estado(False); render('previa_ralo')
-    ralo_estado(True); render('previa_ralo_fechado')
+    bueiro_estado(False); render('previa_bueiro')
+    bueiro_estado(True); render('previa_bueiro_fechado')
     olhar(bp + Vector((0.55, -0.9, 0.85)), bp + Vector((0, 0, 0.18)), 45)
     brom_estado(False); render('previa_bromelia')
     brom_estado(True); render('previa_bromelia_seca')
     olhar(bp + Vector((0.0, -0.25, 0.75)), bp + Vector((0, 0, 0.15)), 40)
     brom_estado(False); render('previa_bromelia_cima')
-    ralo_estado(False)
+    bueiro_estado(False)
     olhar(Vector((0, -2.1, 1.3)), Vector((0, 0, 0.1)), 40)
     render('previa_juntos')

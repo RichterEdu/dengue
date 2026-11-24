@@ -28,9 +28,9 @@ using UnityEngine.Rendering;
  *  BorrifadorNaMao filhos do osso RightHand, inativos, com as partículas
  *  do gesto, e o componente ItensNaMao ligado.
  *
- *  AdicionarTelaAoRalo() — idempotente: a mesma tela no Ralo.prefab, sob a
+ *  AdicionarTelaAoBueiro() — idempotente: a mesma tela no Bueiro.prefab, sob a
  *  grelha fechada, em escala local 1. Por ser filha do prefab, acompanha a
- *  escala de cada ralo da cena.
+ *  escala de cada bueiro da cena.
  *
  *  Menu  Dengue > Configurar Itens na Mão  roda tudo e salva a cena.
  *  Rodar de novo depois do Dengue > Configurar Player, que destrói o
@@ -81,11 +81,11 @@ public static class ItensNaMaoBuilder
     private static readonly Vector3 PosicaoDoBorrifador = new Vector3(-0.010f, 0.067f, -0.050f);
     private static readonly Vector3 GiroDoBorrifador = new Vector3(274.7f, 106.7f, 257.9f);
 
-    // Tela no ralo: filha do prefab, ao lado da Tampa, para herdar a escala de cada
-    // ralo. O centro fica logo abaixo da grelha fechada (3,4 cm, no FocosBlenderBuilder).
-    private const string CaminhoRalo = "Assets/Meus/Assets Gerados/Focos/Ralo.prefab";
+    // Tela no bueiro: filha do prefab, ao lado da Tampa, para herdar a escala de cada
+    // bueiro. O centro fica logo abaixo da grelha fechada (3,4 cm, no FocosBlenderBuilder).
+    private const string CaminhoBueiro = "Assets/Meus/Assets Gerados/Focos/Bueiro.prefab";
     private const string NomeTelaInstalada = "TelaInstalada";
-    private const float AlturaDaTelaNoRalo = 0.029f;
+    private const float AlturaDaTelaNoBueiro = 0.029f;
 
     // Partículas no referencial de cada item.
     private static readonly Vector3 PosicaoDaAreiaCaindo = new Vector3(0f, -0.16f, 0.10f);
@@ -110,7 +110,7 @@ public static class ItensNaMaoBuilder
         }
 
         AplicarNoPlayer(jogador.gameObject);
-        AdicionarTelaAoRalo();
+        AdicionarTelaAoBueiro();
         EditorSceneManager.SaveScene(jogador.gameObject.scene);
         Debug.Log(importacao + "\n" + camada + "\n[Itens] Player montado.");
     }
@@ -172,11 +172,11 @@ public static class ItensNaMaoBuilder
             EditorSceneManager.MarkSceneDirty(player.scene);
     }
 
-    /* A tela com moldura no Ralo.prefab, sob a grelha fechada e inativa: o
-     * RaloInteractable a mostra ao concluir. Edita o prefab sem recriá-lo,
+    /* A tela com moldura no Bueiro.prefab, sob a grelha fechada e inativa: o
+     * BueiroInteractable a mostra ao concluir. Edita o prefab sem recriá-lo,
      * para não perder os valores gravados pelo kit. O objeto "Tela" do
-     * Ralo.fbx fica no prefab, inativo e sem referência (idempotente). */
-    public static void AdicionarTelaAoRalo()
+     * Bueiro.fbx fica no prefab, inativo e sem referência (idempotente). */
+    public static void AdicionarTelaAoBueiro()
     {
         string caminhoTela = Pasta + "/Tela.fbx";
         GameObject modelo = AssetDatabase.LoadAssetAtPath<GameObject>(caminhoTela);
@@ -186,11 +186,11 @@ public static class ItensNaMaoBuilder
             return;
         }
 
-        GameObject raiz = PrefabUtility.LoadPrefabContents(CaminhoRalo);
+        GameObject raiz = PrefabUtility.LoadPrefabContents(CaminhoBueiro);
         try
         {
-            SerializedObject ralo = new SerializedObject(raiz.GetComponent<RaloInteractable>());
-            Transform tampa = (Transform)ralo.FindProperty("tampa").objectReferenceValue;
+            SerializedObject bueiro = new SerializedObject(raiz.GetComponent<BueiroInteractable>());
+            Transform tampa = (Transform)bueiro.FindProperty("tampa").objectReferenceValue;
             Transform pai = tampa.parent;
 
             Transform tela = pai.Find(NomeTelaInstalada);
@@ -203,14 +203,14 @@ public static class ItensNaMaoBuilder
 
             foreach (Transform t in tela.GetComponentsInChildren<Transform>(true))
                 t.gameObject.layer = tampa.gameObject.layer;
-            tela.localPosition = new Vector3(0f, AlturaDaTelaNoRalo, 0f);
+            tela.localPosition = new Vector3(0f, AlturaDaTelaNoBueiro, 0f);
             tela.localRotation = Quaternion.identity;
             tela.localScale = Vector3.one;
             tela.gameObject.SetActive(false);
 
-            ralo.FindProperty("tela").objectReferenceValue = tela.gameObject;
-            ralo.ApplyModifiedPropertiesWithoutUndo();
-            PrefabUtility.SaveAsPrefabAsset(raiz, CaminhoRalo);
+            bueiro.FindProperty("tela").objectReferenceValue = tela.gameObject;
+            bueiro.ApplyModifiedPropertiesWithoutUndo();
+            PrefabUtility.SaveAsPrefabAsset(raiz, CaminhoBueiro);
         }
         finally
         {

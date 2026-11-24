@@ -532,17 +532,17 @@ public class HistoriaFotoTestes
     {
         HistoriaRedeSocial antiga = TesteUtil.Com<HistoriaRedeSocial>("História antiga (teste)");
 
-        // Dois personagens salvos: o do Ralo sem aoMandarFoto (salvo antes do
+        // Dois personagens salvos: o do Bueiro sem aoMandarFoto (salvo antes do
         // campo novo) e o do Vaso com um texto próprio.
         SerializedObject so = new SerializedObject(antiga);
         SerializedProperty lista = so.FindProperty("personagens");
         lista.arraySize = 2;
-        SerializedProperty ralo = lista.GetArrayElementAtIndex(0);
-        ralo.FindPropertyRelative("autor").stringValue = "Vizinho do Ralo";
-        ralo.FindPropertyRelative("tipo").intValue = (int)TipoFoco.Ralo;
-        SerializedProperty fotoRalo = ralo.FindPropertyRelative("aoMandarFoto");
-        Assert.IsNotNull(fotoRalo, "PersonagemDoBairro não tem o campo serializado aoMandarFoto.");
-        fotoRalo.arraySize = 0;
+        SerializedProperty bueiro = lista.GetArrayElementAtIndex(0);
+        bueiro.FindPropertyRelative("autor").stringValue = "Vizinho do Bueiro";
+        bueiro.FindPropertyRelative("tipo").intValue = (int)TipoFoco.Bueiro;
+        SerializedProperty fotoBueiro = bueiro.FindPropertyRelative("aoMandarFoto");
+        Assert.IsNotNull(fotoBueiro, "PersonagemDoBairro não tem o campo serializado aoMandarFoto.");
+        fotoBueiro.arraySize = 0;
         SerializedProperty vaso = lista.GetArrayElementAtIndex(1);
         vaso.FindPropertyRelative("autor").stringValue = "Vizinha do Vaso";
         vaso.FindPropertyRelative("tipo").intValue = (int)TipoFoco.Vaso;
@@ -555,13 +555,13 @@ public class HistoriaFotoTestes
 
         so.Update();
         lista = so.FindProperty("personagens");
-        SerializedProperty raloDepois = lista.GetArrayElementAtIndex(0);
-        Assert.AreEqual("Vizinho do Ralo", raloDepois.FindPropertyRelative("autor").stringValue,
+        SerializedProperty bueiroDepois = lista.GetArrayElementAtIndex(0);
+        Assert.AreEqual("Vizinho do Bueiro", bueiroDepois.FindPropertyRelative("autor").stringValue,
             "o personagem que já estava na lista não pode ser trocado");
-        SerializedProperty falasRalo = raloDepois.FindPropertyRelative("aoMandarFoto");
-        Assert.AreEqual(1, falasRalo.arraySize, "o aoMandarFoto vazio recebe o padrão do tipo");
-        Assert.AreEqual("Esse ralo tá sem tela faz tempo e junta água toda vez que chove. Agente, consegue ver?",
-            falasRalo.GetArrayElementAtIndex(0).stringValue);
+        SerializedProperty falasBueiro = bueiroDepois.FindPropertyRelative("aoMandarFoto");
+        Assert.AreEqual(1, falasBueiro.arraySize, "o aoMandarFoto vazio recebe o padrão do tipo");
+        Assert.AreEqual("Esse bueiro tá sem tela faz tempo e junta água toda vez que chove. Agente, consegue ver?",
+            falasBueiro.GetArrayElementAtIndex(0).stringValue);
 
         SerializedProperty falasVaso = lista.GetArrayElementAtIndex(1).FindPropertyRelative("aoMandarFoto");
         Assert.AreEqual(1, falasVaso.arraySize, "o aoMandarFoto preenchido não muda");

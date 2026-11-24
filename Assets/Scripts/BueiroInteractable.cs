@@ -2,50 +2,50 @@ using System.Collections;
 using UnityEngine;
 
 /* ============================================================
- *  RaloInteractable.cs
+ *  BueiroInteractable.cs
  *  ---------------------------------------------------------------------
- *  Foco do tipo RALO DESTAMPADO — herda Interactable.
+ *  Foco do tipo BUEIRO DESTAMPADO — herda Interactable.
  *
  *  Skill check: em vez de segurar, cada passo é um check acertado. O
- *  minigame do ralo (CriarMinigame) é o MinigameDeSkillCheck; o
+ *  minigame do bueiro (CriarMinigame) é o MinigameDeSkillCheck; o
  *  Interactor conduz e SkillCheck.cs tem a regra. Errar (AoErrarMinigame)
  *  devolve a grelha ao lado, zera o progresso e gasta a tela; sair
  *  (AoSairDoMinigame, só no cancelamento) não gasta.
  *
- *  Comportamento ("ralo aberto -> interagir -> ralo tampado com tela"):
- *  - O ralo começa ABERTO: a grelha está tirada, encostada ao lado, e a
+ *  Comportamento ("bueiro aberto -> interagir -> bueiro tampado com tela"):
+ *  - O bueiro começa ABERTO: a grelha está tirada, encostada ao lado, e a
  *    água parada aparece lá dentro.
- *  - A cada clique a grelha vai voltando para a boca do ralo (posição e
+ *  - A cada clique a grelha vai voltando para a boca do bueiro (posição e
  *    rotação interpoladas, com um arco para não atravessar a moldura).
  *  - No último clique a grelha assenta, a água some e a TELA de proteção
- *    aparece embaixo dela. O ralo continua na cena.
+ *    aparece embaixo dela. O bueiro continua na cena.
  *
  *  Não herda CaixaDaguaInteractable de propósito: FocoListaHUD e
- *  HistoriaRedeSocial classificam o foco pelo tipo C# ("is"), e o ralo
+ *  HistoriaRedeSocial classificam o foco pelo tipo C# ("is"), e o bueiro
  *  seria contado como caixa d'água.
  *
  *  O modelo vem do Blender (Ferramentas/Blender/gerar_focos.py) e o
- *  prefab é gerado pelo menu  Dengue > Criar Ralo  (FocosBlenderBuilder.cs).
+ *  prefab é gerado pelo menu  Dengue > Criar Bueiro  (FocosBlenderBuilder.cs).
  * ============================================================ */
 
-public class RaloInteractable : Interactable
+public class BueiroInteractable : Interactable
 {
 
 
-    [Header("Ralo")]
-    [Tooltip("Objeto filho com a grelha do ralo.")]
+    [Header("Bueiro")]
+    [Tooltip("Objeto filho com a grelha do bueiro.")]
     [SerializeField] private Transform tampa;
 
-    [Tooltip("Posição local da grelha com o ralo ABERTO (tirada, ao lado).")]
+    [Tooltip("Posição local da grelha com o bueiro ABERTO (tirada, ao lado).")]
     [SerializeField] private Vector3 posAberta;
 
-    [Tooltip("Rotação local (euler) da grelha com o ralo ABERTO.")]
+    [Tooltip("Rotação local (euler) da grelha com o bueiro ABERTO.")]
     [SerializeField] private Vector3 rotAberta;
 
-    [Tooltip("Posição local da grelha com o ralo FECHADO (assentada na boca).")]
+    [Tooltip("Posição local da grelha com o bueiro FECHADO (assentada na boca).")]
     [SerializeField] private Vector3 posFechada;
 
-    [Tooltip("Rotação local (euler) da grelha com o ralo FECHADO.")]
+    [Tooltip("Rotação local (euler) da grelha com o bueiro FECHADO.")]
     [SerializeField] private Vector3 rotFechada;
 
     [Tooltip("Duração da animação da grelha a cada clique.")]
@@ -54,13 +54,13 @@ public class RaloInteractable : Interactable
     [Tooltip("Altura do arco que a grelha descreve no caminho.")]
     [SerializeField] private float alturaDoArco = 0.08f;
 
-    [Tooltip("Objeto filho com a água parada. Some quando o ralo fecha.")]
+    [Tooltip("Objeto filho com a água parada. Some quando o bueiro fecha.")]
     [SerializeField] private GameObject agua;
 
-    [Tooltip("Tela de proteção. Aparece quando o ralo fecha.")]
+    [Tooltip("Tela de proteção. Aparece quando o bueiro fecha.")]
     [SerializeField] private GameObject tela;
 
-    [Tooltip("Se marcado, após fechar o ralo segue o fluxo padrão (encolhe e some).")]
+    [Tooltip("Se marcado, após fechar o bueiro segue o fluxo padrão (encolhe e some).")]
     [SerializeField] private bool removeOnComplete = false;
 
     [Tooltip("Segundos de uma volta do ponteiro no skill check.")]
@@ -68,26 +68,26 @@ public class RaloInteractable : Interactable
 
     private Coroutine moveRoutine;
 
-    /* 0 = grelha tirada, 1 = ralo fechado. */
+    /* 0 = grelha tirada, 1 = bueiro fechado. */
     public float Fechamento { get; private set; }
 
-    /* O ralo nasce sempre com água: fica fora do sorteio do nascimento
+    /* O bueiro nasce sempre com água: fica fora do sorteio do nascimento
      * seco do começo da partida. */
     public override bool SempreNasceComAgua => true;
 
-    /* O minigame do ralo é o skill check: um check por clique. */
+    /* O minigame do bueiro é o skill check: um check por clique. */
     public override IMinigame CriarMinigame(KitDoAgente kit, int semente)
     {
         return new MinigameDeSkillCheck(new SessaoDeSkillCheck(RequiredClicks, segundosPorVolta, semente));
     }
 
-    /* Mirando o ralo, o clique encaixa a grelha (skill check). */
+    /* Mirando o bueiro, o clique encaixa a grelha (skill check). */
     public override string ConviteDoMinigame(KitDoAgente kit) => DengueHUD.AcaoSkillCheck;
 
     /* Cada check leva no máximo uma volta do ponteiro (BalanceamentoSimulador). */
     public override float SegundosEstimados => RequiredClicks * segundosPorVolta;
 
-    /* Errou o check: a tela rasga e o ralo volta ao começo. */
+    /* Errou o check: a tela rasga e o bueiro volta ao começo. */
     public override void AoErrarMinigame(KitDoAgente kit)
     {
         AoSairDoMinigame();
@@ -101,6 +101,9 @@ public class RaloInteractable : Interactable
         currentClicks = 0;
         MoverTampa(0f);
     }
+
+    /* Sorteado como já limpo, fica no mapa com a grelha e a tela (o OnComplete). */
+    public override bool AparecerJaLimpo => true;
 
     protected override void OnStart()
     {

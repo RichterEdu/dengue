@@ -58,6 +58,16 @@ public class VasoInteractable : Interactable
      * cima da areia pela metade. */
     public override bool PodeReencher => base.PodeReencher && CurrentClicks == 0;
 
+    /* Sorteado como já limpo, fica no mapa com o pratinho cheio de areia. */
+    public override bool AparecerJaLimpo => true;
+
+    protected override void AoFicarJaLimpo()
+    {
+        if (water != null)
+            water.SetActive(false);
+        SetSandFill(1f);
+    }
+
     protected override void OnStart()
     {
         if (sand != null)

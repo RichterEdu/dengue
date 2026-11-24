@@ -5,10 +5,10 @@ Base: branch `itens-na-mao` em `5b5ebb7`, mais o nascimento seco de 2026-11-10, 
 
 ## Context
 
-Só o ralo tem minigame (o skill check do anel). Os outros seis focos são "segurar o botão até a barra encher":
+Só o bueiro tem minigame (o skill check do anel). Os outros seis focos são "segurar o botão até a barra encher":
 pneu, vaso, garrafas, bromélia, caixa d'água e piscina.
 
-Objetivo: cada foco ganha uma ação própria, diferente da do ralo e das outras, em que o jogador faz o gesto em vez de
+Objetivo: cada foco ganha uma ação própria, diferente da do bueiro e das outras, em que o jogador faz o gesto em vez de
 esperar uma barra.
 
 Estado atual relevante:
@@ -24,7 +24,7 @@ Estado atual relevante:
 ### Decisões do usuário
 - Formato: **depende do foco** (gesto na cena 3D ou painel 2D). Na leva 1 os três são na cena 3D.
 - Entrega em **duas levas**. Esta cobre a base comum, pneu, bromélia e caixa d'água.
-- Ir mal **só perde tempo**: não gasta carga nem zera o foco. O ralo continua como está, gastando a tela no erro.
+- Ir mal **só perde tempo**: não gasta carga nem zera o foco. O bueiro continua como está, gastando a tela no erro.
 - Pneu: **balançar no ritmo** até a água transbordar.
 - Bromélia: **mirar o borrifador** em cada pocinha.
 - Caixa d'água: **carregar a tampa e tampar**, como o pneu na picape. A tampa fica **encostada na caixa**, como hoje.
@@ -55,7 +55,7 @@ public interface IMinigame
 {
     EstadoDoMinigame Atualizar(float dt, EntradaDoMinigame entrada);
     float FracaoDoPasso { get; }   // 0..1 do passo atual, para a barra da HUD
-    bool PodeSair { get; }         // o botão de largar sai do minigame (ralo: false)
+    bool PodeSair { get; }         // o botão de largar sai do minigame (bueiro: false)
 }
 ```
 
@@ -84,11 +84,11 @@ public virtual float SegundosEstimados => SegundosPorPasso * RequiredClicks;   /
 - `Avancando` fica verdadeiro com minigame ativo que não seja o skill check (som de ação e gesto do item na mão). No
   skill check continua falso, como hoje.
 - `SkillCheckAtivo` continua existindo para a `SkillCheckHUD` e para o `ItensNaMao`: devolve a sessão quando o minigame
-  ativo é o do ralo.
+  ativo é o do bueiro.
 
-Ralo: `MinigameDeSkillCheck` embrulha a `SessaoDeSkillCheck` (aperto → `Apertar`, senão `Atualizar`; `Acertou` →
-`Passo`). `RaloInteractable.CriarMinigame` o devolve; `AoErrarMinigame` gasta a tela e volta ao começo;
-`AoSairDoMinigame` só volta ao começo. `PodeSair` é false: o botão de largar não sai do ralo, e a regra do anel não muda.
+Bueiro: `MinigameDeSkillCheck` embrulha a `SessaoDeSkillCheck` (aperto → `Apertar`, senão `Atualizar`; `Acertou` →
+`Passo`). `BueiroInteractable.CriarMinigame` o devolve; `AoErrarMinigame` gasta a tela e volta ao começo;
+`AoSairDoMinigame` só volta ao começo. `PodeSair` é false: o botão de largar não sai do bueiro, e a regra do anel não muda.
 
 ### 2. Pneu: balançar no ritmo
 
@@ -188,7 +188,7 @@ EditMode, em `Assets/Editor/Testes/`:
 - Atualizar `SkillCheckTestes`, `PneuEsvaziarTestes`, `InteractableKitTestes`, `NascimentoTestes` e
   `BalanceamentoSimuladorTestes` para a interface nova e para `SegundosEstimados`.
 
-No jogo: jogar os três focos com mouse e com controle; chuva durante cada um; celular e fim de jogo no meio; ralo igual
+No jogo: jogar os três focos com mouse e com controle; chuva durante cada um; celular e fim de jogo no meio; bueiro igual
 a antes.
 
 ## Registro

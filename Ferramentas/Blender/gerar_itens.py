@@ -11,7 +11,7 @@ Convenções:
     abaixo dele. Objetos "Balde" e "Areia" (some quando a areia acaba).
   - Tela: 29 × 29 cm, moldura de 1,7 cm e 0,8 cm de espessura, deitada no plano
     XY, com o centro no pivô. Objetos "Moldura" e "Malha". O mesmo modelo vai
-    para a mão (escala 0,67) e para o ralo (escala 1, sob a grelha).
+    para a mão (escala 0,67) e para o bueiro (escala 1, sob a grelha).
   - Borrifador: ~20 cm de altura, pivô no gargalo, bico para +Y. Objeto único.
   - Saída: Balde.fbx, Tela.fbx, Borrifador.fbx, Tela_Malha.png e Particula.png
     (copiar para Assets/Meus/Assets Gerados/Itens/) e as prévias previa_*.png.

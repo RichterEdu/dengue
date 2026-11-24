@@ -21,7 +21,7 @@
 - Enums serializados são salvos como número: **novos valores só no fim**, nunca reordenar (mesma regra do `TipoFoco`).
 - Textos de post e HUD **sem emoji**, porque a fonte padrão do TextMeshPro não tem.
 - Estoque padrão (ajustável no Inspector): **areia 1, tela 1, água sanitária 2 doses, saco de 6 garrafas**. Ao carregar pneu: **velocidade × 0,7**, sem correr nem pular.
-- Tempos de segurar, todos entre 1,5 e 3 s: pneu 1,5; vaso 2,0; ralo 2,0; bromélia 2,0; piscina 2,5; caixa d'água 3,0; garrafas 0,4 s por garrafa.
+- Tempos de segurar, todos entre 1,5 e 3 s: pneu 1,5; vaso 2,0; bueiro 2,0; bromélia 2,0; piscina 2,5; caixa d'água 3,0; garrafas 0,4 s por garrafa.
 - Nos testes EditMode, `Awake`/`Start` **não rodam**. Por isso:
   - o `KitDoAgente` cria o estoque e acha o `ControladorJogador` de forma preguiçosa, no primeiro acesso;
   - os testes ajustam campos serializados com `SerializedObject`.
@@ -436,13 +436,13 @@
     - CaixaDagua: "Caixa d'água se resolve com a tampa, e a tampa tá ali do lado! É só encaixar."
     - Piscina: "A piscininha é só esvaziar e virar de boca pra baixo. Com as mãos mesmo!"
     - Garrafas: "Garrafa vai pro saco de lixo e depois pra caçamba. Nada de deixar pelo chão!"
-    - Ralo: "Vi o agente querendo resolver o ralo com outra coisa. Ralo é com tela, moço!"
+    - Bueiro: "Vi o agente querendo resolver o bueiro com outra coisa. Bueiro é com tela, moço!"
     - Bromelia: "Calma, agente! Bromélia não precisa arrancar nem tampar: água sanitária diluída no copinho e pronto."
   - `aoReabastecerPrimeiraVez`: UPA Vila Nova, @upa.vilanova, Positivo — "Nosso agente passou na picape da UPA pra pegar material. Areia, tela e água sanitária a caminho dos quintais!"
   - `aoCarregarPneu`: Carlos Mendes, @carlinhos.m, Positivo — "Olha o agente carregando pneu pela rua! Finalmente alguém tirando esse entulho do terreno."
   - `aoEsvaziarSacoPrimeiraVez`: Bruna Lima, @bru.lima, Positivo — "Primeiro saco de garrafas na caçamba! Lixo no lugar certo não junta água."
 
-- [ ] **Step 1: Write the failing test** — `CompletarPersonagens_PreencheFerramentaErradaVazia`. Uma `HistoriaRedeSocial` com um personagem tipo Ralo (via `Setar` na lista `personagens`) e `aoUsarFerramentaErrada` vazio; depois de `CompletarPersonagens()`, o texto começa com "Vi o agente querendo resolver o ralo".
+- [ ] **Step 1: Write the failing test** — `CompletarPersonagens_PreencheFerramentaErradaVazia`. Uma `HistoriaRedeSocial` com um personagem tipo Bueiro (via `Setar` na lista `personagens`) e `aoUsarFerramentaErrada` vazio; depois de `CompletarPersonagens()`, o texto começa com "Vi o agente querendo resolver o bueiro".
 - [ ] **Step 2:** Rodar o ciclo. Esperado: falha.
 - [ ] **Step 3:** Implementar.
 - [ ] **Step 4:** Rodar o ciclo. Esperado: PASS, com 50 testes.
@@ -497,7 +497,7 @@
 - Produces: `[MenuItem("Dengue/Configurar Kit do Agente")] public static void Configurar()`. Pode rodar de novo: acha pelo nome o que já criou e só atualiza. Loga um resumo `[Kit]` no Console. O que ele faz:
   1. **Player** (o objeto com `ControladorJogador`): garante `KitDoAgente` e `SomDoKit` (com `SomBuilder.LigarKit`). Cria `PontoDeCarga` como filho da `Main Camera`, com pose local inicial (0,30; −0,55; 0,85) e rotação (0, 0, 75), e liga `kit.pontoDeCarga`.
   2. **HUD:** garante um objeto `KitHUD`, irmão do objeto da `DengueHUD`.
-  3. **Focos:** uma tabela por tipo C#, aplicada **em cada prefab** e **em cada instância da cena** (`SerializedObject`; cria `FocoHUDInfo` se faltar). Os prefabs são `Assets/Meus/Vaso de Flor/Vaso de Flor.prefab`, `Assets/Meus/Caixa d'Agua.prefab`, `Assets/Meus/Assets Gerados/Focos/Ralo.prefab`, `.../Focos/Bromelia.prefab` e `Assets/Meus/Assets Gerados/Piscina de Plastico/Piscina de Plastico.prefab`. Pneus e garrafas não têm prefab.
+  3. **Focos:** uma tabela por tipo C#, aplicada **em cada prefab** e **em cada instância da cena** (`SerializedObject`; cria `FocoHUDInfo` se faltar). Os prefabs são `Assets/Meus/Vaso de Flor/Vaso de Flor.prefab`, `Assets/Meus/Caixa d'Agua.prefab`, `Assets/Meus/Assets Gerados/Focos/Bueiro.prefab`, `.../Focos/Bromelia.prefab` e `Assets/Meus/Assets Gerados/Piscina de Plastico/Piscina de Plastico.prefab`. Pneus e garrafas não têm prefab.
 
      | Tipo | ferramentaNecessaria | segundos | textoAoMirar | textoFerramentaErrada |
      |---|---|---|---|---|
@@ -506,7 +506,7 @@
      | CaixaDagua | Maos | 3,0 | "Caixa d'água destampada" | "Caixa d'água se protege com a tampa. Use as <b>mãos</b> para encaixar." |
      | Piscina | Maos | 2,5 | "Piscina de plástico com água da chuva" | "Esvazie e vire de boca para baixo. Use as <b>mãos</b>." |
      | Garrafas | SacoDeLixo | 0,4 por garrafa (`segundosPorGarrafa`) | "Garrafas largadas juntando água" | "Garrafa vai para o <b>saco de lixo</b>, e o saco para a caçamba." |
-     | Ralo | Tela | 2,0 | "Ralo destampado com água parada" | "Isso não resolve o ralo. Ralo se protege com <b>tela</b> e grelha fechada." |
+     | Bueiro | Tela | 2,0 | "Bueiro destampado com água parada" | "Isso não resolve o bueiro. Bueiro se protege com <b>tela</b> e grelha fechada." |
      | Bromelia | AguaSanitaria | 2,0 | "Bromélia com água acumulada nas folhas" | "Não precisa arrancar nem cobrir. Bromélia se trata com <b>água sanitária</b> diluída." |
 
   4. **Picape da UPA** (`Assets/Palmov Island/Low Poly Atmospheric Locations Pack/Prefabs/Vehicles/car SUVs pickups lights red.prefab`), com o nome "Picape da UPA":
@@ -523,7 +523,7 @@
   8. `EditorSceneManager.MarkSceneDirty` + `SaveScene` da cena ativa e `AssetDatabase.SaveAssets()`.
 
 - [ ] **Step 1:** Implementar o builder e a mudança no `PersonagensHospitalBuilder`. Rodar o ciclo. Esperado: compila e PASS com 50 testes.
-- [ ] **Step 2:** `unity command open_scene --path Assets/Scenes/SampleScene.unity` (antes, `console_status` e conferir que nenhuma cena está suja) e `unity command menu --path "Dengue/Configurar Kit do Agente"`. Esperado no `unity command console`: o resumo `[Kit]` com 23 focos configurados (6 pneus, 4 ralos, 4 bromélias, 3 vasos, 3 garrafas, 2 caixas, 1 piscina), "Picape da UPA", "Cacamba" e "Monte de areia" OK, e nenhum erro.
+- [ ] **Step 2:** `unity command open_scene --path Assets/Scenes/SampleScene.unity` (antes, `console_status` e conferir que nenhuma cena está suja) e `unity command menu --path "Dengue/Configurar Kit do Agente"`. Esperado no `unity command console`: o resumo `[Kit]` com 23 focos configurados (6 pneus, 4 bueiros, 4 bromélias, 3 vasos, 3 garrafas, 2 caixas, 1 piscina), "Picape da UPA", "Cacamba" e "Monte de areia" OK, e nenhum erro.
 - [ ] **Step 3:** Rodar de novo o mesmo menu. Esperado: nenhum objeto duplicado (`GameObject.FindObjectsByType<Cacamba>().Length == 1`, conferido via `eval_file`).
 - [ ] **Step 4:** Conferir o posicionamento com `unity command screenshot --view scene` de cima, sobre a picape e a caçamba. Nada pode atravessar casa ou muro, e a caçamba precisa ficar a menos de 10 m dos pneus. Se precisar, ajustar os dois offsets do builder, rodar de novo e recapturar.
 - [ ] **Step 5: Preview** (skill `preview-design` do projeto) em Play Mode:

@@ -18,7 +18,7 @@ Roteiro decidido com o usuário: **A → B → C**.
 - **C — Rejogabilidade**: focos sorteados entre ~40 pontos, pontuação/estrelas, recorde, muletas mais leves. Brainstorm próprio.
 - Fica fora do prazo: **D — Moradores no mapa**.
 
-Distribuição na cena: 6 pneus, 4 ralos, 4 bromélias, 3 vasos, 3 grupos de garrafas, 2 caixas d'água e 1 piscina.
+Distribuição na cena: 6 pneus, 4 bueiros, 4 bromélias, 3 vasos, 3 grupos de garrafas, 2 caixas d'água e 1 piscina.
 
 ## Jogabilidade
 
@@ -28,12 +28,12 @@ Distribuição na cena: 6 pneus, 4 ralos, 4 bromélias, 3 vasos, 3 grupos de gar
   |---|---|---|---|
   | 1 | Mãos | caixa d'água, piscina, pegar pneu | sempre |
   | 2 | Areia | pratinho do vaso | 1 |
-  | 3 | Tela | ralo | 1 |
+  | 3 | Tela | bueiro | 1 |
   | 4 | Água sanitária diluída | bromélia | 2 doses |
   | 5 | Saco de lixo | garrafas | 6 garrafas por saco |
 
 - **Segurar para agir.** O tempo varia por tipo, entre 1,5 e 3 s. Ao soltar, o progresso fica guardado. A carga só é gasta quando o foco termina.
-- **A mira mostra o problema, não a solução.** Por exemplo: "Ralo destampado com água parada". Com a ferramenta errada nada acontece, e a HUD mostra o porquê e a ferramenta correta. Exemplo: "Areia entope o ralo. Ralo se protege com tela."
+- **A mira mostra o problema, não a solução.** Por exemplo: "Bueiro destampado com água parada". Com a ferramenta errada nada acontece, e a HUD mostra o porquê e a ferramenta correta. Exemplo: "Areia entope o bueiro. Bueiro se protege com tela."
 - **Pneu.** Com as Mãos, segurar esvazia a água e o pneu vai para os braços, na frente da câmera. Enquanto carrega, o agente anda mais devagar, não corre, não pula e não usa ferramentas. O foco só é eliminado quando o pneu é entregue na **caçamba**. O botão direito larga o pneu. Largado, ele continua sendo foco e pode ser pego de novo com as Mãos, na hora.
 - **Garrafas.** Segurar recolhe uma garrafa por vez para o saco. Com o saco cheio, é preciso esvaziar na caçamba. O grupo é eliminado quando a última garrafa é recolhida.
 - **Reabastecimento:**
@@ -101,10 +101,10 @@ e o `FluxoDeJogo` continuam funcionando.
 - posiciona a picape (`Palmov Island/.../Vehicles/car SUVs pickups lights red.prefab`) + `PontoDeReabastecimento`;
 - gera a caçamba (malha simples) no terreno baldio + `Cacamba`;
 - marca um `Monte de Areia` como reabastecimento só de areia;
-- preenche `ferramentaNecessaria`, `segundosParaConcluir` e os textos de `FocoHUDInfo` nos prefabs (Vaso, Ralo, Bromélia, Caixa d'Água, Piscina) e nas instâncias da cena (pneus, garrafas).
+- preenche `ferramentaNecessaria`, `segundosParaConcluir` e os textos de `FocoHUDInfo` nos prefabs (Vaso, Bueiro, Bromélia, Caixa d'Água, Piscina) e nas instâncias da cena (pneus, garrafas).
 
 ### Reaproveitar
-- as animações de progresso que já existem (`CaixaDaguaInteractable.MoverTampa`, `VasoInteractable.SetSandFill`, `RaloInteractable`, `BromeliaInteractable.Secar`, `GarrafaInteractable`);
+- as animações de progresso que já existem (`CaixaDaguaInteractable.MoverTampa`, `VasoInteractable.SetSandFill`, `BueiroInteractable`, `BromeliaInteractable.Secar`, `GarrafaInteractable`);
 - o destaque de mira do `Interactor`;
 - o padrão de dica do `DicaCorrer`;
 - `FocoHUDInfo` para os textos por foco (não editar o `switch` do `DengueHUD`);

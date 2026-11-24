@@ -14,7 +14,7 @@
 
 - Trabalhar na branch `pneu-nos-bracos`, criada a partir da `main`. Commits terminam com `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - Não commitar `Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset`, que já estava modificado e não é deste trabalho.
-- Não mudar caixa d'água, ralo, vaso, garrafas, piscina, itens na mão, animações dos braços nem sons.
+- Não mudar caixa d'água, bueiro, vaso, garrafas, piscina, itens na mão, animações dos braços nem sons.
 - Valores: velocidade de **0,5** com o pneu cheio a **0,85** vazio, linear com o nível. Raio de acerto da bromélia: **2,5°**.
 - Textos exatos:
   - `Cacamba.RecusaPneuComAgua` = `"Esvazie o pneu antes: balance a câmera."`

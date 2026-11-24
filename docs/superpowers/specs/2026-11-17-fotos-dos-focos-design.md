@@ -35,7 +35,7 @@ identificar onde está o foco".
 
 Hoje o jogador acha os focos pelo zumbido (curto alcance), pelo brilho de proximidade (curtíssimo) e pela lista do
 Tab (só conta por tipo, não diz onde). Nada ajuda quem está perdido longe dos focos. A cena tem **31 focos**
-espalhados: 4 bromélias, 2 caixas d'água em telhados, 7 garrafas/latas, 10 pneus (6 deles num monte), 4 ralos e
+espalhados: 4 bromélias, 2 caixas d'água em telhados, 7 garrafas/latas, 10 pneus (6 deles num monte), 4 bueiros e
 4 vasos.
 
 ## O que o usuário decidiu
@@ -211,7 +211,7 @@ ou −1.
 - O narrador assina `OnFocoClicado` e `OnFocoEsvaziado` (já tem o gerenciador; o segundo já é assinado) e
   `kit.OnPneuPego` (já assina) e `kit.OnTampaPega` para marcar "mexido".
 - **Textos padrão** (sem endereço; não afirmam água, porque a foto é congelada e metade dos focos nasce seca —
-  só o ralo nasce sempre com água):
+  só o bueiro nasce sempre com água):
   - Carlos Mendes (pneus): "Esse pneu tá largado aqui faz uma semana. Alguém tira isso, pelo amor de Deus?" ·
     "Tirei foto pra ninguém dizer que não avisei. Pneu velho jogado é casa de mosquito." · "Agente, olha o que
     tem perto de casa. Passa aqui?"
@@ -222,7 +222,7 @@ ou −1.
   - Ana Paula (piscina): "Essa piscininha tá esquecida no quintal. Agente, passa aqui?"
   - Bruna Lima (garrafas): "Achei isso jogado. Uma tampinha de água já basta pro mosquito." · "Foto do lixo que
     ninguém recolhe. Agente, dá uma olhada?"
-  - Seu Osvaldo (ralos): "Esse ralo tá sem tela faz tempo e junta água toda vez que chove. Agente, consegue ver?"
+  - Seu Osvaldo (bueiros): "Esse bueiro tá sem tela faz tempo e junta água toda vez que chove. Agente, consegue ver?"
   - Lúcia Andrade (bromélias): "Agente, essa bromélia pode estar juntando água nas folhas. Dá uma olhada? Mas não
     arranca, por favor!"
   - UPA Vila Nova (sem dono): "Moradores mandaram esta foto pra gente. Agente, dá uma olhada?"
@@ -363,10 +363,10 @@ usam a pose da 15, que o usuário aprovou.
 | 21 | `--- FOCOS ---/PilhadePneu/pneu (7)` | 41.668; 1.893; 22.064 | 6.170; 345.000; 0.000 |
 | 22 | `--- FOCOS ---/PilhadePneu/pneu (8)` | 41.668; 1.893; 22.064 | 6.170; 345.000; 0.000 |
 | 23 | `--- FOCOS ---/PilhadePneu/pneu (9)` | 41.668; 1.893; 22.064 | 6.170; 345.000; 0.000 |
-| 24 | `--- FOCOS ---/Ralo (1)` | 21.825; 1.710; -12.381 | 13.464; 180.000; 0.000 |
-| 25 | `--- FOCOS ---/Ralo (2)` | 15.653; 1.710; 24.515 | 13.464; 90.000; 0.000 |
-| 26 | `--- FOCOS ---/Ralo (3)` | -25.573; 1.710; 25.943 | 13.464; 120.000; 0.000 |
-| 27 | `--- FOCOS ---/Ralo (4)` | -16.735; 1.710; -22.089 | 13.464; 315.000; 0.000 |
+| 24 | `--- FOCOS ---/Bueiro (1)` | 21.825; 1.710; -12.381 | 13.464; 180.000; 0.000 |
+| 25 | `--- FOCOS ---/Bueiro (2)` | 15.653; 1.710; 24.515 | 13.464; 90.000; 0.000 |
+| 26 | `--- FOCOS ---/Bueiro (3)` | -25.573; 1.710; 25.943 | 13.464; 120.000; 0.000 |
+| 27 | `--- FOCOS ---/Bueiro (4)` | -16.735; 1.710; -22.089 | 13.464; 315.000; 0.000 |
 | 28 | `--- FOCOS ---/Vaso de Flor` | -12.433; 1.893; -5.354 | 358.390; 210.000; 0.000 |
 | 29 | `--- FOCOS ---/Vaso de Flor (1)` | -23.463; 1.895; 31.033 | 358.605; 0.000; 0.000 |
 | 30 | `--- FOCOS ---/Vaso de Flor (2)` | -29.787; 1.893; 32.995 | 356.829; 45.000; 0.000 |

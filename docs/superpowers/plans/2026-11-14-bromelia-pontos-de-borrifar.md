@@ -15,7 +15,7 @@
 - Trabalhar na branch `bromelia-pontos-de-borrifar`, criada a partir de `pneu-nos-bracos` (`99bcbad`). Commits terminam com `Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>`: os blocos `git commit` abaixo mostram só o título, e a linha entra com um segundo `-m`. Arquivo novo vai com o `.meta`; arquivo apagado leva o `.meta` junto.
 - Não commitar `Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset`, que já estava modificado e não é deste trabalho.
 - Nenhuma cena é editada. O único asset alterado é `Assets/Meus/Assets Gerados/Focos/Bromelia.prefab` (Task 5). O `AGENTS.md` não muda.
-- Não mudar: ralo, pneu, caixa d'água, vaso, garrafas, áudio (nenhum arquivo de som novo), textos educativos, rede social, `requiredClicks` e o caminho antigo `Interact()`.
+- Não mudar: bueiro, pneu, caixa d'água, vaso, garrafas, áudio (nenhum arquivo de som novo), textos educativos, rede social, `requiredClicks` e o caminho antigo `Interact()`.
 - A sessão nunca devolve `EstadoDoMinigame.Errou`. A dose de água sanitária só sai quando o foco conclui.
 - Valores iniciais, com padrão no código:
 

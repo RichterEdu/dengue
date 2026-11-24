@@ -129,8 +129,10 @@ public static class SomBuilder
         CompletarTipo(so, TipoFoco.CaixaDagua, Clips("foco_tampa", 2), null, 1f, 1f);
         CompletarTipo(so, TipoFoco.Piscina, agua, null, 0.85f, 1f);
         CompletarTipo(so, TipoFoco.Garrafas, Clips("foco_garrafa", 3), null, 1f, 0.9f);
-        CompletarTipo(so, TipoFoco.Ralo, Clips("foco_metal", 2), null, 1f, 0.85f);
+        CompletarTipo(so, TipoFoco.Bueiro, Clips("foco_metal", 2), null, 1f, 0.85f);
         CompletarTipo(so, TipoFoco.Bromelia, agua, null, 1.25f, 0.7f);
+        CompletarTipo(so, TipoFoco.Lona, agua, null, 0.75f, 0.9f);
+        CompletarTipo(so, TipoFoco.PoteDeBicho, agua, null, 1.4f, 0.8f);
         so.ApplyModifiedProperties();
     }
 

@@ -111,7 +111,7 @@
   - `Esvaziado_NaoZumbe` e `Reenchido_VoltaAZumbir`;
   - `Esvaziado_AreiaResolveDeVez`: com Areia, 3 passos dão Concluiu; `IsComplete` true e a areia é consumida;
   - `AcaoDefinitivaComecada_SemAtalho` (Review Focus 4): 1 passo de Areia e, depois, Maos dá FerramentaErrada;
-  - `SemPodeEsvaziar_MaosDaFerramentaErrada`: ralo de Tela com `podeEsvaziar` false;
+  - `SemPodeEsvaziar_MaosDaFerramentaErrada`: bueiro de Tela com `podeEsvaziar` false;
   - `Reencher_SoQuandoEsvaziado`: `Reencher()` num foco não esvaziado não dispara `OnReenchido`;
   - `SegundosPorPassoCom_Esvaziar`: com Maos dá 0,4 (1,2 / 3); com Areia dá `SegundosPorPasso`;
   - `Vaso_Esvaziado_AguaDesligada_Reenchido_AguaLigada`;

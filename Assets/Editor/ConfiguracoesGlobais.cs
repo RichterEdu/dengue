@@ -20,7 +20,7 @@ using UnityEngine.SceneManagement;
  *      requiredClicks pelo número de garrafas, então passos é só leitura
  *      e o tempo é por garrafa. Não exponha cliquesIgualAoNumeroDeGarrafas:
  *      desligado, o grupo conclui deixando garrafas na cena.
- *    - Ralo: cada passo é um skill check e o erro recomeça do zero, então
+ *    - Bueiro: cada passo é um skill check e o erro recomeça do zero, então
  *      aqui mais passos é mais difícil. segundosParaConcluir não vale em
  *      Play: o tempo é o segundosPorVolta.
  *
@@ -102,12 +102,14 @@ public static class ConfiguracoesGlobais
         },
         new TipoDeFoco
         {
-            Tipo = typeof(RaloInteractable), Rotulo = "Ralo", Modo = ModoDoFoco.SkillCheck,
+            Tipo = typeof(BueiroInteractable), Rotulo = "Bueiro", Modo = ModoDoFoco.SkillCheck,
             CampoTempo = "segundosPorVolta", TempoMinimo = 0.1f,
             RotuloPassos = "Skill checks", RotuloTempo = "Segundos por volta",
             Nota = "Cada passo é um skill check, e errar recomeça: mais passos, mais difícil.",
         },
         new TipoDeFoco { Tipo = typeof(BromeliaInteractable), Rotulo = "Bromélia" },
+        new TipoDeFoco { Tipo = typeof(LonaInteractable), Rotulo = "Lona" },
+        new TipoDeFoco { Tipo = typeof(PoteDeBichoInteractable), Rotulo = "Pote de bicho" },
     };
 
     public static readonly IReadOnlyList<GrupoDaPartida> Partida = new[]
@@ -127,7 +129,7 @@ public static class ConfiguracoesGlobais
             Campos = new[]
             {
                 "segundosPorEstagio", "pesoOvo", "pesoLarva", "pesoMosquito",
-                "focosComMosquitoNoInicio", "fracaoLarvaNoInicio",
+                "focosComMosquitoNoInicio", "fracaoLarvaNoInicio", "fracaoJaLimpos", "minimoAtivosPorTipo",
             },
         },
         new GrupoDaPartida

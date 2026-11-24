@@ -103,7 +103,7 @@ public static class HistoriaBuilder
             criados.Append("\n  • Componente HistoriaDoJogo");
         }
 
-        // Tipos de foco novos (ex.: Ralo, Bromélia) ganham o personagem padrão
+        // Tipos de foco novos (ex.: Bueiro, Bromélia) ganham o personagem padrão
         // sem mexer nos que já foram editados no Inspector.
         Undo.RecordObject(narrador, "Configurar Historia");
         int novosPersonagens = narrador.CompletarPersonagens();

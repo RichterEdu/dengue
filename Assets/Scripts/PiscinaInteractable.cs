@@ -66,6 +66,9 @@ public class PiscinaInteractable : Interactable
      * conta da piscina virando, e voltaria numa beira de pé. */
     public override bool PodeReencher => base.PodeReencher && CurrentClicks == 0;
 
+    /* Sorteado como já limpo, fica no mapa emborcada (o OnComplete). */
+    public override bool AparecerJaLimpo => true;
+
     protected override void OnStart()
     {
         if (corpo == null)
